@@ -1,5 +1,5 @@
 .group-node {
-  min-width: 220px;
+  min-width: 200px;
   background: var(--bg-surface);
   border: 2px dashed rgba(96, 125, 139, 0.5);
   border-radius: var(--radius-lg);
@@ -15,10 +15,13 @@
 }
 
 .group-node.expanded {
-  min-width: 300px;
-  min-height: 200px;
+  min-width: 260px;
   border-style: solid;
   background: rgba(96, 125, 139, 0.05);
+}
+
+.group-node.collapsed {
+  max-width: 220px;
 }
 
 .group-node-header {
@@ -72,30 +75,85 @@
 }
 
 .group-node-collapsed-body {
-  padding: 12px;
-  text-align: center;
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.group-node-child-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.group-node-child-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--bg-elevated);
+  border-radius: 999px;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.group-child-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.group-node-outputs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.group-outputs-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 2px;
+}
+
+.group-output-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.group-output-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.group-output-name {
+  font-weight: 500;
 }
 
 .group-node-hint {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
   font-style: italic;
+  text-align: center;
 }
 
 .group-node-expanded-body {
-  padding: 12px;
+  padding: 10px 12px;
 }
 
 .group-node-children-area {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-}
-
-.group-node-child-tag {
-  padding: 2px 8px;
-  background: var(--bg-elevated);
-  border-radius: 999px;
-  font-size: 10px;
-  color: var(--text-secondary);
 }

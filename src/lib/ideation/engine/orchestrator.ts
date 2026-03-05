@@ -57,26 +57,22 @@ function resolveInfluenceContext(session: Session): string[] {
   const flowState = session.flowState;
   if (!flowState?.nodes || !flowState?.edges) return parts;
 
-  const nodeMap = new Map<string, { id: string; type?: string }>();
-  for (const n of flowState.nodes) {
-    nodeMap.set(n.id, n);
-  }
-
   const nodeData = flowState.nodeData;
 
   for (const n of flowState.nodes) {
     if (!n.type) continue;
+    const data = nodeData?.[n.id];
 
     if (n.type === 'emotion') {
-      const text = nodeData?.[n.id]?.nodeText as string | undefined;
+      const text = data?.nodeText as string | undefined;
       if (text?.trim()) {
         parts.push(`[EMOTIONAL CONTEXT] Infuse the following emotional tone throughout this stage: "${text.trim()}". Let this feeling color the creative direction, language, and energy of all outputs.`);
       }
     }
 
     if (n.type === 'influence') {
-      const personName = nodeData?.[n.id]?.nodeText as string | undefined;
-      const notes = nodeData?.[n.id]?.nodeNotes as string | undefined;
+      const personName = data?.nodeText as string | undefined;
+      const notes = data?.nodeNotes as string | undefined;
       if (personName?.trim()) {
         let influencePrompt = `[CREATIVE INFLUENCE] Channel the creative perspective of ${personName.trim()}. Consider their known decision-making patterns, published works, creative philosophy, and stylistic signatures. Apply their thinking style to shape and refine the outputs.`;
         if (notes?.trim()) {
@@ -85,9 +81,60 @@ function resolveInfluenceContext(session: Session): string[] {
         parts.push(influencePrompt);
       }
     }
+
+    if (n.type === 'textInfluence') {
+      const text = data?.nodeText as string | undefined;
+      if (text?.trim()) {
+        parts.push(`[TEXT INPUT] Consider the following user-provided text as additional context and creative fuel. Weave its themes, tone, and ideas into the outputs:\n"${text.trim()}"`);
+      }
+    }
+
+    if (n.type === 'documentInfluence') {
+      const text = data?.nodeText as string | undefined;
+      const fileName = data?.fileName as string | undefined;
+      if (text?.trim()) {
+        const label = fileName ? ` (from "${fileName}")` : '';
+        parts.push(`[DOCUMENT CONTEXT] The user has provided a reference document${label}. Incorporate its key concepts, structure, and insights into the creative process:\n"${text.trim()}"`);
+      }
+    }
+
+    if (n.type === 'imageInfluence') {
+      const description = data?.nodeText as string | undefined;
+      if (description?.trim()) {
+        parts.push(`[IMAGE CONTEXT] The user has provided a visual reference described as: "${description.trim()}". Incorporate the visual mood, style, composition, and aesthetic qualities into the creative direction.`);
+      }
+    }
+
+    if (n.type === 'linkInfluence') {
+      const url = data?.nodeText as string | undefined;
+      const notes = data?.nodeNotes as string | undefined;
+      if (url?.trim()) {
+        let linkPrompt = `[LINK REFERENCE] Consider the content and context from this reference URL: ${url.trim()}.`;
+        if (notes?.trim()) {
+          linkPrompt += ` The user notes: "${notes.trim()}".`;
+        }
+        linkPrompt += ' Draw on the themes, ideas, and style from this source.';
+        parts.push(linkPrompt);
+      }
+    }
+
+    if (n.type === 'videoInfluence') {
+      const description = data?.nodeText as string | undefined;
+      if (description?.trim()) {
+        parts.push(`[VIDEO REFERENCE] The user has provided video context described as: "${description.trim()}". Channel the visual narrative, pacing, mood, and stylistic elements into the creative output.`);
+      }
+    }
   }
 
   return parts;
+}
+
+function buildInfluenceBlock(session: Session): string {
+  const parts = resolveInfluenceContext(session);
+  if (parts.length === 0) return '';
+
+  const numbered = parts.map((p, i) => `${i + 1}. ${p}`).join('\n\n');
+  return `\n\n[INFLUENCE DIRECTIVES]\nThe following creative influences and context inputs shape this stage. Synthesize these inputs holistically — not as separate instructions but as facets of a unified creative direction. When influences might conflict, find the creative tension between them rather than choosing one over another.\n\n${numbered}\n\nApply these influences throughout all outputs for this stage.`;
 }
 
 function getCustomInstructions(session: Session | undefined, stageId: StageId): string {
@@ -105,6 +152,19 @@ function appendCustomInstructions(prompt: string, session: Session | undefined, 
   return prompt + '\n\n[CUSTOM INSTRUCTIONS]\n' + custom;
 }
 
+function appendTierDirective(prompt: string, session: Session | undefined): string {
+  const tier = session?.settings?.thinkingTier;
+  if (!tier || tier === 'standard') return prompt;
+
+  if (tier === 'quick') {
+    return prompt + '\n\n[PROCESSING MODE: QUICK]\nPrioritize speed and conciseness. Give direct, focused answers. Minimize elaboration. Aim for the most practical and actionable output.';
+  }
+  if (tier === 'deep') {
+    return prompt + '\n\n[PROCESSING MODE: DEEP THINKING]\nTake extra time to think deeply and creatively. Explore unconventional angles. Provide richer, more nuanced, and more detailed outputs. Consider second-order effects, hidden assumptions, and creative tensions. Push beyond the obvious.';
+  }
+  return prompt;
+}
+
 function buildPrompt(
   stageId: StageId,
   inputs: Record<string, unknown>,
@@ -120,12 +180,10 @@ function buildPrompt(
   }
 
   if (session) {
-    const influenceParts = resolveInfluenceContext(session);
-    if (influenceParts.length > 0) {
-      instructions += '\n\n' + influenceParts.join('\n\n');
-    }
+    instructions += buildInfluenceBlock(session);
   }
 
+  instructions = appendTierDirective(instructions, session);
   instructions = appendCustomInstructions(instructions, session, stageId);
 
   return buildSafePrompt(instructions, sanitized);
@@ -164,6 +222,8 @@ async function runNormalizeStage(
   const userInputs = getUserInputs(session);
   const influenceContext = resolveInfluenceContext(session);
   let prompt = buildNormalizePrompt(session.seedText, userInputs, session.seedContext, influenceContext);
+  prompt += buildInfluenceBlock(session);
+  prompt = appendTierDirective(prompt, session);
   prompt = appendCustomInstructions(prompt, session, 'normalize');
 
   const schema = STAGE_SCHEMAS['normalize'];
@@ -391,10 +451,13 @@ async function runDivergeStage(
   }
   session = guardResult.session;
 
+  const influenceBlock = buildInfluenceBlock(session);
   const { output, meta } = await assemblePipeline(
     effectiveNormalize,
     userInputs,
     provider,
+    [],
+    influenceBlock || undefined,
   );
 
   const { session: checkedSession } = runCultureChecks(
@@ -443,7 +506,10 @@ async function runCritiqueSalvageStage(
     throw new Error('Normalize must be run before Critique/Salvage');
   }
 
-  const prompt = appendCustomInstructions(buildCritiquePrompt(candidates, effectiveNormalize), session, 'critique-salvage');
+  let prompt = buildCritiquePrompt(candidates, effectiveNormalize);
+  prompt += buildInfluenceBlock(session);
+  prompt = appendTierDirective(prompt, session);
+  prompt = appendCustomInstructions(prompt, session, 'critique-salvage');
   const rawOutput = await provider.generateStructured({
     schema: CritiqueSalvageOutputSchema,
     prompt,
@@ -504,13 +570,17 @@ async function runExpandStage(
   }
 
   const userInputs = getUserInputs(session);
+  const expandInfluence = buildInfluenceBlock(session);
   const expansions: ExpandExpansion[] = [];
 
   for (const id of shortlistIds) {
     const candidate = candidates.find((c) => c.id === id);
     if (!candidate) continue;
 
-    const prompt = appendCustomInstructions(buildExpandPrompt(candidate, effectiveNormalize, userInputs), session, 'expand');
+    let prompt = buildExpandPrompt(candidate, effectiveNormalize, userInputs);
+    prompt += expandInfluence;
+    prompt = appendTierDirective(prompt, session);
+    prompt = appendCustomInstructions(prompt, session, 'expand');
     const rawExpansion = await provider.generateStructured({
       schema: ExpandExpansionSchema,
       prompt,
@@ -553,7 +623,10 @@ async function runConvergeStage(
   }
 
   const candidates = getEffectiveCandidatePool(session);
-  const prompt = appendCustomInstructions(buildScorePrompt(expansions, candidates), session, 'converge');
+  let prompt = buildScorePrompt(expansions, candidates);
+  prompt += buildInfluenceBlock(session);
+  prompt = appendTierDirective(prompt, session);
+  prompt = appendCustomInstructions(prompt, session, 'converge');
 
   const rawOutput = await provider.generateStructured({
     schema: ConvergeOutputSchema,
@@ -611,14 +684,17 @@ async function runCommitStage(
 
   const userInputs = getUserInputs(session);
 
-  const prompt = appendCustomInstructions(buildCommitPrompt({
+  let prompt = buildCommitPrompt({
     winnerId,
     candidate,
     expansion,
     effectiveNormalize,
     userInputs,
     templateType,
-  }), session, 'commit');
+  });
+  prompt += buildInfluenceBlock(session);
+  prompt = appendTierDirective(prompt, session);
+  prompt = appendCustomInstructions(prompt, session, 'commit');
 
   const rawOutput = await provider.generateStructured({
     schema: STAGE_SCHEMAS['commit'],

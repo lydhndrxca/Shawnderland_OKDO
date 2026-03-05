@@ -38,8 +38,11 @@ export interface FlowSessionState {
   canRedo: boolean;
   createGroup: (nodeIds: string[], name: string) => void;
   ungroupNodes: (groupId: string) => void;
+  expandGroup: (groupId: string) => void;
+  collapseGroup: (groupId: string) => void;
   updateNodeData: (nodeId: string, data: Record<string, unknown>) => void;
   spawnFullChain: () => void;
+  spawnPackedPipeline: () => void;
 }
 
 interface HistorySnapshot {
@@ -408,7 +411,7 @@ export function useFlowSession(): FlowSessionState {
 
   const getFlowSnapshot = useCallback(() => {
     const nodeData: Record<string, Record<string, unknown>> = {};
-    const persistTypes = ['emotion', 'influence', 'group', 'textInfluence', 'documentInfluence', 'imageInfluence', 'linkInfluence', 'videoInfluence'];
+    const persistTypes = ['emotion', 'influence', 'group', 'packedPipeline', 'textInfluence', 'documentInfluence', 'imageInfluence', 'linkInfluence', 'videoInfluence'];
     for (const n of nodes) {
       const d = n.data as Record<string, unknown>;
       const entry: Record<string, unknown> = {};
@@ -521,6 +524,49 @@ export function useFlowSession(): FlowSessionState {
     });
   }, [setNodes, setEdges]);
 
+  const spawnPackedPipeline = useCallback(() => {
+    setNodes((prev) => {
+      const existing = prev.find((n) => n.type === 'packedPipeline');
+      if (existing) return prev;
+
+      const startNode = prev.find((n) => n.id === 'start');
+      const startPos = startNode?.position ?? { x: -250, y: 0 };
+
+      const packedNode: Node = {
+        id: `packedPipeline-${Date.now()}`,
+        type: 'packedPipeline',
+        position: { x: startPos.x + 280, y: startPos.y },
+        data: { stageId: 'packedPipeline' },
+      };
+      return [...prev, packedNode];
+    });
+
+    setTimeout(() => {
+      setEdges((prev) => {
+        setNodes((curNodes) => {
+          const packed = curNodes.find((n) => n.type === 'packedPipeline');
+          if (!packed) return curNodes;
+          const seedNode = curNodes.find((n) => n.id === 'seed');
+          const alreadyConnected = prev.some((e) => e.target === packed.id);
+          if (alreadyConnected) return curNodes;
+          const sourceId = seedNode?.id ?? 'start';
+          setEdges((curEdges) => [
+            ...curEdges,
+            {
+              id: `e-${sourceId}-packed`,
+              source: sourceId,
+              target: packed.id,
+              type: 'pipeline',
+              data: { sourceStage: sourceId, isRunning: false, isComplete: false },
+            },
+          ]);
+          return curNodes;
+        });
+        return prev;
+      });
+    }, 50);
+  }, [setNodes, setEdges]);
+
   const createGroup = useCallback((nodeIds: string[], name: string) => {
     const filteredIds = nodeIds.filter((id) => {
       const node = nodes.find((n) => n.id === id);
@@ -543,11 +589,12 @@ export function useFlowSession(): FlowSessionState {
         data: {
           groupName: name,
           childNodeIds: filteredIds,
-          expanded: true,
+          expanded: false,
         },
       };
 
-      return [...prev, groupNode];
+      const childSet = new Set(filteredIds);
+      return [...prev.map((n) => childSet.has(n.id) ? { ...n, hidden: true } : n), groupNode];
     });
   }, [setNodes, nodes]);
 
@@ -555,6 +602,40 @@ export function useFlowSession(): FlowSessionState {
     setNodes((prev) => prev.filter((n) => n.id !== groupId));
     setEdges((prev) => prev.filter((e) => e.source !== groupId && e.target !== groupId));
   }, [setNodes, setEdges]);
+
+  const expandGroup = useCallback((groupId: string) => {
+    setNodes((prev) => {
+      const groupNode = prev.find((n) => n.id === groupId);
+      if (!groupNode || groupNode.type !== 'group') return prev;
+      const childIds = new Set((groupNode.data as Record<string, unknown>).childNodeIds as string[] ?? []);
+      return prev.map((n) => {
+        if (n.id === groupId) return { ...n, data: { ...n.data, expanded: true } };
+        if (childIds.has(n.id)) return { ...n, hidden: false };
+        return n;
+      });
+    });
+    setTimeout(() => {
+      setNodes((prev) => {
+        const allEdges = edges;
+        const { nodes: laidNodes } = applyDagreLayout(prev.filter((n) => !n.hidden), allEdges);
+        const posMap = new Map(laidNodes.map((n) => [n.id, n.position]));
+        return prev.map((n) => posMap.has(n.id) ? { ...n, position: posMap.get(n.id)! } : n);
+      });
+    }, 50);
+  }, [setNodes, edges]);
+
+  const collapseGroup = useCallback((groupId: string) => {
+    setNodes((prev) => {
+      const groupNode = prev.find((n) => n.id === groupId);
+      if (!groupNode || groupNode.type !== 'group') return prev;
+      const childIds = new Set((groupNode.data as Record<string, unknown>).childNodeIds as string[] ?? []);
+      return prev.map((n) => {
+        if (n.id === groupId) return { ...n, data: { ...n.data, expanded: false } };
+        if (childIds.has(n.id)) return { ...n, hidden: true };
+        return n;
+      });
+    });
+  }, [setNodes]);
 
   const updateNodeData = useCallback((nodeId: string, data: Record<string, unknown>) => {
     setNodes((prev) =>
@@ -572,7 +653,10 @@ export function useFlowSession(): FlowSessionState {
   (window as unknown as Record<string, unknown>).__updateNodeData = updateNodeData;
   (window as unknown as Record<string, unknown>).__getNodeData = getNodeData;
   (window as unknown as Record<string, unknown>).__spawnFullChain = spawnFullChain;
+  (window as unknown as Record<string, unknown>).__spawnPackedPipeline = spawnPackedPipeline;
   (window as unknown as Record<string, unknown>).__getEdges = () => edges;
+  (window as unknown as Record<string, unknown>).__triggerGroupExpand = expandGroup;
+  (window as unknown as Record<string, unknown>).__getFlowSnapshot = getFlowSnapshot;
 
   return {
     nodes,
@@ -596,7 +680,10 @@ export function useFlowSession(): FlowSessionState {
     canRedo,
     createGroup,
     ungroupNodes,
+    expandGroup,
+    collapseGroup,
     updateNodeData,
     spawnFullChain,
+    spawnPackedPipeline,
   };
 }

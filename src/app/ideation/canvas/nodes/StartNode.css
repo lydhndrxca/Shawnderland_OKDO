@@ -128,3 +128,57 @@
   border-color: #42a5f5;
   color: var(--text-primary);
 }
+
+/* ── Thinking Tier Selector ── */
+
+.start-node-tier {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tier-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.tier-selector {
+  display: flex;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.tier-btn {
+  flex: 1;
+  padding: 4px 0;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.tier-btn:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+
+.tier-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+}
+
+.tier-btn.active {
+  background: #42a5f5;
+  color: #fff;
+}
+
+.tier-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

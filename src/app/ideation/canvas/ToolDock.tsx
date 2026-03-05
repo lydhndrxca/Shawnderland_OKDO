@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Lock, Unlock } from 'lucide-react';
 import {
   STAGE_ORDER, NODE_META,
   OUTPUT_NODE_TYPES, INPUT_NODE_TYPES, INFLUENCE_NODE_TYPES, UTILITY_NODE_TYPES, CONTROL_NODE_TYPES,
@@ -223,9 +224,9 @@ export default function ToolDock({ inspectorNodeId, onCloseInspector }: ToolDock
         <button
           className={`tool-dock-pin-btn ${pinned ? 'pinned' : ''}`}
           onClick={() => setPinned((p) => !p)}
-          title={pinned ? 'Unpin — panel will auto-hide' : 'Pin — panel stays open'}
+          title={pinned ? 'Unlock — panel will auto-hide' : 'Lock — panel stays open'}
         >
-          {pinned ? '\uD83D\uDCCC' : '\uD83D\uDCCC'}
+          {pinned ? <Lock size={14} /> : <Unlock size={14} />}
         </button>
       </div>
 

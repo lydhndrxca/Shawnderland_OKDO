@@ -45,16 +45,20 @@ export type EventType =
   | 'VIDEO_GENERATE'
   | 'TEXT_OUTPUT';
 
+export type ThinkingTier = 'quick' | 'standard' | 'deep';
+
 export interface SessionSettings {
   crossCulturalEnabled: boolean;
   proxyCultureMode: boolean;
   providerMode: 'mock' | 'real';
+  thinkingTier: ThinkingTier;
 }
 
 export const DEFAULT_SETTINGS: SessionSettings = {
   crossCulturalEnabled: false,
   proxyCultureMode: false,
   providerMode: 'real',
+  thinkingTier: 'standard',
 };
 
 export interface SessionEvent {

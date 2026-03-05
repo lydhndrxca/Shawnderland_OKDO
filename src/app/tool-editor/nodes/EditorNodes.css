@@ -1,0 +1,156 @@
+/* ────────────────────────────────────────
+   Tool-Editor Node Styles
+   ──────────────────────────────────────── */
+
+/* shared node chrome */
+.te-node {
+  border: 2px solid #607d8b;
+  border-radius: 8px;
+  background: #1e1e24;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, .35);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.15s;
+}
+
+.te-node.te-selected {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .25), 0 4px 20px rgba(0, 0, 0, .5);
+}
+
+/* header bar */
+.te-node-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  min-height: 28px;
+}
+
+.te-node-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.te-node-body {
+  flex: 1;
+  padding: 8px 10px;
+  overflow-y: auto;
+}
+
+.te-node-desc {
+  font-size: 11px;
+  color: #aaa;
+  margin: 0 0 6px;
+  line-height: 1.35;
+}
+
+/* dropdowns inside generic nodes */
+.te-dropdowns {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.te-dropdown {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.te-dropdown-label {
+  font-size: 10px;
+  color: #888;
+  min-width: 48px;
+  text-align: right;
+}
+
+.te-dropdown-select {
+  flex: 1;
+  background: #2a2a32;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #ccc;
+  font-size: 10px;
+  padding: 2px 4px;
+}
+
+/* handles */
+.te-node .react-flow__handle {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #555;
+  background: #1e1e24;
+  border-radius: 50%;
+}
+
+.te-node .react-flow__handle:hover {
+  border-color: #fff;
+  background: #fff;
+}
+
+/* ── Window Node ─────────────────────── */
+.te-window-header {
+  justify-content: space-between;
+}
+
+.te-window-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.te-wc {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .2);
+}
+
+.te-window-viewport {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: repeating-conic-gradient(#222 0% 25%, #282830 0% 50%) 0 0 / 16px 16px;
+  border-top: 1px solid rgba(255, 255, 255, .06);
+}
+
+.te-window-placeholder {
+  font-size: 12px;
+  color: #555;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ── Frame Node ──────────────────────── */
+.te-frame {
+  border: 2px dashed #78909c;
+  border-radius: 6px;
+  background: rgba(120, 144, 156, .06);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.te-frame.te-selected {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .15);
+}
+
+.te-frame-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.te-frame-desc {
+  font-size: 10px;
+  color: #888;
+}

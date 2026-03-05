@@ -38,13 +38,15 @@ async function generateLensBatch(
   effectiveNormalize: EffectiveNormalize,
   userInputs: string[],
   provider: Provider,
+  influenceBlock?: string,
 ): Promise<DivergeCandidate[]> {
-  const prompt = buildDivergeLensPrompt(
+  let prompt = buildDivergeLensPrompt(
     lens,
     effectiveNormalize,
     userInputs,
     count,
   );
+  if (influenceBlock) prompt += influenceBlock;
   const result = await provider.generateStructured({
     schema: DivergeBatchSchema,
     prompt,
@@ -77,6 +79,7 @@ export async function assemblePipeline(
   userInputs: string[],
   provider: Provider,
   pinnedCandidates: DivergeCandidate[] = [],
+  influenceBlock?: string,
 ): Promise<PipelineResult> {
   const pinnedIds = new Set(pinnedCandidates.map((c) => c.id));
   const slotsNeeded = INITIAL_TARGET - pinnedCandidates.length;
@@ -96,6 +99,7 @@ export async function assemblePipeline(
       effectiveNormalize,
       userInputs,
       provider,
+      influenceBlock,
     );
     allCandidates.push(...batch);
     prompts.push(`[${LENS_TYPES[i]}:${lensCounts[i]}]`);

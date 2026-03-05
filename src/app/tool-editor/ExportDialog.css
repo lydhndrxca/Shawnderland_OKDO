@@ -1,0 +1,150 @@
+/* ────────────────────────────────────────
+   Tool-Editor Export Dialog
+   ──────────────────────────────────────── */
+
+.te-export-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+}
+
+.te-export-dialog {
+  background: #1a1a22;
+  border: 1px solid #333;
+  border-radius: 12px;
+  width: min(680px, 90vw);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .6);
+}
+
+.te-export-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2a34;
+}
+
+.te-export-header h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #eee;
+  margin: 0;
+}
+
+.te-export-close {
+  background: none;
+  border: none;
+  color: #777;
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.12s;
+}
+
+.te-export-close:hover {
+  color: #fff;
+}
+
+.te-export-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid #2a2a34;
+}
+
+.te-export-tab {
+  flex: 1;
+  padding: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.te-export-tab:hover:not(:disabled) {
+  color: #ccc;
+}
+
+.te-export-tab.active {
+  color: #ff7043;
+  border-bottom-color: #ff7043;
+}
+
+.te-export-tab:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.te-export-preview {
+  flex: 1;
+  overflow: auto;
+  padding: 12px 16px;
+  max-height: 400px;
+}
+
+.te-export-preview pre {
+  font-size: 11px;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  color: #aaa;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.te-export-meta {
+  padding: 8px 20px;
+  font-size: 11px;
+  color: #666;
+  border-top: 1px solid #2a2a34;
+}
+
+.te-export-actions {
+  display: flex;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid #2a2a34;
+}
+
+.te-export-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.te-btn-copy {
+  background: #2a2a34;
+  color: #ccc;
+}
+
+.te-btn-copy:hover {
+  background: #333;
+  color: #fff;
+}
+
+.te-btn-download {
+  background: #ff7043;
+  color: #fff;
+}
+
+.te-btn-download:hover {
+  background: #ff8a65;
+}

@@ -28,15 +28,21 @@ interface ContextMenuProps {
   onPasteImage?: () => void;
   onCreateGroup?: () => void;
   onUngroupNode?: () => void;
+  onExpandGroup?: () => void;
+  onCollapseGroup?: () => void;
   onDeleteSelected?: () => void;
   onDuplicateSelected?: () => void;
   isGroupNode?: boolean;
+  isGroupExpanded?: boolean;
 }
 
 interface SubCategory {
   label: string;
   items: Array<{ id: string; label: string; color: string }>;
 }
+
+const REFERENCE_INFLUENCES = ['textInfluence', 'documentInfluence', 'imageInfluence', 'linkInfluence', 'videoInfluence', 'imageReference'] as const;
+const MODIFIER_INFLUENCES = ['emotion', 'influence'] as const;
 
 function buildCategories(): SubCategory[] {
   return [
@@ -49,43 +55,51 @@ function buildCategories(): SubCategory[] {
       })),
     },
     {
+      label: 'Inputs & References',
+      items: REFERENCE_INFLUENCES.map((t) => {
+        const infMeta = (INFLUENCE_NODE_META as Record<string, { label: string; color: string }>)[t];
+        const utMeta = (UTILITY_NODE_META as Record<string, { label: string; color: string }>)[t];
+        const meta = infMeta ?? utMeta;
+        return { id: t, label: meta.label, color: meta.color };
+      }),
+    },
+    {
+      label: 'Modifiers',
+      items: [
+        ...INPUT_NODE_TYPES.map((t) => ({
+          id: t,
+          label: INPUT_NODE_META[t].label,
+          color: INPUT_NODE_META[t].color,
+        })),
+        ...MODIFIER_INFLUENCES.map((t) => ({
+          id: t,
+          label: INFLUENCE_NODE_META[t].label,
+          color: INFLUENCE_NODE_META[t].color,
+        })),
+      ],
+    },
+    {
+      label: 'Outputs',
+      items: [
+        ...OUTPUT_NODE_TYPES.map((t) => ({
+          id: t,
+          label: OUTPUT_NODE_META[t].label,
+          color: OUTPUT_NODE_META[t].color,
+        })),
+        ...UTILITY_NODE_TYPES.filter((t) => t === 'extractData').map((t) => ({
+          id: t,
+          label: UTILITY_NODE_META[t].label,
+          color: UTILITY_NODE_META[t].color,
+        })),
+      ],
+    },
+    {
       label: 'Control',
       items: CONTROL_NODE_TYPES.map((t) => ({
         id: t,
         label: CONTROL_NODE_META[t].label,
         color: CONTROL_NODE_META[t].color,
       })),
-    },
-    {
-      label: 'Personas',
-      items: INFLUENCE_NODE_TYPES.map((t) => ({
-        id: t,
-        label: INFLUENCE_NODE_META[t].label,
-        color: INFLUENCE_NODE_META[t].color,
-      })),
-    },
-    {
-      label: 'Outputs',
-      items: OUTPUT_NODE_TYPES.map((t) => ({
-        id: t,
-        label: OUTPUT_NODE_META[t].label,
-        color: OUTPUT_NODE_META[t].color,
-      })),
-    },
-    {
-      label: 'Data & Processing',
-      items: [
-        ...UTILITY_NODE_TYPES.map((t) => ({
-          id: t,
-          label: UTILITY_NODE_META[t].label,
-          color: UTILITY_NODE_META[t].color,
-        })),
-        ...INPUT_NODE_TYPES.map((t) => ({
-          id: t,
-          label: INPUT_NODE_META[t].label,
-          color: INPUT_NODE_META[t].color,
-        })),
-      ],
     },
   ];
 }
@@ -108,9 +122,12 @@ export default function ContextMenu({
   onPasteImage,
   onCreateGroup,
   onUngroupNode,
+  onExpandGroup,
+  onCollapseGroup,
   onDeleteSelected,
   onDuplicateSelected,
   isGroupNode,
+  isGroupExpanded,
 }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [openSub, setOpenSub] = useState<string | null>(null);
@@ -172,9 +189,20 @@ export default function ContextMenu({
             </>
           )}
           {isGroupNode && (
-            <button className="context-menu-item" onClick={() => { onUngroupNode?.(); onClose(); }}>
-              <span className="context-menu-icon">⊟</span>Ungroup
-            </button>
+            <>
+              {isGroupExpanded ? (
+                <button className="context-menu-item" onClick={() => { onCollapseGroup?.(); onClose(); }}>
+                  <span className="context-menu-icon">⊟</span>Collapse
+                </button>
+              ) : (
+                <button className="context-menu-item" onClick={() => { onExpandGroup?.(); onClose(); }}>
+                  <span className="context-menu-icon">⊞</span>Expand
+                </button>
+              )}
+              <button className="context-menu-item" onClick={() => { onUngroupNode?.(); onClose(); }}>
+                <span className="context-menu-icon">✕</span>Ungroup
+              </button>
+            </>
           )}
           <div className="context-menu-separator" />
           <button className="context-menu-item context-menu-danger" onClick={() => { onDelete?.(); onClose(); }}>

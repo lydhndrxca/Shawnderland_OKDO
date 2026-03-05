@@ -22,6 +22,11 @@ const UILabShell = dynamic(
   { ssr: false }
 );
 
+const ToolEditorShell = dynamic(
+  () => import("@/app/tool-editor/ToolEditorShell"),
+  { ssr: false }
+);
+
 function HomeContent() {
   return (
     <div className="h-full flex flex-col">
@@ -122,6 +127,7 @@ function resolveRoute(path: string): React.ReactNode {
   if (path === "/ideation") return <IdeationContent />;
   if (path === "/sprite-lab") return <ToolLandingContent toolId="sprite-lab" />;
   if (path === "/ui-lab") return <UILabContent />;
+  if (path === "/tool-editor") return <ToolEditorShell />;
   if (path === "/concept-lab") return <ToolLandingContent toolId="concept-lab" />;
   if (path === "/walter") return <ToolLandingContent toolId="walter" />;
   return <div className="p-8 text-muted-foreground">Page not found</div>;

@@ -38,6 +38,7 @@ import LinkInfluenceNode from './nodes/LinkInfluenceNode';
 import VideoInfluenceNode from './nodes/VideoInfluenceNode';
 import StartNode from './nodes/StartNode';
 import GroupNode from './nodes/GroupNode';
+import PackedPipelineNode from './nodes/PackedPipelineNode';
 import ResultNode from './nodes/ResultNode';
 import PipelineEdge from './edges/PipelineEdge';
 import ToolDock from './ToolDock';
@@ -45,7 +46,7 @@ import ContextMenu from './ContextMenu';
 import DemoOverlay from './DemoOverlay';
 import GuidedRunOverlay from './GuidedRunOverlay';
 import { useFlowSession } from './useFlowSession';
-import { NODE_META, OUTPUT_NODE_META, INPUT_NODE_META, INFLUENCE_NODE_META, UTILITY_NODE_META, CONTROL_NODE_META, RESULT_NODE_META, GROUP_NODE_META, isValidConnection } from './nodes/nodeRegistry';
+import { NODE_META, OUTPUT_NODE_META, INPUT_NODE_META, INFLUENCE_NODE_META, UTILITY_NODE_META, CONTROL_NODE_META, RESULT_NODE_META, GROUP_NODE_META, PACKED_PIPELINE_NODE_META, isValidConnection } from './nodes/nodeRegistry';
 import { useSession } from '@/lib/ideation/context/SessionContext';
 import { getStageOutput } from '@/lib/ideation/state/sessionSelectors';
 import type { StageId } from '@/lib/ideation/engine/stages';
@@ -76,6 +77,7 @@ const nodeTypes: NodeTypes = {
   videoInfluence: VideoInfluenceNode,
   start: StartNode,
   group: GroupNode,
+  packedPipeline: PackedPipelineNode,
   resultNode: ResultNode,
 };
 
@@ -370,6 +372,16 @@ function FlowCanvasInner() {
     }
   }, [ctxMenu, flow]);
 
+  const handleExpandGroup = useCallback(() => {
+    if (!ctxMenu?.nodeId) return;
+    flow.expandGroup(ctxMenu.nodeId);
+  }, [ctxMenu, flow]);
+
+  const handleCollapseGroup = useCallback(() => {
+    if (!ctxMenu?.nodeId) return;
+    flow.collapseGroup(ctxMenu.nodeId);
+  }, [ctxMenu, flow]);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleOpenImage = useCallback(async () => {
@@ -650,9 +662,12 @@ function FlowCanvasInner() {
           onPasteImage={handlePasteImage}
           onCreateGroup={handleCreateGroup}
           onUngroupNode={handleUngroupNode}
+          onExpandGroup={handleExpandGroup}
+          onCollapseGroup={handleCollapseGroup}
           onDeleteSelected={handleDeleteSelected}
           onDuplicateSelected={handleDuplicateSelected}
           isGroupNode={ctxMenu.nodeId ? flow.nodes.find((n) => n.id === ctxMenu.nodeId)?.type === 'group' : false}
+          isGroupExpanded={ctxMenu.nodeId ? !!(flow.nodes.find((n) => n.id === ctxMenu.nodeId)?.data as Record<string, unknown>)?.expanded : false}
         />
       )}
 

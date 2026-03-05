@@ -141,27 +141,21 @@
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  color: var(--text-muted);
+  color: #666;
   font-size: 13px;
   cursor: pointer;
-  opacity: 0.4;
-  transition: opacity 0.15s, transform 0.15s;
+  transition: color 0.15s;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .tool-dock-pin-btn:hover {
-  opacity: 0.8;
+  color: #aaa;
 }
 
 .tool-dock-pin-btn.pinned {
-  opacity: 1;
-  transform: rotate(0deg);
-}
-
-.tool-dock-pin-btn:not(.pinned) {
-  transform: rotate(45deg);
+  color: var(--text-primary);
 }
 
 /* ── Content ── */

@@ -1,7 +1,45 @@
 import type { Provider, ProviderGenerateOpts } from './types';
 import { recordUsage } from './costTracker';
+import type { ThinkingTier } from '../../state/sessionTypes';
 
-const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+
+interface TierConfig {
+  model: string;
+  temperature: number;
+  maxOutputTokens?: number;
+}
+
+const TIER_CONFIGS: Record<ThinkingTier, TierConfig> = {
+  quick: {
+    model: 'gemini-2.0-flash-lite',
+    temperature: 0,
+  },
+  standard: {
+    model: 'gemini-2.0-flash',
+    temperature: 0,
+  },
+  deep: {
+    model: 'gemini-2.0-flash-thinking-exp',
+    temperature: 0.7,
+    maxOutputTokens: 16384,
+  },
+};
+
+function getEndpoint(tier: ThinkingTier): string {
+  const cfg = TIER_CONFIGS[tier];
+  return `${GEMINI_API_BASE}/${cfg.model}:generateContent`;
+}
+
+function getGenerationConfig(tier: ThinkingTier) {
+  const cfg = TIER_CONFIGS[tier];
+  const config: Record<string, unknown> = {
+    temperature: cfg.temperature,
+    responseMimeType: 'application/json',
+  };
+  if (cfg.maxOutputTokens) config.maxOutputTokens = cfg.maxOutputTokens;
+  return config;
+}
 
 function resolveApiKey(explicitKey?: string): string | undefined {
   if (explicitKey) return explicitKey;
@@ -12,16 +50,16 @@ function resolveApiKey(explicitKey?: string): string | undefined {
   }
 }
 
-async function callGemini(prompt: string, apiKey?: string): Promise<string> {
+async function callGemini(prompt: string, tier: ThinkingTier = 'standard', apiKey?: string): Promise<string> {
   const key = resolveApiKey(apiKey);
   if (!key) throw new Error('No API key available. Set NEXT_PUBLIC_GEMINI_API_KEY in your .env.local file.');
 
   const body = {
     contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 0, responseMimeType: 'application/json' },
+    generationConfig: getGenerationConfig(tier),
   };
 
-  const response = await fetch(`${GEMINI_ENDPOINT}?key=${key}`, {
+  const response = await fetch(`${getEndpoint(tier)}?key=${key}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -39,7 +77,7 @@ async function callGemini(prompt: string, apiKey?: string): Promise<string> {
   return text;
 }
 
-async function callGeminiRetry(prompt: string, retryContext: string, apiKey?: string): Promise<string> {
+async function callGeminiRetry(prompt: string, retryContext: string, tier: ThinkingTier = 'standard', apiKey?: string): Promise<string> {
   const key = resolveApiKey(apiKey);
   if (!key) throw new Error('No API key available. Set NEXT_PUBLIC_GEMINI_API_KEY in your .env.local file.');
 
@@ -49,10 +87,10 @@ async function callGeminiRetry(prompt: string, retryContext: string, apiKey?: st
       { role: 'model', parts: [{ text: '(invalid response)' }] },
       { role: 'user', parts: [{ text: retryContext }] },
     ],
-    generationConfig: { temperature: 0, responseMimeType: 'application/json' },
+    generationConfig: getGenerationConfig(tier),
   };
 
-  const response = await fetch(`${GEMINI_ENDPOINT}?key=${key}`, {
+  const response = await fetch(`${getEndpoint(tier)}?key=${key}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -80,10 +118,10 @@ function parseJsonResponse(text: string): unknown {
   }
 }
 
-export function createGeminiProvider(apiKey?: string): Provider {
+export function createGeminiProvider(apiKey?: string, tier: ThinkingTier = 'standard'): Provider {
   return {
     async generateStructured<T>(opts: ProviderGenerateOpts<T>): Promise<T> {
-      const text = await callGemini(opts.prompt, apiKey);
+      const text = await callGemini(opts.prompt, tier, apiKey);
       const parsed = parseJsonResponse(text);
 
       try {
@@ -95,7 +133,7 @@ export function createGeminiProvider(apiKey?: string): Provider {
 
         let retryText: string;
         try {
-          retryText = await callGeminiRetry(opts.prompt, retryContext, apiKey);
+          retryText = await callGeminiRetry(opts.prompt, retryContext, tier, apiKey);
         } catch {
           throw parseErr;
         }

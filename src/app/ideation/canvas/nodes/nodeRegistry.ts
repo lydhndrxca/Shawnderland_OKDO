@@ -106,7 +106,8 @@ export type UtilityNodeType = 'imageReference' | 'extractData';
 export type ControlNodeType = 'start';
 export type ResultNodeType = 'resultNode';
 export type GroupNodeType = 'group';
-export type AnyNodeType = StageId | OutputNodeType | InputNodeType | InfluenceNodeType | UtilityNodeType | ControlNodeType | ResultNodeType | GroupNodeType;
+export type PackedPipelineNodeType = 'packedPipeline';
+export type AnyNodeType = StageId | OutputNodeType | InputNodeType | InfluenceNodeType | UtilityNodeType | ControlNodeType | ResultNodeType | GroupNodeType | PackedPipelineNodeType;
 
 export interface OutputNodeMeta {
   type: OutputNodeType;
@@ -236,6 +237,22 @@ export const GROUP_NODE_META: Record<GroupNodeType, GroupNodeMeta> = {
   },
 };
 
+export interface PackedPipelineNodeMeta {
+  type: PackedPipelineNodeType;
+  label: string;
+  color: string;
+  tooltip: string;
+}
+
+export const PACKED_PIPELINE_NODE_META: Record<PackedPipelineNodeType, PackedPipelineNodeMeta> = {
+  packedPipeline: {
+    type: 'packedPipeline',
+    label: 'Full Pipeline',
+    color: '#4db6ac',
+    tooltip: 'A compact view of the entire pipeline. Right-click to expand into individual stages.',
+  },
+};
+
 export interface UtilityNodeMeta {
   type: UtilityNodeType;
   label: string;
@@ -300,6 +317,11 @@ export function isValidConnection(source: string, target: string): boolean {
   const targetIsUtility = UTILITY_NODE_TYPES.includes(target as UtilityNodeType);
   const sourceIsResult = RESULT_NODE_TYPES.includes(source as ResultNodeType);
   const sourceIsControl = CONTROL_NODE_TYPES.includes(source as ControlNodeType);
+  const sourceIsPacked = source === 'packedPipeline' || (source as string).startsWith('packedPipeline');
+  const targetIsPacked = target === 'packedPipeline' || (target as string).startsWith('packedPipeline');
+
+  if (sourceIsControl && targetIsPacked) return true;
+  if (sourceIsPacked && (targetIsOutput || targetIsStage)) return true;
 
   if (sourceIsStage && targetIsStage) return true;
   if (sourceIsStage && targetIsOutput) return true;

@@ -1,0 +1,84 @@
+/* ────────────────────────────────────────
+   Tool-Editor Shell Layout
+   ──────────────────────────────────────── */
+
+.te-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #111118;
+  color: #ddd;
+}
+
+/* ── Toolbar ─────────────────────────── */
+.te-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-bottom: 1px solid #2a2a34;
+  background: #16161c;
+  min-height: 48px;
+  flex-shrink: 0;
+}
+
+.te-toolbar-left {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.te-toolbar-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #eee;
+  margin: 0;
+}
+
+.te-toolbar-hint {
+  font-size: 11px;
+  color: #666;
+}
+
+.te-toolbar-right {
+  display: flex;
+  gap: 8px;
+}
+
+.te-toolbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #aaa;
+  background: #22222a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.te-toolbar-btn:hover {
+  background: #2e2e38;
+  color: #fff;
+}
+
+.te-toolbar-export {
+  background: #ff7043;
+  border-color: #ff7043;
+  color: #fff;
+}
+
+.te-toolbar-export:hover {
+  background: #ff8a65;
+  border-color: #ff8a65;
+}
+
+/* ── Main Layout ─────────────────────── */
+.te-main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}

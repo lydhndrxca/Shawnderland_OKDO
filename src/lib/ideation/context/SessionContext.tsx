@@ -191,21 +191,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (envKey) setHasApiKey(true);
   }, []);
 
-  const geminiProviderRef = useRef<Provider | null>(null);
-  if (hasApiKey && !geminiProviderRef.current) {
-    geminiProviderRef.current = createGeminiProvider();
-  }
-
   function getProvider(): Provider {
     const settings = getEffectiveSettings(sessionRef.current);
     if (settings.providerMode === 'real') {
-      if (!geminiProviderRef.current) {
+      if (!hasApiKey) {
         throw new Error(
           'Gemini provider selected but no NEXT_PUBLIC_GEMINI_API_KEY found. ' +
           'Set the environment variable in .env.local, or switch to Mock in Settings.',
         );
       }
-      return geminiProviderRef.current;
+      return createGeminiProvider(undefined, settings.thinkingTier ?? 'standard');
     }
     return mockProvider;
   }
@@ -290,8 +285,23 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const guidedRunRef = useRef(guidedRunState);
   guidedRunRef.current = guidedRunState;
 
+  const flushFlowState = useCallback(() => {
+    const getSnapshot = (window as unknown as Record<string, unknown>).__getFlowSnapshot as (() => {
+      nodes: Array<{ id: string; position: { x: number; y: number }; type?: string }>;
+      edges: Array<{ id: string; source: string; target: string }>;
+      nodeData: Record<string, Record<string, unknown>>;
+    }) | undefined;
+    if (!getSnapshot) return;
+    const snapshot = getSnapshot();
+    setSession((prev) => ({
+      ...prev,
+      flowState: { ...prev.flowState, nodes: snapshot.nodes, edges: snapshot.edges, nodeData: snapshot.nodeData },
+    }));
+  }, []);
+
   const runFullPipeline = useCallback(async () => {
     if (!sessionRef.current.seedText.trim()) return;
+    flushFlowState();
 
     setIsRunning(true);
     try {
@@ -328,6 +338,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const runInteractivePipeline = useCallback(async () => {
     const stages = STAGE_IDS.slice(1);
     if (!sessionRef.current.seedText.trim()) return;
+    flushFlowState();
 
     setIsRunning(true);
     try {
@@ -428,6 +439,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const runNextStage = useCallback(async () => {
     if (!sessionRef.current.seedText.trim()) return;
+    flushFlowState();
 
     setIsRunning(true);
     try {
@@ -851,7 +863,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (result && typeof result === 'string') {
       const saved = JSON.parse(result) as Session;
       if (!saved.activeBranchId) saved.activeBranchId = 'main';
-      if (!saved.settings) saved.settings = { crossCulturalEnabled: false, proxyCultureMode: false, providerMode: 'real' };
+      if (!saved.settings) saved.settings = { crossCulturalEnabled: false, proxyCultureMode: false, providerMode: 'real', thinkingTier: 'standard' };
+      if (!saved.settings.thinkingTier) saved.settings.thinkingTier = 'standard';
       if (saved.projectName === undefined) saved.projectName = '';
       setSession(saved);
     }

@@ -85,6 +85,26 @@ export const TOOLS: ToolRegistryEntry[] = [
     mode: "web",
   },
   {
+    id: "tool-editor",
+    name: "Tool Editor",
+    tagline: "Design tools, visually",
+    description:
+      "A visual editor for designing node-based tools. Drag in nodes, windows, and frames — customize inputs, outputs, dropdowns — and export an AI-readable spec.",
+    icon: "wrench",
+    href: "/tool-editor",
+    baseUrl: "",
+    accentColor: "var(--color-tool-editor, #ff7043)",
+    accentDim: "var(--color-tool-editor-dim, rgba(255, 112, 67, 0.2))",
+    features: [
+      "Node templates",
+      "Window panels",
+      "UI frame builder",
+      "Export to AI spec",
+    ],
+    startCommand: "",
+    mode: "web",
+  },
+  {
     id: "walter",
     name: "Walter Storyboarding",
     tagline: "Stories, structured",

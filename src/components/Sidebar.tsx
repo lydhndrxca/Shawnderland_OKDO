@@ -6,6 +6,7 @@ import {
   Layout,
   Lightbulb,
   Clapperboard,
+  Wrench,
   Home,
   ChevronLeft,
   ChevronRight,
@@ -23,6 +24,7 @@ const ICON_MAP: Record<
   layout: Layout,
   lightbulb: Lightbulb,
   clapperboard: Clapperboard,
+  wrench: Wrench,
 };
 
 interface SidebarProps {

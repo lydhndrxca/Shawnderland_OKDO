@@ -6,6 +6,7 @@ import {
   STAGE_ORDER, NODE_META,
   OUTPUT_NODE_TYPES, INPUT_NODE_TYPES, INFLUENCE_NODE_TYPES, UTILITY_NODE_TYPES, CONTROL_NODE_TYPES,
   OUTPUT_NODE_META, INPUT_NODE_META, INFLUENCE_NODE_META, UTILITY_NODE_META, CONTROL_NODE_META,
+  CONCEPTLAB_NODE_TYPES, CONCEPTLAB_NODE_META,
 } from './nodes/nodeRegistry';
 import './ContextMenu.css';
 
@@ -100,6 +101,31 @@ function buildCategories(): SubCategory[] {
         label: CONTROL_NODE_META[t].label,
         color: CONTROL_NODE_META[t].color,
       })),
+    },
+    {
+      label: 'Concept Lab',
+      items: CONCEPTLAB_NODE_TYPES.map((t) => ({
+        id: t,
+        label: CONCEPTLAB_NODE_META[t].label,
+        color: CONCEPTLAB_NODE_META[t].color,
+      })),
+    },
+    {
+      label: 'UI Elements',
+      items: [
+        { id: 'uiButton', label: 'Button', color: '#5c6bc0' },
+        { id: 'uiTextBox', label: 'Text Box', color: '#66bb6a' },
+        { id: 'uiDropdown', label: 'Dropdown', color: '#ffa726' },
+        { id: 'uiImage', label: 'Image', color: '#ab47bc' },
+        { id: 'uiGeneric', label: 'Node', color: '#607d8b' },
+      ],
+    },
+    {
+      label: 'Containers',
+      items: [
+        { id: 'uiWindow', label: 'Window', color: '#26a69a' },
+        { id: 'uiFrame', label: 'Frame', color: '#78909c' },
+      ],
     },
   ];
 }

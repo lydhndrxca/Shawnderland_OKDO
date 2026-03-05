@@ -2,7 +2,7 @@
    Tool-Editor shared types
    ──────────────────────────────────────── */
 
-export type TENodeKind = 'generic' | 'window' | 'frame';
+export type TENodeKind = 'generic' | 'window' | 'frame' | 'button' | 'textbox' | 'dropdown' | 'image';
 
 export interface TEPort {
   id: string;
@@ -51,7 +51,50 @@ export type TEFrameData = {
   [key: string]: unknown;
 };
 
-export type TENodeData = TEGenericData | TEWindowData | TEFrameData;
+export type TEButtonData = {
+  kind: 'button';
+  label: string;
+  description: string;
+  width: number;
+  height: number;
+  color: string;
+  [key: string]: unknown;
+};
+
+export type TETextBoxData = {
+  kind: 'textbox';
+  label: string;
+  description: string;
+  placeholder: string;
+  width: number;
+  height: number;
+  color: string;
+  [key: string]: unknown;
+};
+
+export type TEDropdownData = {
+  kind: 'dropdown';
+  label: string;
+  description: string;
+  options: string[];
+  width: number;
+  height: number;
+  color: string;
+  [key: string]: unknown;
+};
+
+export type TEImageData = {
+  kind: 'image';
+  label: string;
+  description: string;
+  alt: string;
+  width: number;
+  height: number;
+  color: string;
+  [key: string]: unknown;
+};
+
+export type TENodeData = TEGenericData | TEWindowData | TEFrameData | TEButtonData | TETextBoxData | TEDropdownData | TEImageData;
 
 export interface TEEdgeExport {
   id: string;
@@ -59,6 +102,7 @@ export interface TEEdgeExport {
   sourceHandle: string | null;
   target: string;
   targetHandle: string | null;
+  label?: string;
 }
 
 export interface TENodeExport {
@@ -72,6 +116,9 @@ export interface TENodeExport {
   inputs?: TEPort[];
   outputs?: TEPort[];
   dropdowns?: TEDropdown[];
+  placeholder?: string;
+  options?: string[];
+  alt?: string;
 }
 
 export interface TEExport {

@@ -34,7 +34,15 @@ export function buildCommitPrompt(inputs: CommitInputs): string {
   prompt += `Plan Week 1: ${inputs.expansion.planWeek1}\n\n`;
   prompt += `## Normalize Context\n`;
   prompt += `Summary: ${inputs.effectiveNormalize.seedSummary}\n`;
-  prompt += `Assumptions: ${inputs.effectiveNormalize.assumptions.map((a) => `${a.key}=${a.value}${a.userOverride ? ' [OVERRIDE]' : ''}`).join('; ')}\n\n`;
+  prompt += `Assumptions: ${inputs.effectiveNormalize.assumptions.map((a) => `${a.key}=${a.value}${a.userOverride ? ' [OVERRIDE]' : ''}`).join('; ')}\n`;
+  const answered = inputs.effectiveNormalize.questionAnswers?.filter((qa) => qa.answer?.trim());
+  if (answered && answered.length > 0) {
+    prompt += '\nUser Clarifications:\n';
+    for (const qa of answered) {
+      prompt += `Q: ${qa.question} → A: ${qa.answer}\n`;
+    }
+  }
+  prompt += '\n';
 
   if (inputs.userInputs.length > 0) {
     prompt += `## User Constraints\n`;

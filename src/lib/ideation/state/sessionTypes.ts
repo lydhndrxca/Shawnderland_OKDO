@@ -13,6 +13,7 @@ export type EventType =
   | 'STAGE_RUN'
   | 'NORMALIZE_EDIT_SUMMARY'
   | 'NORMALIZE_EDIT_ASSUMPTIONS'
+  | 'NORMALIZE_ANSWER_QUESTION'
   | 'DIVERGE_PIN'
   | 'DIVERGE_UNPIN'
   | 'DIVERGE_REGEN_UNPINNED'
@@ -52,6 +53,7 @@ export interface SessionSettings {
   proxyCultureMode: boolean;
   providerMode: 'mock' | 'real';
   thinkingTier: ThinkingTier;
+  strictAdherence: boolean;
 }
 
 export const DEFAULT_SETTINGS: SessionSettings = {
@@ -59,6 +61,7 @@ export const DEFAULT_SETTINGS: SessionSettings = {
   proxyCultureMode: false,
   providerMode: 'real',
   thinkingTier: 'standard',
+  strictAdherence: false,
 };
 
 export interface SessionEvent {

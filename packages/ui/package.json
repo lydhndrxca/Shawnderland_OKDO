@@ -6,7 +6,6 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./base.css": "./src/base.css",
     "./tokens.css": "./src/tokens.css",
     "./canvas": "./src/canvas/index.ts",
     "./canvas/BaseNode.css": "./src/canvas/BaseNode.css",

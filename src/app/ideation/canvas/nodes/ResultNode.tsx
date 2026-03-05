@@ -3,14 +3,19 @@
 import { memo, useState, useCallback } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
+import { Play } from 'lucide-react';
 import { NODE_META } from './nodeRegistry';
 import type { StageId } from '@/lib/ideation/engine/stages';
+import { useSession } from '@/lib/ideation/context/SessionContext';
+import { deriveEffectiveNormalize } from '@/lib/ideation/engine/normalize';
 import './ResultNode.css';
 
 interface ResultEntry {
   tldr: string;
   fullText: string;
   detail: Record<string, unknown> | string;
+  isQuestion?: boolean;
+  questionIndex?: number;
 }
 
 function truncateWords(text: string, maxWords: number): string {
@@ -39,11 +44,13 @@ function parseResultEntries(outputData: unknown, sourceStage?: StageId): ResultE
         detail: a,
       });
     }
-    for (const q of questions) {
+    for (let qi = 0; qi < questions.length; qi++) {
       entries.push({
-        tldr: truncateWords(q, 10),
-        fullText: q,
-        detail: { question: q },
+        tldr: truncateWords(questions[qi], 10),
+        fullText: questions[qi],
+        detail: { question: questions[qi] },
+        isQuestion: true,
+        questionIndex: qi,
       });
     }
     return entries;
@@ -191,11 +198,87 @@ function renderDetail(detail: string | Record<string, unknown>): React.ReactNode
   return renderValue(detail);
 }
 
+function QuestionAnswerInput({ questionIndex, questionText }: { questionIndex: number; questionText: string }) {
+  const { session, answerNormalizeQuestion } = useSession();
+  const effective = deriveEffectiveNormalize(session);
+  const existing = effective?.questionAnswers?.[questionIndex]?.answer ?? '';
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState(existing);
+
+  const handleOpen = useCallback(() => {
+    setDraft(existing);
+    setIsEditing(true);
+  }, [existing]);
+
+  const handleSave = useCallback(() => {
+    answerNormalizeQuestion(questionIndex, draft);
+    setIsEditing(false);
+  }, [answerNormalizeQuestion, questionIndex, draft]);
+
+  const handleCancel = useCallback(() => {
+    setIsEditing(false);
+    setDraft(existing);
+  }, [existing]);
+
+  const handleClear = useCallback(() => {
+    answerNormalizeQuestion(questionIndex, '');
+    setDraft('');
+    setIsEditing(false);
+  }, [answerNormalizeQuestion, questionIndex]);
+
+  if (isEditing) {
+    return (
+      <div className="result-q-input-wrap nodrag nowheel">
+        <div className="result-q-full-question">{questionText}</div>
+        <textarea
+          className="result-q-input"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Type your answer..."
+          rows={3}
+          autoFocus
+        />
+        <div className="result-q-actions">
+          <button className="result-q-save" onClick={handleSave} disabled={!draft.trim()}>Save</button>
+          <button className="result-q-cancel" onClick={handleCancel}>Cancel</button>
+          {existing && <button className="result-q-clear" onClick={handleClear}>Clear</button>}
+        </div>
+      </div>
+    );
+  }
+
+  if (existing) {
+    return (
+      <div className="result-q-answered nodrag nowheel">
+        <div className="result-q-full-question">{questionText}</div>
+        <div className="result-q-answer-display">
+          <span className="result-q-answer-badge">Your answer:</span>
+          <span className="result-q-answer-text">{existing}</span>
+        </div>
+        <div className="result-q-actions">
+          <button className="result-q-edit" onClick={handleOpen}>Edit</button>
+          <button className="result-q-clear" onClick={handleClear}>Clear</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="result-q-unanswered nodrag nowheel">
+      <div className="result-q-full-question">{questionText}</div>
+      <button className="result-q-answer-btn" onClick={handleOpen}>Answer this question</button>
+    </div>
+  );
+}
+
 export default memo(function ResultNode({ data }: NodeProps) {
   const d = data as Record<string, unknown>;
   const sourceStage = d.sourceStage as StageId | undefined;
   const outputData = d.outputData as unknown;
   const meta = sourceStage ? NODE_META[sourceStage] : undefined;
+  const { pipelineMode, awaitingInputNodeId, continueAutomatedRun } = useSession();
+  const isAwaitingInput = pipelineMode === 'automated' && sourceStage === awaitingInputNodeId;
 
   const label = meta ? `${meta.label} Results` : 'Results';
   const color = meta?.color ?? '#80cbc4';
@@ -251,7 +334,7 @@ export default memo(function ResultNode({ data }: NodeProps) {
             return (
               <div
                 key={idx}
-                className={`result-entry ${isExpanded ? 'result-entry-open' : ''} ${isHighlighted ? 'result-entry-highlighted' : ''}`}
+                className={`result-entry ${isExpanded ? 'result-entry-open' : ''} ${isHighlighted ? 'result-entry-highlighted' : ''} ${entry.isQuestion ? 'result-entry-question' : ''}`}
               >
                 <div
                   className="result-entry-row"
@@ -260,6 +343,9 @@ export default memo(function ResultNode({ data }: NodeProps) {
                   onClick={() => setExpandedIdx(isExpanded ? null : idx)}
                 >
                   <span className="result-entry-chevron">{isExpanded ? '\u25BE' : '\u25B8'}</span>
+                  {entry.isQuestion && (
+                    <span className="result-entry-q-badge">Q</span>
+                  )}
                   <span className="result-entry-tldr">{entry.tldr}</span>
                   <div className="result-entry-actions" onClick={(e) => e.stopPropagation()}>
                     <button
@@ -280,7 +366,14 @@ export default memo(function ResultNode({ data }: NodeProps) {
                 </div>
                 {isExpanded && (
                   <div className="result-entry-detail">
-                    {renderDetail(entry.detail)}
+                    {entry.isQuestion && entry.questionIndex !== undefined ? (
+                      <QuestionAnswerInput
+                        questionIndex={entry.questionIndex}
+                        questionText={entry.fullText}
+                      />
+                    ) : (
+                      renderDetail(entry.detail)
+                    )}
                   </div>
                 )}
               </div>
@@ -295,6 +388,17 @@ export default memo(function ResultNode({ data }: NodeProps) {
         className="base-handle source-handle"
         style={{ background: color }}
       />
+
+      {isAwaitingInput && (
+        <button
+          className="result-node-continue nodrag"
+          onClick={(e) => { e.stopPropagation(); continueAutomatedRun(); }}
+          title="Continue automated pipeline"
+        >
+          <Play size={12} fill="currentColor" />
+          <span>Continue</span>
+        </button>
+      )}
     </div>
   );
 });

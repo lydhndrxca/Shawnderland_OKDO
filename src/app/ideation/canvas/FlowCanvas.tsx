@@ -40,46 +40,66 @@ import StartNode from './nodes/StartNode';
 import GroupNode from './nodes/GroupNode';
 import PackedPipelineNode from './nodes/PackedPipelineNode';
 import ResultNode from './nodes/ResultNode';
+import CharacterNode from './nodes/CharacterNode';
+import WeaponNode from './nodes/WeaponNode';
+import TurnaroundNode from './nodes/TurnaroundNode';
 import PipelineEdge from './edges/PipelineEdge';
 import ToolDock from './ToolDock';
 import ContextMenu from './ContextMenu';
 import DemoOverlay from './DemoOverlay';
 import GuidedRunOverlay from './GuidedRunOverlay';
 import { useFlowSession } from './useFlowSession';
-import { NODE_META, OUTPUT_NODE_META, INPUT_NODE_META, INFLUENCE_NODE_META, UTILITY_NODE_META, CONTROL_NODE_META, RESULT_NODE_META, GROUP_NODE_META, PACKED_PIPELINE_NODE_META, isValidConnection } from './nodes/nodeRegistry';
+import { isValidConnection } from './nodes/nodeRegistry';
 import { useSession } from '@/lib/ideation/context/SessionContext';
 import { getStageOutput } from '@/lib/ideation/state/sessionSelectors';
 import type { StageId } from '@/lib/ideation/engine/stages';
+import { CompatProvider } from './compat/CompatContext';
+import { withCompatCheck } from './compat/withCompatCheck';
+import { useNodeCompatibility } from './hooks/useNodeCompatibility';
+import { UIButtonNode, UITextBoxNode, UIDropdownNode, UIImageNode, UIWindowNode, UIFrameNode, UIGenericNode } from '@/components/nodes/ui';
+import { applyResizeToAll } from '@/components/nodes/withNodeResize';
 
 import './FlowCanvas.css';
 
-const nodeTypes: NodeTypes = {
-  seed: SeedNode,
-  normalize: NormalizeNode,
-  diverge: DivergeNode,
-  'critique-salvage': CritiqueNode,
-  expand: ExpandNode,
-  converge: ConvergeNode,
-  commit: CommitNode,
-  iterate: IterateNode,
-  textOutput: TextOutputNode,
-  imageOutput: ImageOutputNode,
-  videoOutput: VideoOutputNode,
-  count: CountNode,
-  imageReference: ImageReferenceNode,
-  extractData: ExtractDataNode,
-  emotion: EmotionNode,
-  influence: InfluenceNode,
-  textInfluence: TextInfluenceNode,
-  documentInfluence: DocumentInfluenceNode,
-  imageInfluence: ImageInfluenceNode,
-  linkInfluence: LinkInfluenceNode,
-  videoInfluence: VideoInfluenceNode,
-  start: StartNode,
+const rawNodeTypes: NodeTypes = {
+  seed: withCompatCheck(SeedNode),
+  normalize: withCompatCheck(NormalizeNode),
+  diverge: withCompatCheck(DivergeNode),
+  'critique-salvage': withCompatCheck(CritiqueNode),
+  expand: withCompatCheck(ExpandNode),
+  converge: withCompatCheck(ConvergeNode),
+  commit: withCompatCheck(CommitNode),
+  iterate: withCompatCheck(IterateNode),
+  textOutput: withCompatCheck(TextOutputNode),
+  imageOutput: withCompatCheck(ImageOutputNode),
+  videoOutput: withCompatCheck(VideoOutputNode),
+  count: withCompatCheck(CountNode),
+  imageReference: withCompatCheck(ImageReferenceNode),
+  extractData: withCompatCheck(ExtractDataNode),
+  emotion: withCompatCheck(EmotionNode),
+  influence: withCompatCheck(InfluenceNode),
+  textInfluence: withCompatCheck(TextInfluenceNode),
+  documentInfluence: withCompatCheck(DocumentInfluenceNode),
+  imageInfluence: withCompatCheck(ImageInfluenceNode),
+  linkInfluence: withCompatCheck(LinkInfluenceNode),
+  videoInfluence: withCompatCheck(VideoInfluenceNode),
+  start: withCompatCheck(StartNode),
   group: GroupNode,
-  packedPipeline: PackedPipelineNode,
-  resultNode: ResultNode,
+  packedPipeline: withCompatCheck(PackedPipelineNode),
+  resultNode: withCompatCheck(ResultNode),
+  character: withCompatCheck(CharacterNode),
+  weapon: withCompatCheck(WeaponNode),
+  turnaround: withCompatCheck(TurnaroundNode),
+  uiButton: UIButtonNode,
+  uiTextBox: UITextBoxNode,
+  uiDropdown: UIDropdownNode,
+  uiImage: UIImageNode,
+  uiWindow: UIWindowNode,
+  uiFrame: UIFrameNode,
+  uiGeneric: UIGenericNode,
 };
+
+const nodeTypes: NodeTypes = applyResizeToAll(rawNodeTypes);
 
 const edgeTypes: EdgeTypes = {
   pipeline: PipelineEdge,
@@ -89,7 +109,7 @@ const SNAP_DISTANCE_X = 40;
 const SNAP_DISTANCE_Y = 60;
 
 function FlowCanvasInner() {
-  const { session, createBranch, runStage, recordExport, setProjectName, saveFlowState, guidedRunState } = useSession();
+  const { session, createBranch, runStage, recordExport, setProjectName, saveFlowState, guidedRunState, awaitingInputNodeId } = useSession();
   const flow = useFlowSession();
   const reactFlowInstance = useReactFlow();
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -111,6 +131,23 @@ function FlowCanvasInner() {
 
   const [cutLine, setCutLine] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const cutStartRef = useRef<{ x: number; y: number } | null>(null);
+  const prevAwaitingRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (awaitingInputNodeId && awaitingInputNodeId !== prevAwaitingRef.current) {
+      const targetId = awaitingInputNodeId.startsWith('result-') ? awaitingInputNodeId : awaitingInputNodeId;
+      const node = flow.nodes.find((n) => n.id === targetId);
+      if (node) {
+        reactFlowInstance.setCenter(node.position.x + 120, node.position.y + 100, { zoom: 1, duration: 400 });
+      } else {
+        const resultNode = flow.nodes.find((n) => n.id === `result-${awaitingInputNodeId}`);
+        if (resultNode) {
+          reactFlowInstance.setCenter(resultNode.position.x + 120, resultNode.position.y + 100, { zoom: 1, duration: 400 });
+        }
+      }
+    }
+    prevAwaitingRef.current = awaitingInputNodeId;
+  }, [awaitingInputNodeId, flow.nodes, reactFlowInstance]);
 
   const isInputElement = useCallback((el: EventTarget | null): boolean => {
     if (!el || !(el instanceof HTMLElement)) return false;
@@ -580,7 +617,10 @@ function FlowCanvasInner() {
     });
   }, [flow.edges]);
 
+  const compatErrors = useNodeCompatibility(flow.nodes, dedupedEdges);
+
   return (
+    <CompatProvider errors={compatErrors}>
     <div
       className="flow-canvas"
       ref={canvasRef}
@@ -754,6 +794,7 @@ function FlowCanvasInner() {
         </div>
       )}
     </div>
+    </CompatProvider>
   );
 }
 

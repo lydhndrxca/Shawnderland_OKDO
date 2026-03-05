@@ -1,53 +1,73 @@
 # HEALTH REPORT — Shawnderland OKDO
 
-**Audited:** 2026-03-05
-**Overall Health:** GREEN (Yellow triggers present, no Red triggers)
+**Date:** 2026-03-05
+**Grade:** GREEN
 
-## Red Triggers — None
+---
+
+## RED TRIGGERS
 
 | Check | Status |
 |-------|--------|
-| Secrets in source | PASS — API keys use `process.env`, no hardcoded credentials |
-| Run entrypoint | PASS — `run.bat` exists, bootstraps deps, starts dev server |
-| Parallel systems | PASS — single router, documented state patterns, one design system |
-| Output dirs tracked | PASS — `.gitignore` covers node_modules, .next, dist, .repo_snapshot |
+| Secrets in source | PASS |
+| Run entrypoint | PASS |
+| Parallel systems | PASS |
+| Output dirs tracked | PASS |
 
-## Yellow Triggers
+---
 
-| Check | Status | Action |
-|-------|--------|--------|
-| Doc drift | FIXED — all governance docs updated this session |
-| Missing README.md | YELLOW — no root README; PROJECT.md fills the role | Consider adding a README that points to PROJECT.md |
-| DECISIONS gaps | YELLOW — dagre, zod, lucide-react, tailwindcss not recorded | Add entries for utility deps if they represent architectural choices |
-| Large files | YELLOW — `stages.css` ~1,495 lines (~100 KB boundary) | Monitor; split if it grows further |
-| Build artifacts | FIXED — added `*.tsbuildinfo` to `.gitignore` |
-| Portability | PASS — `run.bat` bootstraps everything, all deps in package.json |
+## YELLOW TRIGGERS
 
-## Metrics
+| Check | Status | Notes |
+|-------|--------|-------|
+| Doc drift | PASS | All 6 governance docs synced this session. |
+| README accuracy | PASS | PROJECT.md updated to reflect current state. |
+| DECISIONS coverage | PASS | ADRs 012–015 added (dual-backend, ConceptLab, compat, Imagen 4). |
+| Large files | NOTE | 3 files >900 lines (SessionContext, orchestrator, DimensionPlanner). Tracked in TASKS.md for future refactoring. |
+| Gitignore completeness | PASS | Covers node_modules, dist, .next, .env, .cursor caches. |
+| Portability | PASS | `.env.example` created with all required/optional vars. |
+
+---
+
+## FIXES APPLIED THIS SESSION
+
+| Issue | Fix |
+|-------|-----|
+| Unused imports in FlowCanvas.tsx (9 registry exports) | Removed — only `isValidConnection` retained |
+| Unused `useReactFlow` import in useNodeCompatibility.ts | Removed |
+| SessionContext.tsx direct env access | Replaced with `getApiKey()` from apiConfig.ts |
+| Debug console.log in SessionContext.tsx | Removed |
+| Duplicate `ApiBackend` type in modelCatalog.ts | Now imports from apiConfig.ts |
+| Missing `"use client"` in 3 hook files | Added to useNodeCompatibility, useFlowSession, useToolEditorStore |
+| Orphaned base.css export in packages/ui | Removed from package.json exports |
+| Missing .env.example | Created with all env var documentation |
+| PROJECT.md drifted | Fully updated |
+| SPEC.md drifted | Fully rewritten with ConceptLab, dual-backend, compat system |
+| ARCHITECTURE.md drifted | Fully rewritten with new files, correct temps, ConceptLab |
+| DECISIONS.md drifted | Added ADRs 012–015 |
+| TASKS.md drifted | Moved completed items, refreshed Now/Next/Later |
+| withCompatCheck HOC type mismatch | Fixed generic constraint for React Flow compatibility |
+
+---
+
+## METRICS
 
 | Metric | Value |
 |--------|-------|
-| Total source files | ~206 |
-| Approximate total lines | ~28,000–32,000 |
-| Largest file | `src/app/ideation/stages/stages.css` (~1,495 lines) |
-| Large files (>500 lines) | SessionContext.tsx (953), orchestrator.ts (937), DimensionPlanner.tsx (937), FlowCanvas.tsx (766), useFlowSession.ts (689), ToolDock.css (683), ToolDock.tsx (654) |
+| TypeScript files (.ts/.tsx) | 173 |
+| CSS files | 54 |
+| Test files | 0 |
+| Build status | Clean (tsc --noEmit passes) |
+| Lint status | Clean |
+| TODO/FIXME/HACK comments | 0 |
+| TypeScript `any` usage | 0 (excl. necessary HOC cast) |
 
-## Governance Status
+---
 
-| Document | Status |
-|----------|--------|
-| AGENT_RULES.md | Current — includes mode system |
-| governance.mdc | Current — 3-tier mode system added |
-| PROJECT.md | Current — all tools listed with status |
-| SPEC.md | Current — ShawnderMind + Tool Editor fully specified |
-| ARCHITECTURE.md | Current — full directory tree, state patterns, provider config |
-| DECISIONS.md | Current — D-001 through D-010 |
-| TASKS.md | Current — completed items checked, Now/Next/Later updated |
+## REMAINING ITEMS (non-blocking)
 
-## Recommendations
-
-1. Add a root `README.md` with quick-start instructions (or rename PROJECT.md).
-2. Add DECISIONS entries for utility dependencies if they become architecturally
-   significant (dagre for layout, zod for validation, etc.).
-3. Monitor `stages.css` size; consider splitting by stage if it exceeds 2,000 lines.
-4. Run health audits periodically (after each major feature or monthly).
+| Item | Severity | Tracked |
+|------|----------|---------|
+| 3 files >900 lines | Low | TASKS.md Later |
+| Duplicate flowLayout.ts | Low | TASKS.md Next |
+| 0 test files | Low | TASKS.md Later |

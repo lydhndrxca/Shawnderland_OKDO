@@ -23,6 +23,28 @@ The hub proxies API calls and hosts native React UI for each tool.
 Walter Storyboarding is Electron-only (desktop launcher page in hub).
 Hub-native tools (Tool Editor) live entirely inside this repo.
 
+## Dual-Backend API
+
+All Google AI calls route through a centralized `apiConfig.ts` module
+that automatically selects AI Studio or Vertex AI based on environment
+variables. This provides:
+
+- Uniform URL building for generateContent, predict, predictLongRunning
+- Operation polling URLs for long-running tasks (Veo)
+- Security allowlist updates for both host patterns
+- Backend indicator in the UI (TurnaroundNode shows "Studio" or "Vertex")
+
+## Node Compatibility Validation
+
+A real-time validation system checks all node connections and surfaces
+error/warning banners directly below nodes:
+
+- Validates source/target capability matching (image, text, multimodal)
+- Flags Imagen models receiving image inputs (text-to-image only)
+- Warns when text-only sources feed image-requiring nodes
+- Suggests Extract Data node when image→text conversion is needed
+- Uses a HOC wrapper so no individual node files need modification
+
 ## ShawnderMind — Ideation Canvas
 
 ### Pipeline
@@ -34,7 +56,7 @@ its own prompt logic executed via the Gemini provider.
 ### Modes
 
 - **Interactive** (default): user steps through stages one at a time.
-- **Hands-Free**: auto-runs the full pipeline from the idea seed, spawning
+- **Automated**: auto-runs the full pipeline from the idea seed, spawning
   a PackedPipelineNode that displays progress as a single collapsed node.
 
 ### PackedPipelineNode
@@ -81,78 +103,95 @@ All influence inputs are resolved and merged into a structured
 `[INFLUENCE DIRECTIVES]` block that is appended to every stage prompt,
 instructing the AI to synthesize them holistically.
 
+### Session Persistence
+
+Sessions can be saved with names and reopened later. Flow state (nodes,
+edges, viewport, node data) is stored in localStorage.
+
 ### Canvas UI
 
 - ToolDock (left panel) with categorized node templates: Pipeline, Inputs,
-  Modifiers, Outputs, Control
+  Modifiers, Outputs, Control, Concept Lab — with search filter
 - Lock/Unlock icon for dock pinning (defaults to locked)
 - Context menu (right-click) with categories mirroring ToolDock
 - Node inspector, status bar, guided-run overlay, demo overlay
 - Custom edge styling (PipelineEdge)
+- Undo/redo, cut edges, snap-to-connect
+
+## AI ConceptLab — Character & Weapon Design
+
+ConceptLab nodes live on the same unified canvas as ShawnderMind nodes.
+All nodes are searchable and categorized in the ToolDock.
+
+### Character Node
+
+Hybrid node with a main body (name, description, generate button) and a
+collapsible side panel containing:
+
+- Identity section: age, race, gender, build dropdowns
+- 14 attribute categories (headwear, outerwear, top, legwear, footwear,
+  gloves, facegear, utility rig, back carry, hand prop, accessories,
+  color accents, detailing, pose) — each with common/rare options and
+  custom text input
+- Randomize All and Extract Attributes (from generated image) buttons
+
+Uses Imagen 4 for primary generation, Gemini Flash for text extraction.
+
+### Weapon Node
+
+Hybrid node with main body and collapsible side panel containing:
+
+- 8 component fields (receiver, barrel, handguard, stock, magazine,
+  muzzle, optic, underbarrel)
+- Material finish and condition dropdowns
+- Extract from Image functionality
+
+Uses Imagen 4 for primary generation, Gemini Flash for text tasks.
+
+### Turnaround Node
+
+Takes a reference image from a connected Character or Weapon node and
+generates multi-view sheets (front, back, side, 3/4, top, bottom).
+
+- Model selector: Gemini 3 Pro (higher fidelity) or Gemini Flash Image (faster)
+- Backend indicator shows AI Studio or Vertex AI
+- Dynamic view tabs based on source node type
 
 ## Tool Editor
 
 ### Purpose
 
-A visual meta-tool for designing other tools. Users drag in nodes, windows,
-and frames, customize their properties, connect them, and export an
-AI-readable JSON spec that can be fed back to Cursor for implementation.
+A visual meta-tool for designing other tools. Users drag in elements,
+customize their properties, connect them, and export an AI-readable
+JSON spec that can be fed back to Cursor for implementation.
 
 ### Element Types
 
-- **Generic Node** — customizable inputs, outputs, and dropdown selectors.
-  Configurable label, description, dimensions, color, port sides.
-- **Window Node** — panel/viewport representation (3D viewer, display).
-  Has a mock title bar and checkerboard viewport. Inputs and outputs.
-- **Frame Node** — dashed-border layout frame for arranging UI sections.
-  No handles, purely structural.
+- **Generic Node** — customizable inputs, outputs, and dropdown selectors
+- **Window Node** — panel/viewport representation with mock title bar
+- **Frame Node** — dashed-border layout frame (no handles)
+- **Button** — clickable button element
+- **Text Box** — text input element
+- **Dropdown Menu** — standalone dropdown selector
 
 ### Features
 
 - Drag-and-drop from EditorToolDock onto canvas
+- Edge-based resizing on all elements (grab edges to resize)
 - Grid snapping with configurable grid size (5px–100px)
-- Property panel for editing selected node: label, description, width,
-  height, color, inputs (add/remove/rename/side), outputs, dropdowns
-  (add/remove options)
+- Property panel for editing selected element
 - Export dialog: Export All or Export Selected
-- JSON export includes: version, grid size, node positions, dimensions,
-  colors, labels, descriptions, ports with side info, dropdown options,
-  edge connections
-- Copy to clipboard or download as file
-
-### Export Format
-
-```json
-{
-  "version": 1,
-  "exportedAt": "ISO timestamp",
-  "gridSize": 20,
-  "nodes": [
-    {
-      "id": "...",
-      "kind": "generic | window | frame",
-      "label": "...",
-      "description": "...",
-      "position": { "x": 0, "y": 0 },
-      "dimensions": { "width": 200, "height": 120 },
-      "color": "#607d8b",
-      "inputs": [{ "id": "...", "label": "...", "side": "left" }],
-      "outputs": [{ "id": "...", "label": "...", "side": "right" }],
-      "dropdowns": [{ "id": "...", "label": "...", "options": ["A", "B"] }]
-    }
-  ],
-  "edges": [
-    { "id": "...", "source": "...", "sourceHandle": "...", "target": "...", "targetHandle": "..." }
-  ]
-}
-```
+- Save layouts to localStorage with named saves
+- Import layouts via file upload or paste JSON
+- Undo/Redo (Ctrl+Z/Y), Duplicate (Ctrl+D)
+- Alignment tools (left/right/top/bottom/center, distribute H/V)
+- Labels on connections (editable, included in export)
+- Zoom-to-fit button
+- Image placeholder node
 
 ## Pending
 
 - Sprite Lab sub-tool navigation and workspace pages
-- ConceptLab workspace with workspace selector and generation UI
 - Walter web integration (extract timeline/storyboard from Electron)
 - Cross-tool data flow wiring on the hub canvas
-- Shared Gemini API key management across tools
 - Production build and deployment configuration
-- Tool Editor: import/load previously exported specs, undo/redo

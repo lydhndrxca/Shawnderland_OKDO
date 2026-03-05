@@ -1,3 +1,5 @@
+"use client";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FlowState } from '@/lib/ideation/state/sessionTypes';
 import {
@@ -255,16 +257,13 @@ export function useFlowSession(): FlowSessionState {
 
     if (newNodes.length > 0) {
       setNodes((prev) => {
-        const all = [...prev, ...newNodes];
-        const allEdges = buildInitialEdges(all);
-        const { nodes: laidNodes } = applyDagreLayout(all, allEdges);
-
-        const existingPositions = new Map(prev.map((n) => [n.id, n.position]));
-        return laidNodes.map((n) =>
-          existingPositions.has(n.id)
-            ? { ...n, position: existingPositions.get(n.id)! }
-            : n,
-        );
+        const rightmostX = prev.reduce((max, n) => Math.max(max, n.position.x), -Infinity);
+        const GAP = 380;
+        const positioned = newNodes.map((n, i) => ({
+          ...n,
+          position: { x: rightmostX + GAP * (i + 1), y: 0 },
+        }));
+        return [...prev, ...positioned];
       });
 
       setEdges((prev) => {
@@ -298,14 +297,31 @@ export function useFlowSession(): FlowSessionState {
 
     if (resultStageIds.length > 0) {
       setNodes((prev) => {
+        const GRID = 20;
+        const ESTIMATED_NODE_HEIGHT = 320;
+        const GAP_GRID_NOTCHES = 3;
+        const GAP = GAP_GRID_NOTCHES * GRID;
+
         const toAdd: Node[] = [];
+        const occupiedBottomByX = new Map<number, number>();
+        for (const n of prev) {
+          const bucketX = Math.round(n.position.x / 100) * 100;
+          const estimatedBottom = n.position.y + ESTIMATED_NODE_HEIGHT;
+          occupiedBottomByX.set(bucketX, Math.max(occupiedBottomByX.get(bucketX) ?? -Infinity, estimatedBottom));
+        }
         for (const { stageId, output } of resultStageIds) {
           const parentNode = prev.find((n) => n.id === stageId);
           const parentPos = parentNode?.position ?? { x: 0, y: 0 };
+          const bucketX = Math.round(parentPos.x / 100) * 100;
+          const parentBottom = parentPos.y + ESTIMATED_NODE_HEIGHT;
+          const lowestBottom = Math.max(occupiedBottomByX.get(bucketX) ?? parentBottom, parentBottom);
+          const rawY = lowestBottom + GAP;
+          const resultY = Math.ceil(rawY / GRID) * GRID;
+          occupiedBottomByX.set(bucketX, resultY + ESTIMATED_NODE_HEIGHT);
           toAdd.push({
             id: `result-${stageId}`,
             type: 'resultNode',
-            position: { x: parentPos.x, y: parentPos.y + 260 },
+            position: { x: parentPos.x, y: resultY },
             data: { sourceStage: stageId, outputData: output },
           });
         }
@@ -501,13 +517,13 @@ export function useFlowSession(): FlowSessionState {
         }
       }
       if (toAdd.length === 0) return prev;
-      const all = [...prev, ...toAdd];
-      const allEdges = buildInitialEdges(all);
-      const { nodes: laidNodes } = applyDagreLayout(all, allEdges);
-      const existingPositions = new Map(prev.map((n) => [n.id, n.position]));
-      return laidNodes.map((n) =>
-        existingPositions.has(n.id) ? { ...n, position: existingPositions.get(n.id)! } : n,
-      );
+      const rightmostX = prev.reduce((max, n) => Math.max(max, n.position.x), -Infinity);
+      const GAP = 380;
+      const positioned = toAdd.map((n, i) => ({
+        ...n,
+        position: { x: rightmostX + GAP * (i + 1), y: 0 },
+      }));
+      return [...prev, ...positioned];
     });
 
     setEdges((prev) => {

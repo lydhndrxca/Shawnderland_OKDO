@@ -107,7 +107,8 @@ export type ControlNodeType = 'start';
 export type ResultNodeType = 'resultNode';
 export type GroupNodeType = 'group';
 export type PackedPipelineNodeType = 'packedPipeline';
-export type AnyNodeType = StageId | OutputNodeType | InputNodeType | InfluenceNodeType | UtilityNodeType | ControlNodeType | ResultNodeType | GroupNodeType | PackedPipelineNodeType;
+export type ConceptLabNodeType = 'character' | 'weapon' | 'turnaround';
+export type AnyNodeType = StageId | OutputNodeType | InputNodeType | InfluenceNodeType | UtilityNodeType | ControlNodeType | ResultNodeType | GroupNodeType | PackedPipelineNodeType | ConceptLabNodeType;
 
 export interface OutputNodeMeta {
   type: OutputNodeType;
@@ -217,7 +218,7 @@ export const CONTROL_NODE_META: Record<ControlNodeType, ControlNodeMeta> = {
     type: 'start',
     label: 'Start',
     color: '#42a5f5',
-    tooltip: 'Run controller \u2014 choose between Hands-Free (runs the whole pipeline automatically) or Interactive (guides you step-by-step, pausing for your input at each stage).',
+    tooltip: 'Run controller \u2014 choose Automated to run the full pipeline end-to-end, or Interactive for step-by-step guidance.',
   },
 };
 
@@ -298,6 +299,35 @@ export const UTILITY_NODE_TYPES: UtilityNodeType[] = ['imageReference', 'extract
 export const CONTROL_NODE_TYPES: ControlNodeType[] = ['start'];
 export const RESULT_NODE_TYPES: ResultNodeType[] = ['resultNode'];
 export const GROUP_NODE_TYPES: GroupNodeType[] = ['group'];
+export const CONCEPTLAB_NODE_TYPES: ConceptLabNodeType[] = ['character', 'weapon', 'turnaround'];
+
+export interface ConceptLabNodeMeta {
+  type: ConceptLabNodeType;
+  label: string;
+  color: string;
+  tooltip: string;
+}
+
+export const CONCEPTLAB_NODE_META: Record<ConceptLabNodeType, ConceptLabNodeMeta> = {
+  character: {
+    type: 'character',
+    label: 'Character',
+    color: '#7c4dff',
+    tooltip: 'Design a character with detailed attribute controls. Generate full-body images with AI. Expand the side panel for clothing, gear, and identity options.',
+  },
+  weapon: {
+    type: 'weapon',
+    label: 'Weapon',
+    color: '#ff6d00',
+    tooltip: 'Design a weapon with component-level controls. Generate weapon renders with AI. Expand the side panel for receiver, barrel, stock, finish, and condition.',
+  },
+  turnaround: {
+    type: 'turnaround',
+    label: 'Turnaround',
+    color: '#00bfa5',
+    tooltip: 'Generate multi-view turnaround sheets from a Character or Weapon image. Connect a source node and generate front, back, side, and 3/4 views.',
+  },
+};
 
 export function getValidTargets(sourceStage: StageId): StageId[] {
   const idx = STAGE_ORDER.indexOf(sourceStage);
@@ -319,6 +349,8 @@ export function isValidConnection(source: string, target: string): boolean {
   const sourceIsControl = CONTROL_NODE_TYPES.includes(source as ControlNodeType);
   const sourceIsPacked = source === 'packedPipeline' || (source as string).startsWith('packedPipeline');
   const targetIsPacked = target === 'packedPipeline' || (target as string).startsWith('packedPipeline');
+  const sourceIsConceptLab = CONCEPTLAB_NODE_TYPES.includes(source as ConceptLabNodeType);
+  const targetIsConceptLab = CONCEPTLAB_NODE_TYPES.includes(target as ConceptLabNodeType);
 
   if (sourceIsControl && targetIsPacked) return true;
   if (sourceIsPacked && (targetIsOutput || targetIsStage)) return true;
@@ -331,6 +363,7 @@ export function isValidConnection(source: string, target: string): boolean {
   if (sourceIsInfluence && targetIsStage) return true;
   if (sourceIsInfluence && targetIsOutput) return true;
   if (sourceIsInfluence && targetIsUtility) return true;
+  if (sourceIsInfluence && targetIsConceptLab) return true;
 
   if (sourceIsControl && targetIsStage) return true;
 
@@ -340,6 +373,12 @@ export function isValidConnection(source: string, target: string): boolean {
   if (sourceIsUtility && targetIsOutput) return true;
 
   if (sourceIsResult && (targetIsStage || targetIsOutput || targetIsUtility)) return true;
+
+  // ConceptLab connections
+  if ((source === 'character' || source === 'weapon') && target === 'turnaround') return true;
+  if (sourceIsConceptLab && targetIsOutput) return true;
+  if (sourceIsConceptLab && targetIsConceptLab && source !== target) return true;
+  if (source === 'imageReference' && targetIsConceptLab) return true;
 
   return false;
 }

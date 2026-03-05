@@ -48,7 +48,7 @@ import {
 } from '../state/sessionSelectors';
 
 const STAGE_SCHEMA_HINTS: Partial<Record<StageId, string>> = {
-  normalize: `Return JSON: { "seedSummary": "<one-paragraph structured summary of the seed idea>", "assumptions": [{ "key": "<name>", "value": "<assumption text>", "userOverride": false }], "clarifyingQuestions": ["<question1>", "<question2>", ...] }. Generate 3-5 assumptions and 2-4 clarifying questions.`,
+  normalize: `Return JSON: { "seedSummary": "<one-paragraph structured summary of the seed idea>", "assumptions": [{ "key": "<name>", "value": "<assumption text>", "userOverride": false }], "clarifyingQuestions": ["<question1>", "<question2>", ...] }. Generate 3-5 assumptions and 2-4 clarifying questions that would help refine the ideation if answered.`,
   iterate: `Return JSON: { "nextPromptSuggestions": "<markdown list of 3-5 follow-up prompt suggestions for the next iteration>" }`,
 };
 
@@ -152,6 +152,21 @@ function appendCustomInstructions(prompt: string, session: Session | undefined, 
   return prompt + '\n\n[CUSTOM INSTRUCTIONS]\n' + custom;
 }
 
+function appendStrictAdherence(prompt: string, session: Session | undefined): string {
+  if (!session?.settings?.strictAdherence) return prompt;
+  return prompt +
+    '\n\n[STRICT ADHERENCE MODE]\n' +
+    'The user has enabled Strict Adherence. You MUST interpret the seed idea and all inputs ' +
+    'EXACTLY as stated. Do NOT impose any framing, categorization, or domain that is not ' +
+    'explicitly present in the user\'s words.\n' +
+    '- Do NOT assume this is a "product", "game", "app", "business", "startup", or any other ' +
+    'category unless the user EXPLICITLY states it or it is unmistakable from context.\n' +
+    '- Do NOT invent target audiences, markets, revenue models, or use cases.\n' +
+    '- Do NOT reinterpret abstract or open-ended ideas as commercial/utilitarian concepts.\n' +
+    '- Keep all outputs tightly scoped to what the user actually wrote.\n' +
+    '- If the idea is vague, treat it as intentionally open — do not narrow it.\n';
+}
+
 function appendTierDirective(prompt: string, session: Session | undefined): string {
   const tier = session?.settings?.thinkingTier;
   if (!tier || tier === 'standard') return prompt;
@@ -183,6 +198,7 @@ function buildPrompt(
     instructions += buildInfluenceBlock(session);
   }
 
+  instructions = appendStrictAdherence(instructions, session);
   instructions = appendTierDirective(instructions, session);
   instructions = appendCustomInstructions(instructions, session, stageId);
 
@@ -220,9 +236,11 @@ async function runNormalizeStage(
   }
 
   const userInputs = getUserInputs(session);
+  const settings = getEffectiveSettings(session);
   const influenceContext = resolveInfluenceContext(session);
-  let prompt = buildNormalizePrompt(session.seedText, userInputs, session.seedContext, influenceContext);
+  let prompt = buildNormalizePrompt(session.seedText, userInputs, session.seedContext, influenceContext, settings.strictAdherence);
   prompt += buildInfluenceBlock(session);
+  prompt = appendStrictAdherence(prompt, session);
   prompt = appendTierDirective(prompt, session);
   prompt = appendCustomInstructions(prompt, session, 'normalize');
 
@@ -451,7 +469,16 @@ async function runDivergeStage(
   }
   session = guardResult.session;
 
-  const influenceBlock = buildInfluenceBlock(session);
+  let influenceBlock = buildInfluenceBlock(session);
+  if (settings.strictAdherence) {
+    influenceBlock +=
+      '\n\n[STRICT ADHERENCE MODE]\n' +
+      'The user has enabled Strict Adherence. You MUST generate candidates that stay true to ' +
+      'EXACTLY what the user stated in their seed idea. Do NOT assume this is any particular type ' +
+      'of product, game, app, or business unless the user EXPLICITLY said so. Do NOT invent ' +
+      'target audiences, markets, or commercial angles. If the idea is abstract or open-ended, ' +
+      'generate candidates that explore it on its own terms — not as a product pitch.\n';
+  }
   const { output, meta } = await assemblePipeline(
     effectiveNormalize,
     userInputs,
@@ -508,6 +535,7 @@ async function runCritiqueSalvageStage(
 
   let prompt = buildCritiquePrompt(candidates, effectiveNormalize);
   prompt += buildInfluenceBlock(session);
+  prompt = appendStrictAdherence(prompt, session);
   prompt = appendTierDirective(prompt, session);
   prompt = appendCustomInstructions(prompt, session, 'critique-salvage');
   const rawOutput = await provider.generateStructured({
@@ -579,6 +607,7 @@ async function runExpandStage(
 
     let prompt = buildExpandPrompt(candidate, effectiveNormalize, userInputs);
     prompt += expandInfluence;
+    prompt = appendStrictAdherence(prompt, session);
     prompt = appendTierDirective(prompt, session);
     prompt = appendCustomInstructions(prompt, session, 'expand');
     const rawExpansion = await provider.generateStructured({
@@ -625,6 +654,7 @@ async function runConvergeStage(
   const candidates = getEffectiveCandidatePool(session);
   let prompt = buildScorePrompt(expansions, candidates);
   prompt += buildInfluenceBlock(session);
+  prompt = appendStrictAdherence(prompt, session);
   prompt = appendTierDirective(prompt, session);
   prompt = appendCustomInstructions(prompt, session, 'converge');
 
@@ -693,6 +723,7 @@ async function runCommitStage(
     templateType,
   });
   prompt += buildInfluenceBlock(session);
+  prompt = appendStrictAdherence(prompt, session);
   prompt = appendTierDirective(prompt, session);
   prompt = appendCustomInstructions(prompt, session, 'commit');
 

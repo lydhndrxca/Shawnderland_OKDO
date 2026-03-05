@@ -1,3 +1,6 @@
+import type { ApiBackend } from '@/lib/ideation/engine/apiConfig';
+export type { ApiBackend };
+
 export interface ModelOption {
   id: string;
   modelId: string;
@@ -7,19 +10,12 @@ export interface ModelOption {
   tags: string[];
   type: 'image' | 'video' | 'text';
   endpoint: 'imagen' | 'gemini-image' | 'veo' | 'gemini-text';
+  backends?: ApiBackend[];
+  /** ISO date string used for newest-first sorting in UI selectors */
+  releaseDate?: string;
 }
 
 export const IMAGE_MODELS: ModelOption[] = [
-  {
-    id: 'imagen-3',
-    modelId: 'imagen-3.0-generate-002',
-    label: 'Imagen 3',
-    description: 'Fast, high-quality images. Best for product shots, illustrations, and realistic photos.',
-    comparison: 'Reliable workhorse — great quality at fast speed. Choose this for most image tasks.',
-    tags: ['Fast', 'Up to 4 images', 'Multiple aspect ratios'],
-    type: 'image',
-    endpoint: 'imagen',
-  },
   {
     id: 'imagen-4',
     modelId: 'imagen-4.0-generate-001',
@@ -29,6 +25,29 @@ export const IMAGE_MODELS: ModelOption[] = [
     tags: ['Latest', 'Better text', 'Enhanced detail'],
     type: 'image',
     endpoint: 'imagen',
+    releaseDate: '2025-05-01',
+  },
+  {
+    id: 'imagen-4-fast',
+    modelId: 'imagen-4.0-fast-generate-001',
+    label: 'Imagen 4 Fast',
+    description: 'Speed-optimized Imagen 4. Same quality DNA with faster turnaround.',
+    comparison: 'Fastest high-quality option. Pick this when iterating quickly on concepts.',
+    tags: ['Fast', 'Imagen 4 quality', 'Quick iteration'],
+    type: 'image',
+    endpoint: 'imagen',
+    releaseDate: '2025-05-01',
+  },
+  {
+    id: 'imagen-3',
+    modelId: 'imagen-3.0-generate-002',
+    label: 'Imagen 3',
+    description: 'Fast, high-quality images. Best for product shots, illustrations, and realistic photos.',
+    comparison: 'Reliable workhorse — great quality at fast speed. Choose this for most image tasks.',
+    tags: ['Reliable', 'Up to 4 images', 'Multiple aspect ratios'],
+    type: 'image',
+    endpoint: 'imagen',
+    releaseDate: '2024-08-01',
   },
   {
     id: 'gemini-flash-image',
@@ -39,20 +58,11 @@ export const IMAGE_MODELS: ModelOption[] = [
     tags: ['AI-reasoned', 'Text + Image', 'Conversational'],
     type: 'image',
     endpoint: 'gemini-image',
+    releaseDate: '2025-02-01',
   },
 ];
 
 export const VIDEO_MODELS: ModelOption[] = [
-  {
-    id: 'veo-2',
-    modelId: 'veo-2.0-generate-001',
-    label: 'Veo 2',
-    description: '5-8 second video clips at 720p. Good for quick concept visualization.',
-    comparison: 'Faster generation, lower resolution. Best for quick previews and iteration.',
-    tags: ['720p', '5-8 sec', 'Faster'],
-    type: 'video',
-    endpoint: 'veo',
-  },
   {
     id: 'veo-3.1',
     modelId: 'veo-3.1-generate-001',
@@ -62,6 +72,18 @@ export const VIDEO_MODELS: ModelOption[] = [
     tags: ['1080p/4K', 'Audio', 'Reference images'],
     type: 'video',
     endpoint: 'veo',
+    releaseDate: '2025-05-01',
+  },
+  {
+    id: 'veo-2',
+    modelId: 'veo-2.0-generate-001',
+    label: 'Veo 2',
+    description: '5-8 second video clips at 720p. Good for quick concept visualization.',
+    comparison: 'Faster generation, lower resolution. Best for quick previews and iteration.',
+    tags: ['720p', '5-8 sec', 'Faster'],
+    type: 'video',
+    endpoint: 'veo',
+    releaseDate: '2024-12-01',
   },
 ];
 
@@ -75,10 +97,47 @@ export const TEXT_MODELS: ModelOption[] = [
     tags: ['Fast', 'Pipeline default', 'JSON mode'],
     type: 'text',
     endpoint: 'gemini-text',
+    releaseDate: '2025-02-01',
   },
 ];
 
-export const ALL_MODELS = [...IMAGE_MODELS, ...VIDEO_MODELS, ...TEXT_MODELS];
+export const CONCEPTLAB_MODELS: ModelOption[] = [
+  {
+    id: 'gemini-3-pro-image',
+    modelId: 'gemini-3-pro-image-preview',
+    label: 'Gemini 3 Pro Image',
+    description: 'Pro-quality reference-based generation. Best fidelity for turnaround views and character/weapon edits.',
+    comparison: 'Higher quality than Flash — best for final renders and multi-view sheets. Slower.',
+    tags: ['Pro quality', 'Reference-based', 'Multi-view'],
+    type: 'image',
+    endpoint: 'gemini-image',
+    backends: ['ai-studio', 'vertex'],
+    releaseDate: '2025-06-01',
+  },
+  {
+    id: 'gemini-flash-image-gen',
+    modelId: 'gemini-2.0-flash-preview-image-generation',
+    label: 'Gemini Flash Image',
+    description: 'Flash-speed reference-based generation. Good for fast iteration and previews.',
+    comparison: 'Faster than Pro — great for quick previews while iterating on designs.',
+    tags: ['Fast', 'Reference-based', 'Preview'],
+    type: 'image',
+    endpoint: 'gemini-image',
+    backends: ['ai-studio', 'vertex'],
+    releaseDate: '2025-03-01',
+  },
+];
+
+/** All image models sorted newest-first for Gemini Studio selectors */
+export const ALL_IMAGE_MODELS_SORTED: ModelOption[] = [
+  ...IMAGE_MODELS,
+  ...CONCEPTLAB_MODELS.filter((m) => m.type === 'image'),
+].sort((a, b) => (b.releaseDate ?? '').localeCompare(a.releaseDate ?? ''));
+
+/** All video models sorted newest-first */
+export const ALL_VIDEO_MODELS_SORTED: ModelOption[] = [...VIDEO_MODELS];
+
+export const ALL_MODELS = [...IMAGE_MODELS, ...VIDEO_MODELS, ...TEXT_MODELS, ...CONCEPTLAB_MODELS];
 
 export const ASPECT_RATIOS = [
   { value: '1:1', label: 'Square (1:1)' },

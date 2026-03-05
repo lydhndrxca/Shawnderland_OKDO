@@ -5,6 +5,7 @@ import { Handle, Position } from '@xyflow/react';
 import { VIDEO_MODELS, ASPECT_RATIOS, type ModelOption } from './modelCatalog';
 import { recordVeoUsage } from '@/lib/ideation/engine/provider/costTracker';
 import { logGeneration, buildLineageContext, type SessionSnapshot } from '@/lib/ideation/engine/generationLog';
+import { buildModelUrl, buildOperationUrl } from '@/lib/ideation/engine/apiConfig';
 import './VideoOutputNode.css';
 
 interface VideoOutputNodeProps {
@@ -12,8 +13,6 @@ interface VideoOutputNodeProps {
   data: Record<string, unknown>;
   selected?: boolean;
 }
-
-const VEO_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 function VideoOutputNodeInner({ selected }: VideoOutputNodeProps) {
   const [model, setModel] = useState<ModelOption>(VIDEO_MODELS[0]);
@@ -34,10 +33,7 @@ function VideoOutputNodeInner({ selected }: VideoOutputNodeProps) {
     pollRef.current = true;
 
     try {
-      const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-      if (!apiKey) throw new Error('No NEXT_PUBLIC_GEMINI_API_KEY set in .env.local');
-
-      const url = `${VEO_ENDPOINT}/${model.modelId}:predictLongRunning?key=${apiKey}`;
+      const url = buildModelUrl(model.modelId, 'predictLongRunning');
       const body = {
         instances: [{ prompt: prompt.trim() }],
         parameters: { aspectRatio },
@@ -74,7 +70,7 @@ function VideoOutputNodeInner({ selected }: VideoOutputNodeProps) {
       }
 
       setPollStatus('Video generating... polling for results');
-      const pollUrl = `https://generativelanguage.googleapis.com/v1beta/${operationName}?key=${apiKey}`;
+      const pollUrl = buildOperationUrl(operationName);
       let attempts = 0;
       const maxAttempts = 60;
 

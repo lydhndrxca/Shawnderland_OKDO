@@ -1,10 +1,16 @@
 import type { Session } from '../state/sessionTypes';
 import type { NormalizeOutput } from './schemas';
 
+export interface QuestionWithAnswer {
+  question: string;
+  answer?: string;
+}
+
 export interface EffectiveNormalize {
   seedSummary: string;
   assumptions: { key: string; value: string; userOverride?: boolean }[];
   clarifyingQuestions: string[];
+  questionAnswers: QuestionWithAnswer[];
 }
 
 export function getLatestNormalizeBaseOutput(
@@ -55,9 +61,25 @@ export function deriveEffectiveNormalize(
     }
   }
 
+  const questionAnswers: QuestionWithAnswer[] = base.clarifyingQuestions.map((q) => ({
+    question: q,
+  }));
+
+  for (let i = lastRunIdx + 1; i < session.events.length; i++) {
+    const event = session.events[i];
+    if (event.type === 'NORMALIZE_ANSWER_QUESTION') {
+      const idx = event.data.questionIndex as number;
+      const answer = event.data.answer as string;
+      if (idx >= 0 && idx < questionAnswers.length && answer.trim()) {
+        questionAnswers[idx] = { ...questionAnswers[idx], answer };
+      }
+    }
+  }
+
   return {
     seedSummary,
     assumptions,
     clarifyingQuestions: base.clarifyingQuestions,
+    questionAnswers,
   };
 }

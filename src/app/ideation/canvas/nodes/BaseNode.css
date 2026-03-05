@@ -175,16 +175,21 @@
 .base-node-stat {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
   font-size: 12px;
 }
 
 .base-node-stat-label {
   color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .base-node-stat-value {
   color: var(--text-primary);
   font-weight: 600;
+  flex-shrink: 0;
+  text-align: right;
 }
 
 .multi-handle-group {
@@ -206,14 +211,17 @@
 
 .multi-handle-label {
   position: absolute;
-  right: 18px;
-  font-size: 9px;
+  right: 20px;
+  font-size: 8px;
   font-weight: 600;
   color: var(--text-muted);
   white-space: nowrap;
   text-transform: uppercase;
   letter-spacing: 0.3px;
   pointer-events: none;
+  background: var(--bg-surface);
+  padding: 1px 3px;
+  border-radius: 2px;
 }
 
 .multi-handle-row .base-handle {
@@ -244,4 +252,268 @@
 
 .seed-input::placeholder {
   color: var(--text-muted);
+}
+
+/* ── Awaiting Input (Automated Mode) ── */
+.base-node.awaiting-input {
+  border-color: #ffab40;
+  box-shadow: 0 0 20px rgba(255, 171, 64, 0.4);
+  animation: awaiting-pulse 2s ease-in-out infinite;
+}
+
+@keyframes awaiting-pulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(255, 171, 64, 0.3); }
+  50% { box-shadow: 0 0 28px rgba(255, 171, 64, 0.6); }
+}
+
+.base-node-continue {
+  position: absolute;
+  bottom: -36px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: #2e7d32;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(46, 125, 50, 0.4);
+  transition: background 0.15s, box-shadow 0.15s;
+  z-index: 10;
+}
+
+.base-node-continue:hover {
+  background: #388e3c;
+  box-shadow: 0 4px 12px rgba(46, 125, 50, 0.5);
+}
+
+/* ── Strict Adherence Toggle ── */
+.seed-strict-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.seed-strict-toggle:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+}
+
+.seed-strict-toggle.active {
+  border-color: rgba(255, 171, 64, 0.4);
+  background: rgba(255, 171, 64, 0.06);
+  color: var(--text-primary);
+}
+
+.seed-strict-icon {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.seed-strict-label {
+  flex: 1;
+  font-weight: 600;
+  text-align: left;
+}
+
+.seed-strict-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.seed-strict-badge.off {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+}
+
+.seed-strict-badge.on {
+  background: rgba(255, 171, 64, 0.2);
+  color: #ffab40;
+}
+
+/* ── Normalize Question Answers ── */
+.normalize-questions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.normalize-question {
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.normalize-question.answered {
+  border-color: rgba(105, 240, 174, 0.2);
+  background: rgba(105, 240, 174, 0.04);
+}
+
+.normalize-question.expanded {
+  border-color: rgba(108, 99, 255, 0.3);
+  background: rgba(108, 99, 255, 0.04);
+}
+
+.normalize-question-btn {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+  line-height: 1.4;
+  transition: color 0.1s;
+}
+
+.normalize-question-btn:hover {
+  color: var(--text-primary);
+}
+
+.normalize-q-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  margin-top: 1px;
+}
+
+.normalize-question:not(.answered) .normalize-q-icon {
+  background: rgba(144, 202, 249, 0.15);
+  color: #90caf9;
+}
+
+.normalize-question.answered .normalize-q-icon {
+  background: rgba(105, 240, 174, 0.2);
+  color: #69f0ae;
+}
+
+.normalize-q-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.normalize-q-answer-preview {
+  padding: 2px 8px 6px 30px;
+  font-size: 10px;
+  color: #69f0ae;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.normalize-q-clear {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 2px;
+  line-height: 1;
+  transition: color 0.1s;
+}
+
+.normalize-q-clear:hover {
+  color: var(--color-destructive);
+}
+
+.normalize-q-input-wrap {
+  padding: 4px 8px 8px 8px;
+}
+
+.normalize-q-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  min-height: 36px;
+  line-height: 1.4;
+}
+
+.normalize-q-input:focus {
+  border-color: var(--accent);
+}
+
+.normalize-q-input::placeholder {
+  color: var(--text-muted);
+}
+
+.normalize-q-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+  justify-content: flex-end;
+}
+
+.normalize-q-save,
+.normalize-q-cancel {
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  transition: background 0.1s, color 0.1s;
+}
+
+.normalize-q-save {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.normalize-q-save:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.normalize-q-save:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.normalize-q-cancel {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.normalize-q-cancel:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
 }

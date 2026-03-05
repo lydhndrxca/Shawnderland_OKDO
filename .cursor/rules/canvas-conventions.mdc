@@ -1,0 +1,110 @@
+---
+description: Unified canvas styling and behavior conventions for all React Flow canvases
+globs: src/app/**/nodes/*.tsx, src/app/**/*Shell.tsx, src/app/**/*Canvas.tsx, src/app/**/*.css
+alwaysApply: false
+---
+
+# Canvas & Node Conventions
+
+All node-based canvases (ShawnderMind, Gemini Studio, Tool Editor, and any future tools)
+MUST share the same interaction model, visual style, and design tokens.
+
+## ReactFlow Config (required on every `<ReactFlow>`)
+
+```tsx
+<ReactFlow
+  panOnDrag={[1]}
+  selectionOnDrag
+  selectionMode={SelectionMode.Partial}
+  snapToGrid
+  snapGrid={[20, 20]}
+  fitView
+  fitViewOptions={{ padding: 0.4 }}
+  minZoom={0.2}
+  colorMode="dark"
+  proOptions={{ hideAttribution: true }}
+>
+  <Background variant={BackgroundVariant.Lines} gap={20} size={1} color="rgba(255,255,255,0.06)" />
+  <Controls className="flow-controls" />
+  <MiniMap className="flow-minimap" maskColor="rgba(0,0,0,0.6)" />
+</ReactFlow>
+```
+
+## CSS Design Tokens (never hardcode hex)
+
+Use shorthand aliases from `packages/ui/src/tokens.css`:
+
+| Token                | Use for                       |
+|----------------------|-------------------------------|
+| `var(--bg-base)`     | Shell / page background       |
+| `var(--bg-surface)`  | Node body, panels, sidebars   |
+| `var(--bg-elevated)` | Input fields, cards, dropdowns|
+| `var(--border)`      | All borders                   |
+| `var(--accent)`      | Focus rings, active states    |
+| `var(--text-primary)`| Main text                     |
+| `var(--text-secondary)`| Labels, descriptions       |
+| `var(--text-muted)`  | Hints, placeholders           |
+| `var(--radius-sm)`   | Inputs, buttons (4px)         |
+| `var(--radius-lg)`   | Node outer border (12px)      |
+| `var(--shadow-node)` | Node drop shadow              |
+
+## Node Styling Pattern
+
+Every node must follow the BaseNode pattern from ShawnderMind:
+
+- **Outer**: `background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg);`
+- **Width**: `min-width: 260px; max-width: 340px;`
+- **Selection glow**: `border-color: <accent>; box-shadow: 0 0 16px <accent at 0.3 alpha>;`
+- **Header**: uppercase, 12px, 700 weight, rounded top corners
+- **Body padding**: `12px 14px`, flex column, `gap: 10px`
+- **Handles**: `width: 12px; height: 12px; border: 2px solid var(--bg-surface);`
+
+## Sidebar / ToolDock Pattern
+
+- Background: `#111114` (matches ShawnderMind ToolDock)
+- Border: `1px solid var(--border)`
+- Shadow: `box-shadow: 4px 0 16px rgba(0, 0, 0, 0.4)`
+- Section headers: `var(--text-muted)`, uppercase, 10-11px
+
+## Edge Styling
+
+All canvases must use the shared `PipelineEdge` component from `src/app/ideation/canvas/edges/PipelineEdge.tsx`:
+
+```tsx
+import PipelineEdge from '@/app/ideation/canvas/edges/PipelineEdge';
+const edgeTypes: EdgeTypes = { pipeline: PipelineEdge };
+// On <ReactFlow>:
+edgeTypes={edgeTypes}
+defaultEdgeOptions={{ type: 'pipeline' }}
+```
+
+For non-pipeline apps (Gemini Studio, Tool Editor), set `data: { isComplete: true }` on edges so they render as solid visible lines rather than dim dashed ones.
+
+## Node Header Colors
+
+Node headers must use **solid, opaque** background colors (matching the node's accent) — never semi-transparent gradients. Text on headers should be dark (`#0f0f1a`) for readability.
+
+## Shared vs App-Specific Nodes
+
+All apps should reuse the same base node components wherever possible. A node should only be app-specific if its behavior is fundamentally different in that context. Examples:
+- **StartNode** — specific to ShawnderMind (depends on pipeline orchestrator)
+- **BaseNode** — pattern to follow for all nodes across all apps
+- **PipelineEdge** — shared across all apps
+
+## ToolDock / Sidebar
+
+All canvases must use the shared `ToolDock.css` classes from `src/app/ideation/canvas/ToolDock.css`. The dock must include:
+- Tabs (Nodes + Details/Tools)
+- Search bar
+- Collapsible categories with icon, label, count, chevron
+- Lock/Unlock pin button
+- Full-height collapse strip
+
+## Do NOT
+
+- Use hardcoded hex colors for backgrounds, borders, or text — use tokens
+- Use `BackgroundVariant.Dots` — always use `Lines`
+- Omit `panOnDrag`, `selectionOnDrag`, `snapToGrid`, or `colorMode="dark"`
+- Create custom Controls/MiniMap styles — use `flow-controls` / `flow-minimap` classes
+- Use default React Flow edges — always use `PipelineEdge`
+- Use semi-transparent gradient backgrounds on node headers

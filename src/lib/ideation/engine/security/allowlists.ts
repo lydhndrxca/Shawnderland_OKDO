@@ -1,3 +1,5 @@
+import { getActiveHosts } from '../apiConfig';
+
 export const ALLOWED_STAGES = [
   'seed', 'normalize', 'diverge', 'critique-salvage',
   'expand', 'converge', 'commit', 'iterate',
@@ -5,7 +7,7 @@ export const ALLOWED_STAGES = [
 
 export const ALLOWED_PROVIDERS = ['mock', 'gemini'] as const;
 
-export const ALLOWED_PROVIDER_HOSTS = [
+const STATIC_ALLOWED_HOSTS = [
   'generativelanguage.googleapis.com',
 ] as const;
 
@@ -20,7 +22,10 @@ export function isAllowedProvider(provider: string): boolean {
 export function isAllowedProviderHost(url: string): boolean {
   try {
     const host = new URL(url).hostname;
-    return (ALLOWED_PROVIDER_HOSTS as readonly string[]).includes(host);
+    if ((STATIC_ALLOWED_HOSTS as readonly string[]).includes(host)) return true;
+    if (getActiveHosts().includes(host)) return true;
+    if (host.endsWith('-aiplatform.googleapis.com')) return true;
+    return false;
   } catch {
     return false;
   }

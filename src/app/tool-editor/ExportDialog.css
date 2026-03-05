@@ -13,14 +13,14 @@
 }
 
 .te-export-dialog {
-  background: #1a1a22;
-  border: 1px solid #333;
-  border-radius: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   width: min(680px, 90vw);
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, .6);
+  box-shadow: var(--shadow-lg);
 }
 
 .te-export-header {
@@ -28,33 +28,33 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #2a2a34;
+  border-bottom: 1px solid var(--border);
 }
 
 .te-export-header h2 {
   font-size: 16px;
   font-weight: 700;
-  color: #eee;
+  color: var(--text-primary);
   margin: 0;
 }
 
 .te-export-close {
   background: none;
   border: none;
-  color: #777;
+  color: var(--text-muted);
   cursor: pointer;
   padding: 4px;
   transition: color 0.12s;
 }
 
 .te-export-close:hover {
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .te-export-tabs {
   display: flex;
   gap: 0;
-  border-bottom: 1px solid #2a2a34;
+  border-bottom: 1px solid var(--border);
 }
 
 .te-export-tab {
@@ -62,7 +62,7 @@
   padding: 10px;
   font-size: 12px;
   font-weight: 600;
-  color: #888;
+  color: var(--text-muted);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
@@ -71,7 +71,7 @@
 }
 
 .te-export-tab:hover:not(:disabled) {
-  color: #ccc;
+  color: var(--text-secondary);
 }
 
 .te-export-tab.active {
@@ -94,7 +94,7 @@
 .te-export-preview pre {
   font-size: 11px;
   font-family: 'Fira Code', 'Cascadia Code', monospace;
-  color: #aaa;
+  color: var(--text-secondary);
   margin: 0;
   white-space: pre-wrap;
   word-break: break-all;
@@ -104,15 +104,15 @@
 .te-export-meta {
   padding: 8px 20px;
   font-size: 11px;
-  color: #666;
-  border-top: 1px solid #2a2a34;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
 }
 
 .te-export-actions {
   display: flex;
   gap: 8px;
   padding: 14px 20px;
-  border-top: 1px solid #2a2a34;
+  border-top: 1px solid var(--border);
 }
 
 .te-export-btn {
@@ -125,19 +125,19 @@
   font-size: 12px;
   font-weight: 600;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
 }
 
 .te-btn-copy {
-  background: #2a2a34;
-  color: #ccc;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
 }
 
 .te-btn-copy:hover {
-  background: #333;
-  color: #fff;
+  background: var(--color-hover, #1e1e2e);
+  color: var(--text-primary);
 }
 
 .te-btn-download {
@@ -147,4 +147,187 @@
 
 .te-btn-download:hover {
   background: #ff8a65;
+}
+
+.te-btn-download:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ── Save Dialog ─────────────────────── */
+.te-save-section {
+  padding: 16px 20px 12px;
+}
+
+.te-save-row {
+  display: flex;
+  gap: 8px;
+}
+
+.te-save-input {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 13px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.te-save-input:focus {
+  border-color: var(--accent);
+}
+
+.te-save-list-header {
+  padding: 8px 20px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-top: 1px solid var(--border);
+}
+
+.te-save-list {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 0 12px 12px;
+}
+
+.te-save-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 24px 0;
+  margin: 0;
+}
+
+.te-save-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  transition: background 0.1s;
+}
+
+.te-save-item:hover {
+  background: var(--bg-elevated);
+}
+
+.te-save-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.te-save-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.te-save-item-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.te-save-item-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.te-save-action-btn {
+  padding: 5px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s;
+}
+
+.te-save-action-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--color-border-hover);
+}
+
+.te-save-del:hover {
+  color: var(--color-destructive);
+  border-color: var(--color-destructive);
+}
+
+/* ── Import Dialog ───────────────────── */
+.te-import-body {
+  padding: 20px;
+}
+
+.te-import-file-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.te-import-file-input {
+  display: none;
+}
+
+.te-import-file-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 48px;
+  background: var(--bg-elevated);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  width: 100%;
+}
+
+.te-import-file-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-secondary);
+}
+
+.te-import-paste-area {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.te-import-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 11px;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  resize: vertical;
+  outline: none;
+  line-height: 1.5;
+}
+
+.te-import-textarea:focus {
+  border-color: var(--accent);
+}
+
+.te-import-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: rgba(239, 83, 80, .12);
+  border: 1px solid rgba(239, 83, 80, .3);
+  border-radius: var(--radius-sm);
+  color: var(--color-destructive);
+  font-size: 12px;
 }

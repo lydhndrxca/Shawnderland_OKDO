@@ -1,0 +1,44 @@
+---
+description: Visual/UI changes propagate to ALL applications unless the user explicitly scopes them
+alwaysApply: true
+---
+
+# UI Change Propagation Rule
+
+When the user requests a visual or UI change, **apply it to every application** in the project
+unless they explicitly say otherwise (e.g. "only in Gemini Studio", "just for the Tool Editor").
+
+## What counts as a visual/UI change
+
+- Colors, spacing, padding, margins, font sizes, font weights
+- Border styles, border-radius, shadows, opacity
+- Layout changes (flex direction, alignment, gaps)
+- Animation/transition changes
+- Node appearance (headers, bodies, handles, selection states)
+- Toolbar/sidebar/dock appearance
+- Controls, MiniMap, Background styling
+- Context menus, dialogs, overlays, toasts
+- Button styles, input field styles, dropdown styles
+
+## Applications to update
+
+1. **ShawnderMind** — `src/app/ideation/`
+2. **Gemini Studio** — `src/app/gemini-studio/`
+3. **Tool Editor** — `src/app/tool-editor/`
+4. **Shared components** — `src/components/` (e.g. ImageContextMenu, Sidebar)
+5. **Any future application** added to the project
+
+## How to propagate
+
+1. Identify the change and which CSS/component files it touches in the originating app.
+2. Find the equivalent files in every other application.
+3. Apply the same change everywhere, adapting class names but keeping values identical.
+4. If the change belongs in `packages/ui/src/tokens.css` (e.g. a new token or token value change),
+   update it there so all apps inherit automatically.
+5. After applying, verify the build still passes.
+
+## When NOT to propagate
+
+- The user explicitly names a single app: "Change the Gemini Studio header to blue"
+- The change is functionally app-specific (e.g. a node type unique to one canvas)
+- The change is to logic/behavior, not visual appearance

@@ -18,6 +18,7 @@ import {
   regenDivergeVariant as engineRegenVariant,
   regenExpandSection as engineRegenSection,
 } from '../engine/orchestrator';
+import { getApiKey } from '../engine/apiConfig';
 import { logGeneration, getSessionHistory, buildLineageContext } from '../engine/generationLog';
 import { mockProvider } from '../engine/provider/mockProvider';
 import { createGeminiProvider } from '../engine/provider/geminiProvider';
@@ -29,6 +30,7 @@ import {
   getEffectiveSettings,
 } from '../state/sessionSelectors';
 import type { DivergeCandidate } from '../engine/schemas';
+import { deriveEffectiveNormalize } from '../engine/normalize';
 
 export interface GuidedRunState {
   active: boolean;
@@ -38,6 +40,8 @@ export interface GuidedRunState {
   completedStages: StageId[];
   userNotes: string;
 }
+
+export type PipelineMode = 'interactive' | 'automated' | null;
 
 interface SessionContextValue {
   session: Session;
@@ -56,6 +60,7 @@ interface SessionContextValue {
       userOverride: boolean;
     }>,
   ) => void;
+  answerNormalizeQuestion: (questionIndex: number, answer: string) => void;
   pinCandidate: (candidateId: string) => void;
   unpinCandidate: (candidateId: string) => void;
   regenUnpinned: () => Promise<void>;
@@ -102,6 +107,10 @@ interface SessionContextValue {
   stopGuidedRun: () => void;
   addGuidedNote: (text: string) => void;
   pipelineProgress: string | null;
+  pipelineMode: PipelineMode;
+  setPipelineMode: (mode: PipelineMode) => void;
+  awaitingInputNodeId: string | null;
+  continueAutomatedRun: () => Promise<void>;
   hasApiKey: boolean;
   setProjectName: (name: string) => void;
   saveFlowState: (flowState: FlowState) => void;
@@ -187,8 +196,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    const envKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    if (envKey) setHasApiKey(true);
+    try {
+      getApiKey();
+      setHasApiKey(true);
+    } catch {
+      setHasApiKey(false);
+    }
   }, []);
 
   function getProvider(): Provider {
@@ -238,11 +251,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const [runningStageId, setRunningStageId] = useState<StageId | null>(null);
   const [pipelineProgress, setPipelineProgress] = useState<string | null>(null);
+  const [pipelineMode, setPipelineMode] = useState<PipelineMode>(null);
+  const [awaitingInputNodeId, setAwaitingInputNodeId] = useState<string | null>(null);
+  const automatedStageIndexRef = useRef<number>(0);
 
-  useEffect(() => {
-    console.log(`[ShawnderMind] Provider mode: ${getEffectiveSettings(sessionRef.current).providerMode}`);
-    console.log(`[ShawnderMind] Has API key: ${hasApiKey}`);
-  }, [hasApiKey]);
 
   const runStage = useCallback(
     async (stageId: StageId, opts?: { templateType?: string }) => {
@@ -299,9 +311,65 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const stageNeedsInput = useCallback((stageId: StageId): boolean => {
+    if (stageId === 'normalize') {
+      const output = (sessionRef.current.stageState as Record<string, { output?: unknown }>)['normalize']?.output as Record<string, unknown> | undefined;
+      if (output) {
+        const questions = (output.clarifyingQuestions as string[]) ?? [];
+        if (questions.length > 0) {
+          const effective = deriveEffectiveNormalize(sessionRef.current);
+          const answeredCount = effective?.questionAnswers?.filter((qa) => qa.answer?.trim()).length ?? 0;
+          return answeredCount < questions.length;
+        }
+      }
+    }
+    return false;
+  }, []);
+
+  const runAutomatedFromIndex = useCallback(async (startIdx: number) => {
+    const stages = STAGE_IDS.slice(1);
+    setIsRunning(true);
+    setAwaitingInputNodeId(null);
+
+    try {
+      for (let i = startIdx; i < stages.length; i++) {
+        const stageId = stages[i];
+        setPipelineProgress(`Running ${i + 1}/${stages.length}: ${stageId}`);
+        setRunningStageId(stageId);
+        const t0 = Date.now();
+        const provider = getProvider();
+        const result = await engineRunStage(sessionRef.current, stageId, provider);
+        setSession(result);
+        logGeneration({ sessionId: result.id, category: 'pipeline', source: stageId, inputSummary: `Stage: ${stageId}`, output: (result.stageState as Record<string, { output?: unknown }>)[stageId]?.output ?? null, durationMs: Date.now() - t0, lineage: buildLineageContext(result, stageId) });
+
+        if (stageNeedsInput(stageId)) {
+          automatedStageIndexRef.current = i + 1;
+          setAwaitingInputNodeId(stageId);
+          setPipelineProgress(`Waiting for input: ${stageId}`);
+          setIsRunning(false);
+          setRunningStageId(null);
+          return;
+        }
+      }
+      setPipelineProgress(null);
+      setPipelineMode(null);
+      setAwaitingInputNodeId(null);
+    } catch (err) {
+      setPipelineProgress(`Failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsRunning(false);
+      setRunningStageId(null);
+    }
+  }, [hasApiKey, stageNeedsInput]);
+
   const runFullPipeline = useCallback(async () => {
-    if (!sessionRef.current.seedText.trim()) return;
+    if (!sessionRef.current.seedText.trim()) {
+      setAwaitingInputNodeId('seed');
+      setPipelineProgress('Enter your idea in the Seed node');
+      return;
+    }
     flushFlowState();
+    setPipelineMode('automated');
 
     setIsRunning(true);
     try {
@@ -314,26 +382,46 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         setSession(seedResult);
         logGeneration({ sessionId: seedResult.id, category: 'pipeline', source: 'seed', inputSummary: seedResult.seedText, output: (seedResult.stageState as Record<string, { output?: unknown }>)['seed']?.output ?? null, durationMs: Date.now() - t0, lineage: buildLineageContext(seedResult, 'seed') });
       }
-
-      const stages = STAGE_IDS.slice(1);
-      for (let i = 0; i < stages.length; i++) {
-        const stageId = stages[i];
-        setPipelineProgress(`Running ${i + 1}/${stages.length}: ${stageId}`);
-        setRunningStageId(stageId);
-        const t0 = Date.now();
-        const provider = getProvider();
-        const result = await engineRunStage(sessionRef.current, stageId, provider);
-        setSession(result);
-        logGeneration({ sessionId: result.id, category: 'pipeline', source: stageId, inputSummary: `Stage: ${stageId}`, output: (result.stageState as Record<string, { output?: unknown }>)[stageId]?.output ?? null, durationMs: Date.now() - t0, lineage: buildLineageContext(result, stageId) });
-      }
-      setPipelineProgress(null);
+      setIsRunning(false);
+      setRunningStageId(null);
+      await runAutomatedFromIndex(0);
     } catch (err) {
       setPipelineProgress(`Failed: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
       setIsRunning(false);
       setRunningStageId(null);
     }
-  }, [hasApiKey]);
+  }, [hasApiKey, runAutomatedFromIndex]);
+
+  const continueAutomatedRun = useCallback(async () => {
+    if (pipelineMode !== 'automated' || !awaitingInputNodeId) return;
+
+    if (awaitingInputNodeId === 'seed') {
+      if (!sessionRef.current.seedText.trim()) return;
+      setAwaitingInputNodeId(null);
+      setIsRunning(true);
+      try {
+        const seedState = (sessionRef.current.stageState as Record<string, { output?: unknown }>)['seed'];
+        if (!seedState?.output) {
+          setPipelineProgress('Running: seed');
+          setRunningStageId('seed');
+          const t0 = Date.now();
+          const seedResult = await engineRunStage(sessionRef.current, 'seed', getProvider());
+          setSession(seedResult);
+          logGeneration({ sessionId: seedResult.id, category: 'pipeline', source: 'seed', inputSummary: seedResult.seedText, output: (seedResult.stageState as Record<string, { output?: unknown }>)['seed']?.output ?? null, durationMs: Date.now() - t0, lineage: buildLineageContext(seedResult, 'seed') });
+        }
+        setIsRunning(false);
+        setRunningStageId(null);
+        await runAutomatedFromIndex(0);
+      } catch (err) {
+        setPipelineProgress(`Failed: ${err instanceof Error ? err.message : String(err)}`);
+        setIsRunning(false);
+        setRunningStageId(null);
+      }
+      return;
+    }
+
+    await runAutomatedFromIndex(automatedStageIndexRef.current);
+  }, [pipelineMode, awaitingInputNodeId, runAutomatedFromIndex, hasApiKey]);
 
   const runInteractivePipeline = useCallback(async () => {
     const stages = STAGE_IDS.slice(1);
@@ -543,6 +631,19 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         let updated = appendEvent(prev, event);
         updated = markAllDownstreamStale(updated, 'normalize');
         return updated;
+      });
+    },
+    [],
+  );
+
+  const answerNormalizeQuestion = useCallback(
+    (questionIndex: number, answer: string) => {
+      setSession((prev) => {
+        const event = makeEvent('NORMALIZE_ANSWER_QUESTION', 'normalize', {
+          questionIndex,
+          answer,
+        }, prev.activeBranchId);
+        return appendEvent(prev, event);
       });
     },
     [],
@@ -863,8 +964,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (result && typeof result === 'string') {
       const saved = JSON.parse(result) as Session;
       if (!saved.activeBranchId) saved.activeBranchId = 'main';
-      if (!saved.settings) saved.settings = { crossCulturalEnabled: false, proxyCultureMode: false, providerMode: 'real', thinkingTier: 'standard' };
+      if (!saved.settings) saved.settings = { crossCulturalEnabled: false, proxyCultureMode: false, providerMode: 'real', thinkingTier: 'standard', strictAdherence: false };
       if (!saved.settings.thinkingTier) saved.settings.thinkingTier = 'standard';
+      if (saved.settings.strictAdherence === undefined) saved.settings.strictAdherence = false;
       if (saved.projectName === undefined) saved.projectName = '';
       setSession(saved);
     }
@@ -899,6 +1001,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         runStage,
         editNormalizeSummary,
         editNormalizeAssumptions,
+        answerNormalizeQuestion,
         pinCandidate,
         unpinCandidate,
         regenUnpinned,
@@ -929,6 +1032,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         stopGuidedRun,
         addGuidedNote,
         pipelineProgress,
+        pipelineMode,
+        setPipelineMode,
+        awaitingInputNodeId,
+        continueAutomatedRun,
         hasApiKey,
         setProjectName,
         saveFlowState,

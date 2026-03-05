@@ -8,7 +8,15 @@ export function buildExpandPrompt(
 ): string {
   let prompt = `[STAGE:expand]\n\n`;
   prompt += `## Context\nSeed Summary: ${effectiveNormalize.seedSummary}\n`;
-  prompt += `Assumptions: ${JSON.stringify(effectiveNormalize.assumptions)}\n\n`;
+  prompt += `Assumptions: ${JSON.stringify(effectiveNormalize.assumptions)}\n`;
+  const answered = effectiveNormalize.questionAnswers?.filter((qa) => qa.answer?.trim());
+  if (answered && answered.length > 0) {
+    prompt += '\n## User Clarifications\n';
+    for (const qa of answered) {
+      prompt += `Q: ${qa.question}\nA: ${qa.answer}\n`;
+    }
+  }
+  prompt += '\n';
   prompt += `## Candidate to Expand\n`;
   prompt += `[EXPAND_CANDIDATE:${candidate.id}]\n`;
   prompt += `Hook: ${candidate.hook}\n`;

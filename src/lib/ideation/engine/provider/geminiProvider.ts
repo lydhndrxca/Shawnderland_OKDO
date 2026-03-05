@@ -1,8 +1,7 @@
 import type { Provider, ProviderGenerateOpts } from './types';
 import { recordUsage } from './costTracker';
 import type { ThinkingTier } from '../../state/sessionTypes';
-
-const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+import { buildModelUrl, getApiKey } from '../apiConfig';
 
 interface TierConfig {
   model: string;
@@ -28,7 +27,7 @@ const TIER_CONFIGS: Record<ThinkingTier, TierConfig> = {
 
 function getEndpoint(tier: ThinkingTier): string {
   const cfg = TIER_CONFIGS[tier];
-  return `${GEMINI_API_BASE}/${cfg.model}:generateContent`;
+  return buildModelUrl(cfg.model, 'generateContent');
 }
 
 function getGenerationConfig(tier: ThinkingTier) {
@@ -41,25 +40,20 @@ function getGenerationConfig(tier: ThinkingTier) {
   return config;
 }
 
-function resolveApiKey(explicitKey?: string): string | undefined {
+function resolveApiKey(explicitKey?: string): string {
   if (explicitKey) return explicitKey;
-  try {
-    return process.env.NEXT_PUBLIC_GEMINI_API_KEY ?? undefined;
-  } catch {
-    return undefined;
-  }
+  return getApiKey();
 }
 
 async function callGemini(prompt: string, tier: ThinkingTier = 'standard', apiKey?: string): Promise<string> {
-  const key = resolveApiKey(apiKey);
-  if (!key) throw new Error('No API key available. Set NEXT_PUBLIC_GEMINI_API_KEY in your .env.local file.');
+  resolveApiKey(apiKey);
 
   const body = {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: getGenerationConfig(tier),
   };
 
-  const response = await fetch(`${getEndpoint(tier)}?key=${key}`, {
+  const response = await fetch(getEndpoint(tier), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -78,8 +72,7 @@ async function callGemini(prompt: string, tier: ThinkingTier = 'standard', apiKe
 }
 
 async function callGeminiRetry(prompt: string, retryContext: string, tier: ThinkingTier = 'standard', apiKey?: string): Promise<string> {
-  const key = resolveApiKey(apiKey);
-  if (!key) throw new Error('No API key available. Set NEXT_PUBLIC_GEMINI_API_KEY in your .env.local file.');
+  resolveApiKey(apiKey);
 
   const body = {
     contents: [
@@ -90,7 +83,7 @@ async function callGeminiRetry(prompt: string, retryContext: string, tier: Think
     generationConfig: getGenerationConfig(tier),
   };
 
-  const response = await fetch(`${getEndpoint(tier)}?key=${key}`, {
+  const response = await fetch(getEndpoint(tier), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

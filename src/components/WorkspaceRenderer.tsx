@@ -4,13 +4,10 @@ import dynamic from "next/dynamic";
 import { useWorkspace } from "@/lib/workspace/WorkspaceContext";
 import { getTool } from "@/lib/registry";
 import { ToolShell } from "./ToolShell";
-import { Sparkles } from "lucide-react";
 import { SessionProvider } from "@/lib/ideation/context/SessionContext";
 import { UILabProvider } from "@/lib/ui-lab/UILabContext";
 
-const HubCanvas = dynamic(() => import("./HubCanvas").then((m) => m.HubCanvas), {
-  ssr: false,
-});
+const HomePage = dynamic(() => import("./HomePage"), { ssr: false });
 
 const IdeationShell = dynamic(
   () => import("@/app/ideation/layout/Shell"),
@@ -22,33 +19,18 @@ const UILabShell = dynamic(
   { ssr: false }
 );
 
-const ToolEditorShell = dynamic(
-  () => import("@/app/tool-editor/ToolEditorShell"),
+const GeminiStudioShell = dynamic(
+  () => import("@/app/gemini-studio/GeminiStudioShell"),
+  { ssr: false }
+);
+
+const ConceptLabShell = dynamic(
+  () => import("@/app/concept-lab/ConceptLabShell"),
   { ssr: false }
 );
 
 function HomeContent() {
-  return (
-    <div className="h-full flex flex-col">
-      <div className="px-6 py-4 shrink-0">
-        <div className="flex items-center gap-2 mb-1">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
-          </div>
-          <span className="text-xs font-semibold uppercase tracking-widest text-primary">
-            Creative Hub
-          </span>
-        </div>
-        <h1 className="text-2xl font-bold tracking-tight">Shawnderland</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Double-click a tool node to open it. Drag to rearrange.
-        </p>
-      </div>
-      <div className="flex-1 min-h-0">
-        <HubCanvas />
-      </div>
-    </div>
-  );
+  return <HomePage />;
 }
 
 function ToolLandingContent({ toolId }: { toolId: string }) {
@@ -127,8 +109,8 @@ function resolveRoute(path: string): React.ReactNode {
   if (path === "/ideation") return <IdeationContent />;
   if (path === "/sprite-lab") return <ToolLandingContent toolId="sprite-lab" />;
   if (path === "/ui-lab") return <UILabContent />;
-  if (path === "/tool-editor") return <ToolEditorShell />;
-  if (path === "/concept-lab") return <ToolLandingContent toolId="concept-lab" />;
+  if (path === "/gemini-studio") return <GeminiStudioShell />;
+  if (path === "/concept-lab") return <ConceptLabShell />;
   if (path === "/walter") return <ToolLandingContent toolId="walter" />;
   return <div className="p-8 text-muted-foreground">Page not found</div>;
 }

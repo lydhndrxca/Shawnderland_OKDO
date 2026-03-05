@@ -57,4 +57,14 @@
   --transition-fast: 0.1s ease;
   --transition-normal: 0.2s ease;
   --transition-slow: 0.35s ease-out;
+
+  /* ── Shorthand aliases (used across canvases) ── */
+  --bg-base: var(--color-background);
+  --bg-surface: var(--color-surface);
+  --bg-elevated: var(--color-elevated);
+  --border: var(--color-border);
+  --accent: var(--color-accent);
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-muted: var(--color-text-muted);
 }

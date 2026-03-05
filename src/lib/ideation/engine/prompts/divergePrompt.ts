@@ -20,6 +20,16 @@ function formatNormalizeContext(eff: EffectiveNormalize): string {
     const tag = a.userOverride ? ' [USER OVERRIDE]' : '';
     ctx += `- ${a.key}: ${a.value}${tag}\n`;
   }
+
+  const answered = eff.questionAnswers?.filter((qa) => qa.answer?.trim());
+  if (answered && answered.length > 0) {
+    ctx += '\n## Clarifications from the User\n';
+    ctx += 'The user answered the following clarifying questions. Treat these answers as authoritative constraints — they take priority over any assumptions.\n\n';
+    for (const qa of answered) {
+      ctx += `**Q:** ${qa.question}\n**A:** ${qa.answer}\n\n`;
+    }
+  }
+
   return ctx;
 }
 

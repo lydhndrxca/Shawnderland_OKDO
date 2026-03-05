@@ -2,8 +2,8 @@
 
 import { useCallback } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
-import type { Node } from '@xyflow/react';
-import type { TENodeData, TEPort, TEDropdown, TEGenericData } from './types';
+import type { Node, Edge } from '@xyflow/react';
+import type { TENodeData, TEPort, TEDropdown, TEGenericData, TETextBoxData, TEDropdownData, TEImageData } from './types';
 import './PropertyPanel.css';
 
 let _pid = 0;
@@ -14,10 +14,12 @@ function pid(prefix: string) {
 
 interface Props {
   node: Node<TENodeData> | null;
+  edge: Edge | null;
   onUpdate: (id: string, patch: Partial<TENodeData>) => void;
+  onEdgeLabelChange: (edgeId: string, label: string) => void;
 }
 
-export default function PropertyPanel({ node, onUpdate }: Props) {
+export default function PropertyPanel({ node, edge, onUpdate, onEdgeLabelChange }: Props) {
   const d = node?.data;
 
   const patch = useCallback(
@@ -27,16 +29,41 @@ export default function PropertyPanel({ node, onUpdate }: Props) {
     [node, onUpdate],
   );
 
+  /* ── edge-only view ─── */
+  if (!d && edge) {
+    return (
+      <aside className="te-prop-panel">
+        <h3 className="te-prop-title">Edge Properties</h3>
+        <div className="te-prop-group">
+          <label className="te-prop-label">Label</label>
+          <input
+            className="te-prop-input"
+            value={typeof edge.label === 'string' ? edge.label : ''}
+            onChange={(e) => onEdgeLabelChange(edge.id, e.target.value)}
+            placeholder="Connection label..."
+          />
+        </div>
+        <div className="te-prop-group">
+          <label className="te-prop-label">ID</label>
+          <span className="te-prop-readonly">{edge.id}</span>
+        </div>
+      </aside>
+    );
+  }
+
   if (!d) {
     return (
       <aside className="te-prop-panel te-prop-empty">
-        <p>Select a node to edit its properties</p>
+        <p>Select a node or edge to edit its properties</p>
       </aside>
     );
   }
 
   const hasIO = d.kind === 'generic' || d.kind === 'window';
   const hasDropdowns = d.kind === 'generic';
+  const hasPlaceholder = d.kind === 'textbox';
+  const hasOptions = d.kind === 'dropdown';
+  const hasAlt = d.kind === 'image';
 
   /* ── port helpers ─── */
   const addPort = (type: 'inputs' | 'outputs') => {
@@ -99,7 +126,6 @@ export default function PropertyPanel({ node, onUpdate }: Props) {
     <aside className="te-prop-panel">
       <h3 className="te-prop-title">Properties</h3>
 
-      {/* label + description */}
       <div className="te-prop-group">
         <label className="te-prop-label">Label</label>
         <input
@@ -120,7 +146,6 @@ export default function PropertyPanel({ node, onUpdate }: Props) {
         />
       </div>
 
-      {/* dimensions */}
       <div className="te-prop-row">
         <div className="te-prop-group te-prop-half">
           <label className="te-prop-label">Width</label>
@@ -146,7 +171,6 @@ export default function PropertyPanel({ node, onUpdate }: Props) {
         </div>
       </div>
 
-      {/* color */}
       <div className="te-prop-group">
         <label className="te-prop-label">Color</label>
         <div className="te-color-row">
@@ -164,7 +188,6 @@ export default function PropertyPanel({ node, onUpdate }: Props) {
         </div>
       </div>
 
-      {/* inputs */}
       {hasIO && (
         <div className="te-prop-group">
           <div className="te-prop-label-row">
@@ -198,7 +221,6 @@ export default function PropertyPanel({ node, onUpdate }: Props) {
         </div>
       )}
 
-      {/* outputs */}
       {hasIO && (
         <div className="te-prop-group">
           <div className="te-prop-label-row">
@@ -232,7 +254,6 @@ export default function PropertyPanel({ node, onUpdate }: Props) {
         </div>
       )}
 
-      {/* dropdowns */}
       {hasDropdowns && (
         <div className="te-prop-group">
           <div className="te-prop-label-row">
@@ -283,6 +304,70 @@ export default function PropertyPanel({ node, onUpdate }: Props) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {hasPlaceholder && (
+        <div className="te-prop-group">
+          <label className="te-prop-label">Placeholder</label>
+          <input
+            className="te-prop-input"
+            value={(d as TETextBoxData).placeholder}
+            onChange={(e) => patch({ placeholder: e.target.value } as unknown as Partial<TENodeData>)}
+            placeholder="Placeholder text"
+          />
+        </div>
+      )}
+
+      {hasOptions && (
+        <div className="te-prop-group">
+          <div className="te-prop-label-row">
+            <label className="te-prop-label">Options</label>
+            <button
+              className="te-prop-add-btn"
+              onClick={() => {
+                const opts = (d as TEDropdownData).options;
+                patch({ options: [...opts, `Option ${opts.length + 1}`] } as unknown as Partial<TENodeData>);
+              }}
+              title="Add option"
+            >
+              <Plus size={12} />
+            </button>
+          </div>
+          {(d as TEDropdownData).options.map((opt, idx) => (
+            <div key={idx} className="te-dd-opt-row">
+              <input
+                className="te-prop-input te-dd-opt-input"
+                value={opt}
+                onChange={(e) => {
+                  const updated = [...(d as TEDropdownData).options];
+                  updated[idx] = e.target.value;
+                  patch({ options: updated } as unknown as Partial<TENodeData>);
+                }}
+              />
+              <button
+                className="te-port-del"
+                onClick={() => {
+                  const updated = (d as TEDropdownData).options.filter((_, i) => i !== idx);
+                  patch({ options: updated } as unknown as Partial<TENodeData>);
+                }}
+              >
+                <X size={10} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {hasAlt && (
+        <div className="te-prop-group">
+          <label className="te-prop-label">Alt Text</label>
+          <input
+            className="te-prop-input"
+            value={(d as TEImageData).alt}
+            onChange={(e) => patch({ alt: e.target.value } as unknown as Partial<TENodeData>)}
+            placeholder="Image description..."
+          />
         </div>
       )}
     </aside>

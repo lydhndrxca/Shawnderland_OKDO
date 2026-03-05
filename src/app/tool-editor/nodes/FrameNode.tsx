@@ -1,7 +1,9 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
+import { NodeResizer } from '@xyflow/react';
 import type { TEFrameData } from '../types';
+import { updateNodeDataDirect } from '../useToolEditorStore';
 import './EditorNodes.css';
 
 interface Props {
@@ -10,23 +12,40 @@ interface Props {
   selected?: boolean;
 }
 
-function FrameNode({ data, selected }: Props) {
+function FrameNode({ id, data, selected }: Props) {
+  const onResize = useCallback(
+    (_: unknown, params: { width: number; height: number }) => {
+      updateNodeDataDirect(id, { width: Math.round(params.width), height: Math.round(params.height) });
+    },
+    [id],
+  );
+
   return (
-    <div
-      className={`te-frame${selected ? ' te-selected' : ''}`}
-      style={{
-        width: data.width,
-        height: data.height,
-        borderColor: data.color,
-      }}
-    >
-      <span className="te-frame-label" style={{ color: data.color }}>
-        {data.label}
-      </span>
-      {data.description && (
-        <span className="te-frame-desc">{data.description}</span>
-      )}
-    </div>
+    <>
+      <NodeResizer
+        minWidth={100}
+        minHeight={60}
+        isVisible={!!selected}
+        onResize={onResize}
+        lineClassName="te-resize-line"
+        handleClassName="te-resize-handle"
+      />
+      <div
+        className={`te-frame${selected ? ' te-selected' : ''}`}
+        style={{
+          width: '100%',
+          height: '100%',
+          borderColor: data.color,
+        }}
+      >
+        <span className="te-frame-label" style={{ color: data.color }}>
+          {data.label}
+        </span>
+        {data.description && (
+          <span className="te-frame-desc">{data.description}</span>
+        )}
+      </div>
+    </>
   );
 }
 

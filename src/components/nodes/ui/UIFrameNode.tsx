@@ -1,0 +1,27 @@
+"use client";
+import { memo, useCallback } from 'react';
+import { NodeResizer, useReactFlow } from '@xyflow/react';
+import './UINodes.css';
+
+interface Props { id: string; data: Record<string, unknown>; selected?: boolean }
+
+function UIFrameNode({ id, data, selected }: Props) {
+  const { setNodes } = useReactFlow();
+  const label = (data.label as string) || 'Frame';
+  const color = (data.color as string) || '#78909c';
+
+  const onResize = useCallback((_: unknown, p: { width: number; height: number }) => {
+    setNodes(nds => nds.map(n => n.id === id ? { ...n, data: { ...n.data, width: Math.round(p.width), height: Math.round(p.height) }, style: { ...n.style, width: p.width, height: p.height } } : n));
+  }, [id, setNodes]);
+
+  return (
+    <>
+      <NodeResizer minWidth={100} minHeight={60} isVisible={!!selected} onResize={onResize} lineClassName="ui-resize-line" handleClassName="ui-resize-handle" />
+      <div className={`ui-node-frame${selected ? ' ui-node-selected' : ''}`} style={{ borderColor: color }}>
+        <span className="ui-node-frame-label" style={{ color }}>{label}</span>
+      </div>
+    </>
+  );
+}
+
+export default memo(UIFrameNode);

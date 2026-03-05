@@ -6,8 +6,8 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #111118;
-  color: #ddd;
+  background: var(--bg-base);
+  color: var(--text-primary);
 }
 
 /* ── Toolbar ─────────────────────────── */
@@ -16,8 +16,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 16px;
-  border-bottom: 1px solid #2a2a34;
-  background: #16161c;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
   min-height: 48px;
   flex-shrink: 0;
 }
@@ -31,13 +31,13 @@
 .te-toolbar-title {
   font-size: 15px;
   font-weight: 700;
-  color: #eee;
+  color: var(--text-primary);
   margin: 0;
 }
 
 .te-toolbar-hint {
   font-size: 11px;
-  color: #666;
+  color: var(--text-muted);
 }
 
 .te-toolbar-right {
@@ -52,17 +52,17 @@
   padding: 6px 12px;
   font-size: 12px;
   font-weight: 600;
-  color: #aaa;
-  background: #22222a;
-  border: 1px solid #333;
-  border-radius: 6px;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
 }
 
 .te-toolbar-btn:hover {
-  background: #2e2e38;
-  color: #fff;
+  background: var(--color-hover, #1e1e2e);
+  color: var(--text-primary);
 }
 
 .te-toolbar-export {
@@ -76,9 +76,22 @@
   border-color: #ff8a65;
 }
 
+.te-toolbar-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.te-toolbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  align-self: center;
+}
+
 /* ── Main Layout ─────────────────────── */
 .te-main {
   flex: 1;
   display: flex;
   min-height: 0;
+  position: relative;
 }

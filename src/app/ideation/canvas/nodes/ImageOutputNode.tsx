@@ -1,10 +1,12 @@
 "use client";
 
 import { memo, useCallback, useState } from 'react';
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, useReactFlow } from '@xyflow/react';
 import { IMAGE_MODELS, ASPECT_RATIOS, type ModelOption } from './modelCatalog';
 import { recordUsage, recordImagenUsage } from '@/lib/ideation/engine/provider/costTracker';
 import { logGeneration, buildLineageContext, type SessionSnapshot } from '@/lib/ideation/engine/generationLog';
+import { buildModelUrl } from '@/lib/ideation/engine/apiConfig';
+import { ImageContextMenu } from '@/components/ImageContextMenu';
 import './ImageOutputNode.css';
 
 interface ImageOutputNodeProps {
@@ -13,11 +15,20 @@ interface ImageOutputNodeProps {
   selected?: boolean;
 }
 
-const IMAGEN_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
-const GEMINI_IMAGE_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
+function ImageOutputNodeInner({ id, selected }: ImageOutputNodeProps) {
+  const { setNodes } = useReactFlow();
+  const [model, setModelLocal] = useState<ModelOption>(IMAGE_MODELS[0]);
 
-function ImageOutputNodeInner({ selected }: ImageOutputNodeProps) {
-  const [model, setModel] = useState<ModelOption>(IMAGE_MODELS[0]);
+  const setModel = useCallback((m: ModelOption) => {
+    setModelLocal(m);
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === id
+          ? { ...n, data: { ...n.data, selectedModelId: m.id, selectedModelEndpoint: m.endpoint } }
+          : n,
+      ),
+    );
+  }, [id, setNodes]);
   const [aspectRatio, setAspectRatio] = useState('1:1');
   const [count, setCount] = useState(1);
   const [prompt, setPrompt] = useState('');
@@ -33,11 +44,8 @@ function ImageOutputNodeInner({ selected }: ImageOutputNodeProps) {
     setError(null);
 
     try {
-      const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-      if (!apiKey) throw new Error('No NEXT_PUBLIC_GEMINI_API_KEY set in .env.local');
-
       if (model.endpoint === 'imagen') {
-        const url = `${IMAGEN_ENDPOINT}/${model.modelId}:predict?key=${apiKey}`;
+        const url = buildModelUrl(model.modelId, 'predict');
         const body = {
           instances: [{ prompt: prompt.trim() }],
           parameters: {
@@ -74,7 +82,7 @@ function ImageOutputNodeInner({ selected }: ImageOutputNodeProps) {
         setImages(newImages);
         setViewIdx(0);
       } else {
-        const url = `${GEMINI_IMAGE_ENDPOINT}?key=${apiKey}`;
+        const url = buildModelUrl('gemini-2.0-flash-exp', 'generateContent');
         const body = {
           contents: [{ parts: [{ text: `Generate an image: ${prompt.trim()}. Aspect ratio: ${aspectRatio}.` }] }],
           generationConfig: {
@@ -202,11 +210,13 @@ function ImageOutputNodeInner({ selected }: ImageOutputNodeProps) {
 
         {images.length > 0 && (
           <div className="image-output-gallery" onClick={() => setExpanded(!expanded)}>
-            <img
-              src={`data:${images[viewIdx].mimeType};base64,${images[viewIdx].base64}`}
-              alt={`Generated image ${viewIdx + 1}`}
-              className="image-output-preview"
-            />
+            <ImageContextMenu image={images[viewIdx]} alt={`generated-image-${viewIdx + 1}`}>
+              <img
+                src={`data:${images[viewIdx].mimeType};base64,${images[viewIdx].base64}`}
+                alt={`Generated image ${viewIdx + 1}`}
+                className="image-output-preview"
+              />
+            </ImageContextMenu>
             {images.length > 1 && (
               <div className="image-output-nav">
                 <button

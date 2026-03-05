@@ -4,11 +4,10 @@ import { memo, useCallback, useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { recordUsage } from '@/lib/ideation/engine/provider/costTracker';
 import { logGeneration, buildLineageContext, type SessionSnapshot } from '@/lib/ideation/engine/generationLog';
+import { buildModelUrl } from '@/lib/ideation/engine/apiConfig';
 import './ExtractDataNode.css';
 
 type ExtractMode = 'image-to-text' | 'image-to-image';
-
-const GEMINI_VISION_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
 const IMAGE_TO_TEXT_PROMPT =
   'Describe this image in rich detail suitable for use as an AI image generation prompt. ' +
@@ -61,9 +60,6 @@ function ExtractDataNodeInner({ id, selected }: ExtractDataNodeProps) {
     setError(null);
 
     try {
-      const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-      if (!apiKey) throw new Error('No NEXT_PUBLIC_GEMINI_API_KEY set in .env.local');
-
       const imageData = findConnectedImageData(id);
       if (!imageData) throw new Error('No image connected. Connect an Image or Image Influence node to the left handle.');
 
@@ -79,7 +75,7 @@ function ExtractDataNodeInner({ id, selected }: ExtractDataNodeProps) {
         generationConfig: { temperature: 0.2 },
       };
 
-      const res = await fetch(`${GEMINI_VISION_ENDPOINT}?key=${apiKey}`, {
+      const res = await fetch(buildModelUrl('gemini-2.0-flash', 'generateContent'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

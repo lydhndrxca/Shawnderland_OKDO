@@ -17,6 +17,29 @@ run.bat
 Checks for Node.js, installs dependencies if needed, clears port 3000,
 starts `npm run dev`, waits for server, opens browser.
 
+## Environment Variables
+
+See `.env.example` for all required/optional variables.
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `NEXT_PUBLIC_GEMINI_API_KEY` | Yes (AI Studio) | Google AI Studio API key |
+| `NEXT_PUBLIC_VERTEX_PROJECT` | No (Vertex AI) | GCP project ID |
+| `NEXT_PUBLIC_VERTEX_LOCATION` | No (Vertex AI) | GCP region (e.g. us-central1) |
+| `NEXT_PUBLIC_VERTEX_API_KEY` | No (Vertex AI) | Vertex AI API key |
+
+## Dual-Backend API Configuration
+
+`src/lib/ideation/engine/apiConfig.ts` is the single source of truth for
+all Google AI endpoint routing. It detects which backend to use based on
+environment variables and builds URLs accordingly:
+
+- **AI Studio:** `generativelanguage.googleapis.com/v1beta/models/{MODEL}:{METHOD}?key={KEY}`
+- **Vertex AI:** `{LOCATION}-aiplatform.googleapis.com/v1/projects/{PROJECT}/locations/{LOCATION}/publishers/google/models/{MODEL}:{METHOD}?key={KEY}`
+
+All consumers import `buildModelUrl()`, `buildOperationUrl()`, or `getApiKey()`
+from this module. No other file should construct API URLs directly.
+
 ## Project Structure
 
 ```
@@ -32,17 +55,24 @@ src/app/
     canvas/
       FlowCanvas.tsx            Main ReactFlow canvas
       useFlowSession.ts         Flow state management (nodes, edges, groups)
-      ToolDock.tsx/.css          Left panel with categorized node templates
+      ToolDock.tsx/.css          Left panel with categorized node templates + search
       ContextMenu.tsx/.css       Right-click add/group/expand menu
       StatusBar.tsx/.css         Canvas status indicators
       NodeInspector.tsx/.css     Node detail inspector
       GuidedRunOverlay.tsx/.css  Step-by-step guided run UI
       DemoOverlay.tsx/.css       Demo/onboarding overlay
       flowLayout.ts             Dagre auto-layout helper
+      compat/
+        CompatContext.tsx        React context providing error map to all nodes
+        withCompatCheck.tsx      HOC wrapping every node type with error banners
+        CompatBanner.css         Error/warning banner styles
+      hooks/
+        useNodeCompatibility.ts  Hook computing per-node compatibility errors
       edges/
         PipelineEdge.tsx/.css    Custom edge rendering
       nodes/
         nodeRegistry.ts         Node type definitions, metadata, validation
+        modelCatalog.ts         Model catalog (Imagen, Gemini, Veo, ConceptLab)
         StartNode.tsx/.css       Start node with mode buttons + thinking tier
         PackedPipelineNode.tsx/.css  Collapsed full-pipeline node
         GroupNode.tsx/.css       Pack/group node with dynamic outputs
@@ -68,8 +98,10 @@ src/app/
         TextOutputNode.tsx/.css         Text output node
         ImageOutputNode.tsx/.css        Image output node
         VideoOutputNode.tsx/.css        Video output node
+        CharacterNode.tsx/.css          ConceptLab character designer
+        WeaponNode.tsx/.css             ConceptLab weapon designer
+        TurnaroundNode.tsx/.css         ConceptLab multi-view generator
         BaseNode.tsx/.css               Shared base node component
-        modelCatalog.ts                 Gemini model catalog
     stages/                     Stage-specific UI components
     layout/                     Shell, settings panel, save/open dialogs
     views/                      Lineage graph, evaluation dashboard
@@ -81,6 +113,8 @@ src/app/
     EditorToolDock.tsx/.css      Left panel with draggable templates
     PropertyPanel.tsx/.css       Right panel for editing node properties
     ExportDialog.tsx/.css        Export All / Export Selected dialog
+    SaveDialog.tsx              Save layout dialog
+    ImportDialog.tsx            Import layout dialog
     useToolEditorStore.ts       Singleton external store (nodes, edges, grid)
     types.ts                    Shared type definitions
     nodes/
@@ -118,15 +152,21 @@ src/lib/
       sessionStore.ts           Persistent session storage
       sessionSelectors.ts       Session data selectors
     engine/
+      apiConfig.ts              Dual-backend API config (AI Studio + Vertex AI)
       orchestrator.ts           Pipeline orchestration + prompt building
       stages.ts                 Stage ID definitions
       schemas.ts                Zod schemas for stage outputs
       generationLog.ts          Generation logging + research export
+      nodeCompatibility.ts      Node connection validation rules
       provider/
         geminiProvider.ts       Gemini API client with tier-based model selection
         mockProvider.ts         Mock provider for testing
         costTracker.ts          Token/cost tracking
         types.ts                Provider interface types
+      conceptlab/
+        imageGenApi.ts          Imagen 4 + Gemini image generation helpers
+        characterPrompts.ts     Character attribute definitions + prompt builders
+        weaponPrompts.ts        Weapon component definitions + prompt builders
       prompts/                  Prompt templates and pack loading
       diverge/                  Diverge stage: lenses, portfolios, dedup, quotas
       expand/                   Expand stage: prompts, section regen, merge
@@ -178,6 +218,15 @@ The Gemini provider selects model and generation config based on thinking tier:
 
 | Tier     | Model                         | Temperature | Max Tokens |
 |----------|-------------------------------|-------------|------------|
-| Quick    | gemini-2.0-flash-lite         | 0.7         | 2048       |
-| Standard | gemini-2.0-flash              | 0.8         | 4096       |
-| Deep     | gemini-2.0-flash-thinking-exp | 0.9         | 8192       |
+| Quick    | gemini-2.0-flash-lite         | 0           | —          |
+| Standard | gemini-2.0-flash              | 0           | —          |
+| Deep     | gemini-2.0-flash-thinking-exp | 0.7         | 16384      |
+
+## ConceptLab Image Generation
+
+| Use Case | Model | Method |
+|----------|-------|--------|
+| Primary character/weapon generation | Imagen 4 (`imagen-4.0-generate-001`) | predict |
+| Reference-based turnaround views | Gemini 3 Pro (`gemini-3-pro-image-preview`) | generateContent |
+| Fast iteration views | Gemini Flash Image (`gemini-2.0-flash-preview-image-generation`) | generateContent |
+| Attribute extraction / text tasks | Gemini Flash (`gemini-2.0-flash`) | generateContent |

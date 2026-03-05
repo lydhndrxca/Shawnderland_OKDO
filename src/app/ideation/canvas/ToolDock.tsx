@@ -6,6 +6,7 @@ import {
   STAGE_ORDER, NODE_META,
   OUTPUT_NODE_TYPES, INPUT_NODE_TYPES, INFLUENCE_NODE_TYPES, UTILITY_NODE_TYPES, CONTROL_NODE_TYPES,
   OUTPUT_NODE_META, INPUT_NODE_META, INFLUENCE_NODE_META, UTILITY_NODE_META, CONTROL_NODE_META,
+  CONCEPTLAB_NODE_TYPES, CONCEPTLAB_NODE_META,
 } from './nodes/nodeRegistry';
 import { useSession } from '@/lib/ideation/context/SessionContext';
 import { getStageOutput, isStageStale } from '@/lib/ideation/state/sessionSelectors';
@@ -59,6 +60,9 @@ const NODE_SUBTITLES: Record<string, string> = {
   videoInfluence: 'Add video file',
   imageReference: 'Add reference image',
   start: 'Run the pipeline',
+  character: 'Design a character',
+  weapon: 'Design a weapon',
+  turnaround: 'Multi-view turnaround',
 };
 
 function buildCategories(): CategoryDef[] {
@@ -145,6 +149,38 @@ function buildCategories(): CategoryDef[] {
         subtitle: NODE_SUBTITLES[t] ?? '',
       })),
     },
+    {
+      key: 'conceptlab',
+      label: 'Concept Lab',
+      icon: '\u{1F3A8}',
+      items: CONCEPTLAB_NODE_TYPES.map((t) => ({
+        id: t,
+        label: CONCEPTLAB_NODE_META[t].label,
+        color: CONCEPTLAB_NODE_META[t].color,
+        subtitle: NODE_SUBTITLES[t] ?? '',
+      })),
+    },
+    {
+      key: 'uiElements',
+      label: 'UI Elements',
+      icon: '\u{1F532}',
+      items: [
+        { id: 'uiButton', label: 'Button', color: '#5c6bc0', subtitle: 'Resizable button placeholder' },
+        { id: 'uiTextBox', label: 'Text Box', color: '#66bb6a', subtitle: 'Resizable text input placeholder' },
+        { id: 'uiDropdown', label: 'Dropdown', color: '#ffa726', subtitle: 'Dropdown menu placeholder' },
+        { id: 'uiImage', label: 'Image', color: '#ab47bc', subtitle: 'Image placeholder' },
+        { id: 'uiGeneric', label: 'Node', color: '#607d8b', subtitle: 'Generic node with header' },
+      ],
+    },
+    {
+      key: 'uiContainers',
+      label: 'Containers',
+      icon: '\u{1F4E6}',
+      items: [
+        { id: 'uiWindow', label: 'Window', color: '#26a69a', subtitle: 'Window panel with title bar' },
+        { id: 'uiFrame', label: 'Frame', color: '#78909c', subtitle: 'Layout frame / grouping' },
+      ],
+    },
   ];
 }
 
@@ -153,8 +189,22 @@ export default function ToolDock({ inspectorNodeId, onCloseInspector }: ToolDock
   const [collapsed, setCollapsed] = useState(false);
   const [pinned, setPinned] = useState(true);
   const [openCat, setOpenCat] = useState<string | null>(null);
-  const categories = buildCategories();
+  const [search, setSearch] = useState('');
+  const allCategories = buildCategories();
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const categories = search.trim()
+    ? allCategories
+        .map((cat) => ({
+          ...cat,
+          items: cat.items.filter(
+            (item) =>
+              item.label.toLowerCase().includes(search.toLowerCase()) ||
+              item.subtitle.toLowerCase().includes(search.toLowerCase()),
+          ),
+        }))
+        .filter((cat) => cat.items.length > 0)
+    : allCategories;
 
   useEffect(() => {
     if (inspectorNodeId) setActiveTab('details');
@@ -233,10 +283,18 @@ export default function ToolDock({ inspectorNodeId, onCloseInspector }: ToolDock
       <div className="tool-dock-content">
         {activeTab === 'nodes' ? (
           <div className="tool-dock-nodes-list">
+            <div className="tool-dock-search">
+              <input
+                className="tool-dock-search-input"
+                placeholder="Search nodes..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
             {categories.map((cat) => (
               <div key={cat.key} className="tool-dock-category">
                 <button
-                  className={`tool-dock-cat-header ${openCat === cat.key ? 'open' : ''}`}
+                  className={`tool-dock-cat-header ${openCat === cat.key || search.trim() ? 'open' : ''}`}
                   onClick={() => setOpenCat(openCat === cat.key ? null : cat.key)}
                 >
                   <span className="tool-dock-cat-icon">{cat.icon}</span>
@@ -245,7 +303,7 @@ export default function ToolDock({ inspectorNodeId, onCloseInspector }: ToolDock
                   <span className="tool-dock-cat-chevron">{openCat === cat.key ? '\u25BE' : '\u25B8'}</span>
                 </button>
 
-                {openCat === cat.key && (
+                {(openCat === cat.key || search.trim()) && (
                   <div className="tool-dock-cat-items">
                     {cat.items.map((item) => (
                       <div

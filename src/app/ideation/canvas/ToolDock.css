@@ -172,6 +172,31 @@
   flex-direction: column;
 }
 
+/* ── Search ── */
+
+.tool-dock-search {
+  padding: 6px 12px;
+}
+
+.tool-dock-search-input {
+  width: 100%;
+  background: #1e1e2e;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 11px;
+  padding: 6px 10px;
+  outline: none;
+}
+
+.tool-dock-search-input:focus {
+  border-color: var(--accent);
+}
+
+.tool-dock-search-input::placeholder {
+  color: var(--text-muted);
+}
+
 /* ── Category headers ── */
 
 .tool-dock-category {

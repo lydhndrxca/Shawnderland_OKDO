@@ -75,3 +75,60 @@ than in a separate service repo. Rationale: it has no backend, no API,
 no external dependencies — it's purely a client-side canvas with JSON export.
 Making it hub-native avoids the overhead of a separate repo, service, and
 proxy routing for what is essentially a static design tool.
+
+## 011 — Utility dependencies
+
+| Dependency | Purpose |
+|---|---|
+| dagre | Graph layout algorithm for auto-arranging nodes (pack/group expand) |
+| clsx | Conditional CSS class string construction |
+| tailwind-merge | Resolves Tailwind class conflicts when merging dynamic classes |
+| zod | Runtime schema validation for pipeline stage outputs |
+
+These are standard utility libraries, not architectural choices. They were
+selected for broad ecosystem support and small footprint.
+
+## 012 — Dual-backend API routing (AI Studio + Vertex AI)
+
+All Google AI API calls route through `apiConfig.ts`, which detects the
+active backend from environment variables and builds URLs accordingly.
+Rationale:
+1. Some models (e.g. gemini-3-pro-image-preview) may only be available
+   on one backend. Supporting both gives maximum model access.
+2. Vertex AI offers region-specific endpoints and enterprise features.
+3. A centralized URL builder prevents scattered hardcoded endpoints.
+4. The security allowlist (`allowlists.ts`) dynamically accepts the
+   active backend's hostname.
+
+## 013 — ConceptLab on the unified canvas
+
+ConceptLab nodes (Character, Weapon, Turnaround) live on the same React Flow
+canvas as ShawnderMind nodes, rather than in a separate tool view. Rationale:
+1. Users can connect ideation pipeline outputs to character/weapon generation.
+2. All nodes share the same connection validation, ToolDock search, and
+   context menu system.
+3. Avoids duplicating canvas infrastructure for a second tool.
+
+The ToolDock was updated with a "Concept Lab" category and a search filter
+so users can find nodes across all categories.
+
+## 014 — Node compatibility validation via HOC
+
+A `withCompatCheck` Higher-Order Component wraps every node type in the
+`nodeTypes` map, adding error banners below nodes with connection issues.
+Rationale:
+1. Zero changes needed to individual node component files.
+2. Validation rules live in a pure function (`nodeCompatibility.ts`)
+   that is easy to test and extend.
+3. Errors update reactively as edges change — no manual refresh needed.
+4. Uses React Context (`CompatProvider`) to pass the error map from
+   FlowCanvas down to every wrapped node.
+
+## 015 — Imagen 4 for primary generation, Gemini for reference-based
+
+CharacterNode and WeaponNode use Imagen 4 (`imagen-4.0-generate-001`) for
+initial image generation because it produces the highest quality from
+text-only prompts. TurnaroundNode uses Gemini image models for reference-based
+generation because they accept multimodal input (image + text prompt).
+The user can choose between Gemini 3 Pro (higher fidelity) and Gemini Flash
+Image (faster iteration) for turnaround views.

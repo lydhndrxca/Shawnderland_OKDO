@@ -95,38 +95,40 @@
   cursor: default;
 }
 
-.start-btn-auto {
-  background: #42a5f5;
-  color: #fff;
-}
-
-.start-btn-auto:not(:disabled):hover {
-  background: #1e88e5;
-}
-
-.start-btn-interactive {
+.start-btn-mode {
   background: var(--bg-elevated);
-  color: var(--text-primary);
+  color: var(--text-muted);
   border: 1px solid var(--border);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.start-btn-interactive:not(:disabled):hover {
+.start-btn-mode:not(:disabled):hover {
   background: var(--bg-surface);
-  border-color: #42a5f5;
-}
-
-.start-btn-step {
-  width: 100%;
-  background: transparent;
   color: var(--text-secondary);
-  border: 1px solid var(--border);
-  margin-top: 2px;
+  border-color: rgba(66, 165, 245, 0.4);
 }
 
-.start-btn-step:not(:disabled):hover {
-  background: var(--bg-elevated);
+.start-btn-mode.active {
+  background: rgba(66, 165, 245, 0.12);
+  color: #42a5f5;
   border-color: #42a5f5;
-  color: var(--text-primary);
+}
+
+.start-btn-play {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: #2e7d32;
+  color: #fff;
+  border: none;
+  margin-top: 2px;
+  padding: 7px 8px;
+}
+
+.start-btn-play:not(:disabled):hover {
+  background: #388e3c;
 }
 
 /* ── Thinking Tier Selector ── */

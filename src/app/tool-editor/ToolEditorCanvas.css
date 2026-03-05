@@ -11,43 +11,99 @@
 
 .te-canvas-wrap .react-flow__node {
   cursor: grab;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
 }
 
 .te-canvas-wrap .react-flow__node:active {
   cursor: grabbing;
 }
 
-.te-canvas-wrap .react-flow__controls {
-  background: #1e1e24;
-  border: 1px solid #333;
-  border-radius: 6px;
+.te-canvas-wrap .react-flow__node.selected {
+  border: none !important;
+  box-shadow: none !important;
+  z-index: 1000 !important;
 }
 
-.te-canvas-wrap .react-flow__controls button {
-  background: #1e1e24;
-  border-bottom: 1px solid #333;
-  color: #aaa;
+.te-canvas-wrap .react-flow__nodesselection-rect {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
-.te-canvas-wrap .react-flow__controls button:hover {
-  background: #2a2a34;
-  color: #fff;
+.te-canvas-wrap .react-flow__handle {
+  border: none;
+  transition: box-shadow 0.15s !important;
 }
 
-.te-canvas-wrap .react-flow__controls button svg {
-  fill: currentColor;
+.te-canvas-wrap .react-flow__handle:hover {
+  transform: translate(-50%, -50%) !important;
 }
 
-.te-canvas-wrap .react-flow__minimap {
-  border: 1px solid #333;
-  border-radius: 6px;
+.te-canvas-wrap .flow-controls {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.te-canvas-wrap .flow-controls button {
+  background: var(--bg-surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text-secondary) !important;
+  width: 28px !important;
+  height: 28px !important;
+}
+
+.te-canvas-wrap .flow-controls button:hover {
+  background: var(--bg-elevated) !important;
+  color: var(--text-primary) !important;
+}
+
+.te-canvas-wrap .flow-controls button svg {
+  fill: currentColor !important;
+}
+
+.te-canvas-wrap .flow-minimap {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
 }
 
 .te-canvas-wrap .react-flow__edge-path {
-  stroke: #555;
+  stroke: var(--text-muted);
   stroke-width: 2;
+  cursor: pointer;
 }
 
 .te-canvas-wrap .react-flow__edge.selected .react-flow__edge-path {
   stroke: #ff7043;
+}
+
+.te-canvas-wrap .react-flow__connection-path {
+  stroke-width: 3 !important;
+}
+
+.te-canvas-wrap .react-flow__edge-text {
+  font-size: 10px;
+  fill: var(--text-secondary);
+}
+
+.te-canvas-wrap .react-flow__edge-textbg {
+  fill: var(--bg-surface);
+  stroke: var(--border);
+  rx: 4;
+}
+
+.te-canvas-wrap .react-flow__node select option {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.te-canvas-wrap .react-flow__node select,
+.te-canvas-wrap .react-flow__node input[type="number"],
+.te-canvas-wrap .react-flow__node input[type="text"] {
+  border-color: var(--border) !important;
 }

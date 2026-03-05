@@ -2,6 +2,7 @@
 
 import { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
+import { Play } from 'lucide-react';
 import type { StageId } from '@/lib/ideation/engine/stages';
 import { NODE_META, STAGE_ORDER } from './nodeRegistry';
 import { useSession } from '@/lib/ideation/context/SessionContext';
@@ -33,7 +34,8 @@ function BaseNodeInner({
   subName,
 }: BaseNodeProps) {
   const meta = NODE_META[stageId];
-  const { runningStageId } = useSession();
+  const { runningStageId, pipelineMode, awaitingInputNodeId, continueAutomatedRun } = useSession();
+  const isAwaitingInput = pipelineMode === 'automated' && awaitingInputNodeId === stageId;
 
   const isPathComplete = runningStageId
     ? STAGE_ORDER.indexOf(stageId) < STAGE_ORDER.indexOf(runningStageId) && status === 'complete'
@@ -50,6 +52,7 @@ function BaseNodeInner({
     selected ? 'selected' : '',
     `status-${status}`,
     isPathComplete ? 'status-path-complete' : '',
+    isAwaitingInput ? 'awaiting-input' : '',
   ].filter(Boolean).join(' ');
 
   return (
@@ -111,6 +114,17 @@ function BaseNodeInner({
           className="base-handle result-handle"
           style={{ background: '#80cbc4' }}
         />
+      )}
+
+      {isAwaitingInput && (
+        <button
+          className="base-node-continue nodrag"
+          onClick={(e) => { e.stopPropagation(); continueAutomatedRun(); }}
+          title="Continue automated pipeline"
+        >
+          <Play size={12} fill="currentColor" />
+          <span>Continue</span>
+        </button>
       )}
     </div>
   );

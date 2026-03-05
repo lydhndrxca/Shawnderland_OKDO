@@ -1,7 +1,8 @@
 "use client";
 
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
+import { Play } from 'lucide-react';
 import { useSession } from '@/lib/ideation/context/SessionContext';
 import type { ThinkingTier } from '@/lib/ideation/state/sessionTypes';
 import './StartNode.css';
@@ -19,40 +20,45 @@ const TIER_LABELS: Record<ThinkingTier, { label: string; title: string }> = {
 };
 
 function StartNodeInner({ selected }: StartNodeProps) {
-  const { session, updateSettings, runFullPipeline, runInteractivePipeline, runNextStage, isRunning, pipelineProgress } = useSession();
+  const {
+    session, updateSettings, runFullPipeline, runInteractivePipeline,
+    isRunning, pipelineProgress, pipelineMode, setPipelineMode,
+  } = useSession();
   const currentTier = (session.settings?.thinkingTier ?? 'standard') as ThinkingTier;
+  const [selectedMode, setSelectedMode] = useState<'interactive' | 'automated'>('interactive');
 
   const handleTierChange = useCallback((tier: ThinkingTier) => {
     updateSettings({ thinkingTier: tier });
   }, [updateSettings]);
 
-  const handleHandsFree = useCallback(() => {
-    if (isRunning) return;
-    const spawnPacked = (window as unknown as Record<string, unknown>).__spawnPackedPipeline as (() => void) | undefined;
-    if (spawnPacked) spawnPacked();
-    runFullPipeline();
-  }, [isRunning, runFullPipeline]);
+  const handleSelectMode = useCallback((mode: 'interactive' | 'automated') => {
+    setSelectedMode(mode);
+    if (pipelineMode) setPipelineMode(null);
+  }, [pipelineMode, setPipelineMode]);
 
-  const handleInteractive = useCallback(() => {
+  const handleRun = useCallback(() => {
     if (isRunning) return;
+
     const spawnChain = (window as unknown as Record<string, unknown>).__spawnFullChain as (() => void) | undefined;
     if (spawnChain) spawnChain();
-    if (runInteractivePipeline) {
-      runInteractivePipeline();
-    } else {
-      runFullPipeline();
-    }
-  }, [isRunning, runInteractivePipeline, runFullPipeline]);
 
-  const handleStep = useCallback(() => {
-    if (isRunning) return;
-    runNextStage();
-  }, [isRunning, runNextStage]);
+    if (selectedMode === 'automated') {
+      setPipelineMode('automated');
+      runFullPipeline();
+    } else {
+      setPipelineMode('interactive');
+      if (runInteractivePipeline) {
+        runInteractivePipeline();
+      } else {
+        runFullPipeline();
+      }
+    }
+  }, [isRunning, selectedMode, setPipelineMode, runFullPipeline, runInteractivePipeline]);
 
   return (
     <div
       className={`start-node ${selected ? 'selected' : ''} ${isRunning ? 'running' : ''}`}
-      title="Run controller — choose Interactive for step-by-step guidance, Hands-Free to run everything automatically, or Step to run one stage at a time."
+      title="Select a mode, then press the play button to run."
     >
       <div className="start-node-header">
         <span className="start-node-dot" />
@@ -87,29 +93,29 @@ function StartNodeInner({ selected }: StartNodeProps) {
 
         <div className="start-node-actions">
           <button
-            className="start-btn start-btn-interactive"
-            onClick={handleInteractive}
-            disabled={isRunning || !session.seedText.trim()}
-            title="Shows the full pipeline chain and guides you step-by-step, pausing for your input at each stage."
+            className={`start-btn start-btn-mode ${selectedMode === 'interactive' ? 'active' : ''}`}
+            onClick={() => handleSelectMode('interactive')}
+            disabled={isRunning}
+            title="Step-by-step: pauses after each stage for your review."
           >
             Interactive
           </button>
           <button
-            className="start-btn start-btn-auto"
-            onClick={handleHandsFree}
-            disabled={isRunning || !session.seedText.trim()}
-            title="Runs the entire pipeline automatically and gives you all results at the end."
+            className={`start-btn start-btn-mode ${selectedMode === 'automated' ? 'active' : ''}`}
+            onClick={() => handleSelectMode('automated')}
+            disabled={isRunning}
+            title="Runs the pipeline automatically, pausing only when user input is needed."
           >
-            Hands-Free
+            Automated
           </button>
         </div>
         <button
-          className="start-btn start-btn-step"
-          onClick={handleStep}
+          className="start-btn start-btn-play"
+          onClick={handleRun}
           disabled={isRunning || !session.seedText.trim()}
-          title="Runs only the next stage in the pipeline, then stops so you can manually advance."
+          title={`Run pipeline in ${selectedMode} mode`}
         >
-          Step
+          <Play size={14} fill="currentColor" />
         </button>
       </div>
 

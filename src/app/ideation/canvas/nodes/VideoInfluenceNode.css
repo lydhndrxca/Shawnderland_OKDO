@@ -1,0 +1,45 @@
+.video-influence-node {
+  min-width: 200px;
+  max-width: 240px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: visible;
+  position: relative;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.video-influence-node.selected {
+  border-color: #ce93d8;
+  box-shadow: 0 0 16px rgba(206, 147, 216, 0.3);
+}
+.video-influence-header {
+  padding: 6px 12px;
+  background: #ce93d8;
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.video-influence-body {
+  padding: 8px 10px;
+}
+.video-influence-open {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.video-influence-open:hover {
+  border-color: #ce93d8;
+  color: var(--text-primary);
+}

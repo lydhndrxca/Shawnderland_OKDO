@@ -1,0 +1,65 @@
+.input-panel {
+  padding: 10px 20px 12px;
+}
+
+.input-panel-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.input-panel-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.input-panel-textarea {
+  flex: 1;
+  resize: none;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.input-panel-textarea:focus {
+  border-color: var(--accent);
+}
+
+.input-panel-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.input-panel-add {
+  padding: 8px 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+  align-self: stretch;
+}
+
+.input-panel-add:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.input-panel-add:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

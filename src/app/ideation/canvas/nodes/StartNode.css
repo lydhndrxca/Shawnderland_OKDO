@@ -1,0 +1,130 @@
+.start-node {
+  min-width: 200px;
+  max-width: 240px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: visible;
+  font-size: 12px;
+  position: relative;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.start-node.selected {
+  border-color: #42a5f5;
+  box-shadow: 0 0 16px rgba(66, 165, 245, 0.3);
+}
+
+.start-node.running {
+  border-color: #42a5f5;
+  box-shadow: 0 0 20px rgba(66, 165, 245, 0.5);
+  animation: start-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes start-pulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(66, 165, 245, 0.3); }
+  50% { box-shadow: 0 0 24px rgba(66, 165, 245, 0.6); }
+}
+
+.start-node-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #42a5f5;
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.start-node-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0.3;
+}
+
+.start-node-label {
+  flex: 1;
+}
+
+.start-node-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.start-node-project {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.start-node-progress {
+  font-size: 11px;
+  color: #42a5f5;
+  font-weight: 500;
+}
+
+.start-node-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.start-btn {
+  flex: 1;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.start-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.start-btn-auto {
+  background: #42a5f5;
+  color: #fff;
+}
+
+.start-btn-auto:not(:disabled):hover {
+  background: #1e88e5;
+}
+
+.start-btn-interactive {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.start-btn-interactive:not(:disabled):hover {
+  background: var(--bg-surface);
+  border-color: #42a5f5;
+}
+
+.start-btn-step {
+  width: 100%;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  margin-top: 2px;
+}
+
+.start-btn-step:not(:disabled):hover {
+  background: var(--bg-elevated);
+  border-color: #42a5f5;
+  color: var(--text-primary);
+}

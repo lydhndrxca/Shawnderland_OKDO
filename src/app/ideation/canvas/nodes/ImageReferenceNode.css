@@ -1,0 +1,124 @@
+.image-ref-node {
+  min-width: 180px;
+  max-width: 240px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  font-size: 12px;
+  transition: box-shadow 0.2s, border-color 0.2s, max-width 0.25s;
+}
+
+.image-ref-node.selected {
+  border-color: #26a69a;
+  box-shadow: 0 0 16px rgba(38, 166, 154, 0.3);
+}
+
+.image-ref-node.expanded {
+  max-width: 420px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.image-ref-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: #26a69a;
+  color: #0f0f1a;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.image-ref-label {
+  flex: 1;
+}
+
+.image-ref-filename {
+  font-size: 9px;
+  font-weight: 500;
+  background: rgba(0, 0, 0, 0.15);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-ref-body {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.image-ref-preview-wrap {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: #1a1a2e;
+}
+
+.image-ref-preview {
+  width: 100%;
+  max-height: 160px;
+  object-fit: contain;
+  display: block;
+}
+
+.image-ref-node.expanded .image-ref-preview {
+  max-height: 400px;
+}
+
+.image-ref-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 8px;
+  color: var(--text-muted);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.image-ref-empty-icon {
+  font-size: 24px;
+  line-height: 1;
+  opacity: 0.4;
+}
+
+.image-ref-empty-text {
+  font-size: 10px;
+  margin-top: 4px;
+}
+
+.image-ref-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.image-ref-btn {
+  flex: 1;
+  padding: 5px 0;
+  background: transparent;
+  border: 1px solid #26a69a;
+  border-radius: var(--radius-sm);
+  color: #26a69a;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.image-ref-btn:hover {
+  background: rgba(38, 166, 154, 0.1);
+}
+
+.image-ref-handle {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--bg-surface);
+  border-radius: 50%;
+}

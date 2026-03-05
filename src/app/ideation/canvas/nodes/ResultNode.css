@@ -1,0 +1,191 @@
+.result-node {
+  min-width: 240px;
+  max-width: 380px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: visible;
+  font-size: 12px;
+  position: relative;
+  transition: box-shadow 0.2s;
+}
+
+.result-node:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.result-node-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  color: #0f0f1a;
+  font-weight: 700;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.result-node-label { flex: 1; }
+
+.result-node-count {
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.result-node-empty {
+  padding: 12px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.result-node-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.result-node-list::-webkit-scrollbar { width: 4px; }
+.result-node-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.result-entry {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.result-entry:last-child { border-bottom: none; }
+
+.result-entry-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  gap: 6px;
+  transition: background 0.1s;
+}
+
+.result-entry-row:hover { background: rgba(255, 255, 255, 0.04); }
+.result-entry-open > .result-entry-row { background: rgba(255, 255, 255, 0.06); }
+
+.result-entry-highlighted > .result-entry-row {
+  background: rgba(108, 99, 255, 0.08);
+  border-left: 2px solid var(--accent);
+}
+
+.result-entry-chevron {
+  flex-shrink: 0;
+  font-size: 9px;
+  color: var(--text-muted);
+  width: 12px;
+}
+
+.result-entry-tldr {
+  flex: 1;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+}
+
+.result-entry-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.result-entry-row:hover .result-entry-actions { opacity: 1; }
+.result-entry-highlighted .result-entry-actions { opacity: 1; }
+
+.result-highlight-btn,
+.result-delete-btn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.result-highlight-btn:hover { background: rgba(255, 213, 79, 0.15); color: #ffd54f; }
+.result-highlight-btn.active { color: #ffd54f; opacity: 1; }
+.result-delete-btn:hover { background: rgba(239, 83, 80, 0.2); color: #ef5350; }
+
+.result-entry-detail {
+  padding: 8px 12px 12px 30px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(0, 0, 0, 0.1);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.result-entry-detail::-webkit-scrollbar { width: 3px; }
+.result-entry-detail::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.result-val-text {
+  margin: 0 0 4px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.result-val-primitive {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.result-val-list {
+  margin: 2px 0 4px 12px;
+  padding: 0;
+  list-style: disc;
+}
+
+.result-val-list li {
+  margin-bottom: 2px;
+  line-height: 1.4;
+}
+
+.result-val-array-item {
+  padding-left: 8px;
+  border-left: 2px solid var(--border);
+  margin-bottom: 6px;
+}
+
+.result-val-obj {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.result-val-field {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.result-field-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.result-field-value {
+  padding-left: 4px;
+  color: var(--text-secondary);
+}

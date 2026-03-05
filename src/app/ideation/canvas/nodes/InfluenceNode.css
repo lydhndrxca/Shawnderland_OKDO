@@ -1,0 +1,93 @@
+.influence-node {
+  min-width: 200px;
+  max-width: 260px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: visible;
+  font-size: 12px;
+  position: relative;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.influence-node.selected {
+  border-color: #ab47bc;
+  box-shadow: 0 0 16px rgba(171, 71, 188, 0.3);
+}
+
+.influence-node-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #ab47bc;
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.influence-node-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0.3;
+}
+
+.influence-node-label {
+  flex: 1;
+}
+
+.influence-node-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.influence-name-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 8px;
+  outline: none;
+}
+
+.influence-name-input:focus {
+  border-color: #ab47bc;
+}
+
+.influence-name-input::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.influence-notes-input {
+  width: 100%;
+  resize: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 8px;
+  line-height: 1.4;
+  outline: none;
+}
+
+.influence-notes-input:focus {
+  border-color: #ab47bc;
+}
+
+.influence-notes-input::placeholder {
+  color: var(--text-muted);
+}

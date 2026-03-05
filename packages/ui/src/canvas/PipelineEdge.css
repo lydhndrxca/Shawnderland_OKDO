@@ -1,0 +1,13 @@
+.pipeline-edge .react-flow__edge-path {
+  transition: stroke-dasharray 0.3s, opacity 0.3s;
+}
+
+.pipeline-edge.running .react-flow__edge-path,
+.pipeline-edge.lit .react-flow__edge-path {
+  opacity: 1 !important;
+  stroke-dasharray: none !important;
+}
+
+.edge-dot {
+  filter: drop-shadow(0 0 4px currentColor);
+}

@@ -1,0 +1,42 @@
+.text-influence-node {
+  min-width: 200px;
+  max-width: 280px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: visible;
+  position: relative;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.text-influence-node.selected {
+  border-color: #7986cb;
+  box-shadow: 0 0 16px rgba(121, 134, 203, 0.3);
+}
+.text-influence-header {
+  padding: 6px 12px;
+  background: #7986cb;
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.text-influence-body {
+  padding: 8px 10px;
+}
+.text-influence-input {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-family: inherit;
+  padding: 6px 8px;
+  resize: vertical;
+  outline: none;
+}
+.text-influence-input:focus {
+  border-color: #7986cb;
+}

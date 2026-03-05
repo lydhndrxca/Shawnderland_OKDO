@@ -1,0 +1,60 @@
+:root {
+  /* ── Backgrounds ─────────────────────────── */
+  --color-background: #09090b;
+  --color-surface: #0c0c10;
+  --color-elevated: #161628;
+  --color-card: #111114;
+  --color-hover: #1e1e2e;
+
+  /* ── Foreground / Text ───────────────────── */
+  --color-foreground: #fafafa;
+  --color-text-primary: #e0e0f0;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #606080;
+
+  /* ── Accent / Brand ──────────────────────── */
+  --color-accent: #6c63ff;
+  --color-accent-hover: #7c73ff;
+  --color-accent-dim: rgba(108, 99, 255, 0.15);
+  --color-primary: #a78bfa;
+  --color-primary-foreground: #09090b;
+
+  /* ── Borders ─────────────────────────────── */
+  --color-border: #1f1f23;
+  --color-border-hover: #3f3f46;
+  --color-ring: #7c3aed;
+
+  /* ── Semantic ─────────────────────────────── */
+  --color-destructive: #ef4444;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+
+  /* ── Tool Accents ────────────────────────── */
+  --color-tool-sprite: #818cf8;
+  --color-tool-sprite-dim: rgba(129, 140, 248, 0.12);
+  --color-tool-mind: #34d399;
+  --color-tool-mind-dim: rgba(52, 211, 153, 0.12);
+  --color-tool-ui: #fb923c;
+  --color-tool-ui-dim: rgba(251, 146, 60, 0.12);
+  --color-tool-concept: #f472b6;
+  --color-tool-concept-dim: rgba(244, 114, 182, 0.12);
+  --color-tool-walter: #38bdf8;
+  --color-tool-walter-dim: rgba(56, 189, 248, 0.12);
+
+  /* ── Radii ───────────────────────────────── */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* ── Shadows ─────────────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-node: 0 4px 20px rgba(0, 0, 0, 0.4);
+
+  /* ── Transitions ─────────────────────────── */
+  --transition-fast: 0.1s ease;
+  --transition-normal: 0.2s ease;
+  --transition-slow: 0.35s ease-out;
+}

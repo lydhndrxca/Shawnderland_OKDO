@@ -1,0 +1,68 @@
+.emotion-node {
+  min-width: 200px;
+  max-width: 260px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: visible;
+  font-size: 12px;
+  position: relative;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.emotion-node.selected {
+  border-color: #e57373;
+  box-shadow: 0 0 16px rgba(229, 115, 115, 0.3);
+}
+
+.emotion-node-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #e57373;
+  color: #0f0f1a;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.emotion-node-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #0f0f1a;
+  opacity: 0.3;
+}
+
+.emotion-node-label {
+  flex: 1;
+}
+
+.emotion-node-body {
+  padding: 10px 12px;
+}
+
+.emotion-input {
+  width: 100%;
+  resize: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 8px;
+  line-height: 1.4;
+  outline: none;
+}
+
+.emotion-input:focus {
+  border-color: #e57373;
+}
+
+.emotion-input::placeholder {
+  color: var(--text-muted);
+}

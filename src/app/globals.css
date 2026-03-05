@@ -1,0 +1,69 @@
+@import "tailwindcss";
+@import "../../packages/ui/src/tokens.css";
+@import "../../packages/ui/src/animations.css";
+
+@theme {
+  --color-background: #09090b;
+  --color-foreground: #fafafa;
+  --color-card: #0c0c10;
+  --color-card-foreground: #fafafa;
+  --color-primary: #a78bfa;
+  --color-primary-foreground: #09090b;
+  --color-secondary: #1e1e2e;
+  --color-secondary-foreground: #fafafa;
+  --color-muted: #18181b;
+  --color-muted-foreground: #a1a1aa;
+  --color-accent: #7c3aed;
+  --color-accent-foreground: #fafafa;
+  --color-border: #1f1f23;
+  --color-border-hover: #3f3f46;
+  --color-ring: #7c3aed;
+  --color-destructive: #ef4444;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-surface: #111114;
+
+  --color-tool-sprite: #818cf8;
+  --color-tool-sprite-dim: #818cf820;
+  --color-tool-mind: #34d399;
+  --color-tool-mind-dim: #34d39920;
+  --color-tool-ui: #fb923c;
+  --color-tool-ui-dim: #fb923c20;
+  --color-tool-concept: #f472b6;
+  --color-tool-concept-dim: #f472b620;
+  --color-tool-walter: #38bdf8;
+  --color-tool-walter-dim: #38bdf820;
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-hover);
+}

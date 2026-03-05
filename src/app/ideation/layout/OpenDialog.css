@@ -1,0 +1,149 @@
+.open-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  animation: ctx-fade-in 0.15s ease;
+}
+
+.open-dialog {
+  background: #1e1e30;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  width: 420px;
+  max-height: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.open-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.open-dialog-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.open-dialog-new {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.open-dialog-new:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.open-dialog-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.open-dialog-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.open-dialog-list::-webkit-scrollbar { width: 4px; }
+.open-dialog-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.open-dialog-row {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  transition: background 0.1s;
+}
+
+.open-dialog-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.open-dialog-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.open-dialog-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.open-dialog-date {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.open-dialog-delete {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+  margin-right: 8px;
+}
+
+.open-dialog-row:hover .open-dialog-delete {
+  opacity: 1;
+}
+
+.open-dialog-delete:hover {
+  background: rgba(239, 83, 80, 0.2);
+  color: #ef5350;
+}
+
+.open-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.open-dialog-cancel {
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  transition: background 0.15s;
+}
+
+.open-dialog-cancel:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}

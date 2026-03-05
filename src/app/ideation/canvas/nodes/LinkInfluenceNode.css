@@ -1,0 +1,41 @@
+.link-influence-node {
+  min-width: 200px;
+  max-width: 280px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: visible;
+  position: relative;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.link-influence-node.selected {
+  border-color: #4fc3f7;
+  box-shadow: 0 0 16px rgba(79, 195, 247, 0.3);
+}
+.link-influence-header {
+  padding: 6px 12px;
+  background: #4fc3f7;
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.link-influence-body {
+  padding: 8px 10px;
+}
+.link-influence-input {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-family: inherit;
+  padding: 6px 8px;
+  outline: none;
+}
+.link-influence-input:focus {
+  border-color: #4fc3f7;
+}

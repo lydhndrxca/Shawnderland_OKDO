@@ -1,0 +1,228 @@
+.image-output-node {
+  min-width: 220px;
+  max-width: 300px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  font-size: 12px;
+  transition: box-shadow 0.2s, border-color 0.2s, max-width 0.25s;
+}
+
+.image-output-node.selected {
+  border-color: #f06292;
+  box-shadow: 0 0 16px rgba(240, 98, 146, 0.3);
+}
+
+.image-output-node.expanded {
+  max-width: 480px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.image-output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: #f06292;
+  color: #0f0f1a;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.image-output-label {
+  flex: 1;
+}
+
+.image-output-count {
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.15);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.image-output-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.image-output-model-select {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.image-output-field-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.image-output-select {
+  background: #2a2a3e;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 11px;
+  padding: 5px 8px;
+  outline: none;
+}
+
+.image-output-select option {
+  background: #2a2a3e;
+  color: #e0e0e0;
+}
+
+.image-output-select:focus {
+  border-color: #f06292;
+}
+
+.image-output-model-hint {
+  font-size: 9px;
+  color: var(--text-muted);
+  cursor: help;
+}
+
+.image-output-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.image-output-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.image-output-count-input {
+  width: 100%;
+  background: #2a2a3e;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 11px;
+  padding: 5px 8px;
+  outline: none;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+
+.image-output-count-input::-webkit-inner-spin-button,
+.image-output-count-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}
+
+.image-output-prompt {
+  width: 100%;
+  resize: none;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-sm);
+  background: #2a2a3e;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 11px;
+  padding: 6px 8px;
+  line-height: 1.4;
+  outline: none;
+}
+
+.image-output-prompt:focus {
+  border-color: #f06292;
+}
+
+.image-output-prompt::placeholder {
+  color: var(--text-muted);
+}
+
+.image-output-generate {
+  width: 100%;
+  padding: 6px 0;
+  background: transparent;
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.image-output-generate:hover:not(:disabled) {
+  background: rgba(240, 98, 146, 0.1);
+}
+
+.image-output-generate:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.image-output-error {
+  font-size: 10px;
+  color: #ef5350;
+  background: rgba(239, 83, 80, 0.1);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.image-output-gallery {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.image-output-preview {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  max-height: 200px;
+  object-fit: contain;
+  background: #1a1a2e;
+}
+
+.image-output-node.expanded .image-output-preview {
+  max-height: 400px;
+}
+
+.image-output-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.image-output-nav-btn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--text-primary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.image-output-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.image-output-handle {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--bg-surface);
+  border-radius: 50%;
+}
+
+.count-target {
+  top: -5px;
+}

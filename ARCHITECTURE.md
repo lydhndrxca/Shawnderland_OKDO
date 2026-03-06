@@ -56,7 +56,6 @@ src/app/
       FlowCanvas.tsx            Main ReactFlow canvas
       useFlowSession.ts         Flow state management (nodes, edges, groups)
       ToolDock.tsx/.css          Left panel with categorized node templates + search
-      ContextMenu.tsx/.css       Right-click add/group/expand menu
       StatusBar.tsx/.css         Canvas status indicators
       NodeInspector.tsx/.css     Node detail inspector
       GuidedRunOverlay.tsx/.css  Step-by-step guided run UI
@@ -93,6 +92,8 @@ src/app/
         ImageReferenceNode.tsx/.css     Image reference input
         LinkInfluenceNode.tsx/.css      URL link influence
         VideoInfluenceNode.tsx/.css     Video influence
+        PrepromptNode.tsx/.css          Preprompt injection node
+        PostPromptNode.tsx/.css         PostPrompt injection node
         ExtractDataNode.tsx/.css        Data extraction utility
         CountNode.tsx/.css              Count utility
         TextOutputNode.tsx/.css         Text output node
@@ -106,6 +107,28 @@ src/app/
     layout/                     Shell, settings panel, save/open dialogs
     views/                      Lineage graph, evaluation dashboard
     ipc.ts                      Inter-process communication
+
+  concept-lab/                  AI ConceptLab (standalone canvas)
+    ConceptLabShell.tsx/.css    Canvas shell with useCanvasSession
+    ConceptLabDock.tsx          Node template dock (presets panel)
+    nodes/
+      CharIdentityNode.tsx      Character identity fields
+      CharAttributesNode.tsx    Character attribute panel (14 categories)
+      WeapBaseNode.tsx          Weapon base design
+      WeapComponentsNode.tsx    Weapon component fields
+      MultiViewerNode.tsx       Multi-view turnaround sheets
+      EditImageNode.tsx         Image editing node
+      ConceptLabNodes.css       Shared ConceptLab node styles
+
+  gemini-studio/                Gemini Studio (consumer AI media generation)
+    GeminiStudioShell.tsx/.css  Canvas shell with useCanvasSession
+    GeminiStudioDock.tsx        Node template dock
+    nodes/
+      ImageGenNode.tsx          Multi-model image generation
+      VideoGenNode.tsx          Veo-based video generation
+      PromptNode.tsx            Text prompt input
+      ImageRefNode.tsx          Image reference input
+      OutputViewerNode.tsx      Result display
 
   tool-editor/                  Tool Editor (hub-native)
     ToolEditorShell.tsx/.css     Main shell (toolbar + 3-panel layout)
@@ -127,7 +150,7 @@ src/app/
     UILabShell.tsx              Lab shell with tool tabs
     components/                 Generate, extract, remove, plan panels
 
-src/components/                 Hub-level components
+src/components/                 Hub-level shared components
   ClientShell.tsx               App shell with sidebar + workspace
   WorkspaceRenderer.tsx         Route resolver with keep-alive
   Sidebar.tsx                   Navigation sidebar
@@ -136,6 +159,13 @@ src/components/                 Hub-level components
   ToolShell.tsx                 Generic tool landing page wrapper
   CommandPalette.tsx            Ctrl+K command palette
   StatusBadge.tsx               Tool status indicator
+  GlobalToolbar.tsx/.css        Unified top toolbar for all canvas apps
+  CanvasContextMenu.tsx         Unified right-click context menu for all canvas apps
+  CanvasCommon.css              Shared canvas styles (cut-line overlay, etc.)
+  ImageContextMenu.tsx/.css     Image-specific context menu
+
+src/hooks/
+  useCanvasSession.ts           Shared canvas session hook (undo/redo, edge-cutting, grouping, clipboard, pin, export/save/import)
 
 src/lib/
   registry.ts                   Tool registry (all tools + metadata)
@@ -206,11 +236,30 @@ scroll position, and in-flight requests.
   useFlowSession hook for canvas flow state. Global window functions
   for cross-component communication (e.g., `__spawnPackedPipeline`,
   `__getFlowSnapshot`, `__triggerGroupExpand`).
+- **Gemini Studio / ConceptLab**: useCanvasSession shared hook for
+  canvas state (undo/redo, edge-cutting, grouping, clipboard, pin,
+  export/save/import). No React Context needed.
 - **Tool Editor**: Singleton external store (useToolEditorStore) with
   useSyncExternalStore. No React Context — the store is a module-level
-  singleton accessed via hook.
+  singleton accessed via hook. GlobalToolbar and CanvasContextMenu
+  map to store actions.
 - **UI Lab**: React Context (UILabContext).
 - **Hub**: WorkspaceContext for navigation and keep-alive.
+
+## Unified Canvas Chrome
+
+All canvas-based tools share two UI components for consistent behavior:
+
+- **GlobalToolbar** (`src/components/GlobalToolbar.tsx`): standardized
+  top bar with undo/redo, duplicate, zoom-to-fit, auto-layout,
+  export selected, save layout, import layout, and clear canvas.
+- **CanvasContextMenu** (`src/components/CanvasContextMenu.tsx`):
+  standardized right-click menu with copy, paste, delete, pin,
+  group/ungroup, expand/collapse, duplicate, and custom per-app actions.
+- **useCanvasSession** (`src/hooks/useCanvasSession.ts`): shared hook
+  providing the underlying state management for these UI components,
+  including edge-cutting (right-click drag to break connections) and
+  keyboard shortcuts (Ctrl+Z/Y/D/C/V, Delete).
 
 ## Gemini Provider Configuration
 

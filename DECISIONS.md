@@ -132,3 +132,45 @@ text-only prompts. TurnaroundNode uses Gemini image models for reference-based
 generation because they accept multimodal input (image + text prompt).
 The user can choose between Gemini 3 Pro (higher fidelity) and Gemini Flash
 Image (faster iteration) for turnaround views.
+
+## 016 — Unified canvas chrome via shared hook + components
+
+All four canvas-based tools (ShawnderMind, ConceptLab, Gemini Studio, Tool
+Editor) share a `GlobalToolbar` and `CanvasContextMenu` component for
+consistent UX. A `useCanvasSession` hook centralizes undo/redo, edge-cutting,
+node grouping, clipboard, pin/freeze, and layout persistence. Rationale:
+1. Users expect the same toolbar buttons and right-click options everywhere.
+2. Centralizing logic prevents each tool from reimplementing undo/redo,
+   copy/paste, and edge-cutting independently.
+3. ShawnderMind retains its own `useFlowSession` because it has extensive
+   pipeline-specific state (sessions, stage execution, packed nodes) that
+   would bloat the shared hook. It uses `GlobalToolbar` and
+   `CanvasContextMenu` but delegates to its own state management.
+4. Tool Editor retains its Zustand-style store (DECISIONS #007) but maps
+   its actions to the shared UI components.
+
+## 017 — Preprompt / PostPrompt prompt injection nodes
+
+Two modifier nodes allow users to inject custom prompt text at specific
+points in the data flow:
+- **Preprompt**: text is prepended before incoming content, resolved via
+  `buildPrepromptBlock()` in the orchestrator. Use case: "Keep this in
+  mind when processing what follows."
+- **PostPrompt**: text is appended after incoming content, resolved via
+  `buildPostpromptBlock()`. Use case: "Now summarize the above into an
+  image prompt."
+
+Rationale: Influence nodes modify *how* the AI thinks (tone, persona,
+constraints), while prompt injection nodes modify *what* the AI reads
+by inserting literal text before or after content. This separation keeps
+influence merging (holistic synthesis) distinct from explicit prompt
+assembly (sequential reading order).
+
+## 018 — Gemini Studio as hub-native tool
+
+Gemini Studio lives inside the hub repo (`src/app/gemini-studio/`) as a
+consumer-friendly AI media generation tool. It uses `useCanvasSession`
+for canvas state and calls Google AI APIs directly via `apiConfig.ts`.
+Rationale: like Tool Editor, it has no external backend — all API calls
+go directly to Google AI endpoints from the client. Making it hub-native
+avoids a separate repo and proxy overhead.

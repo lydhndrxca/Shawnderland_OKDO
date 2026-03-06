@@ -103,6 +103,21 @@ All influence inputs are resolved and merged into a structured
 `[INFLUENCE DIRECTIVES]` block that is appended to every stage prompt,
 instructing the AI to synthesize them holistically.
 
+### Prompt Injection Nodes
+
+Two nodes for injecting custom prompts into the data flow:
+
+- **Preprompt Node** — text box whose content is prepended before
+  incoming data. Use case: "Keep this in mind when reading what
+  follows." The orchestrator reads preprompt text first via
+  `resolvePromptInjections()` → `buildPrepromptBlock()`.
+- **PostPrompt Node** — text box whose content is appended after
+  incoming data. Use case: "Summarize into image." The orchestrator
+  appends postprompt text last via `buildPostpromptBlock()`.
+
+Both nodes have input and output handles and can be inserted anywhere
+in a node chain.
+
 ### Session Persistence
 
 Sessions can be saved with names and reopened later. Flow state (nodes,
@@ -118,10 +133,34 @@ edges, viewport, node data) is stored in localStorage.
 - Custom edge styling (PipelineEdge)
 - Undo/redo, cut edges, snap-to-connect
 
+## Unified Canvas Chrome
+
+All canvas-based tools (ShawnderMind, ConceptLab, Gemini Studio, Tool
+Editor) share a consistent interface layer:
+
+- **GlobalToolbar**: standardized top bar with undo/redo, duplicate,
+  zoom-to-fit, auto-layout, export selected (JSON), save layout,
+  import layout, and clear canvas.
+- **CanvasContextMenu**: standardized right-click menu with copy, paste,
+  delete, pin/unpin (freeze position), group/ungroup, expand/collapse,
+  duplicate, edge deletion (right-click on edge), and a slot for
+  per-app custom actions.
+- **useCanvasSession**: shared React hook providing the state management
+  behind both components — undo/redo history, edge-cutting (right-click
+  drag across connections to break them), node grouping, clipboard,
+  pin/freeze, layout export/save/import, and keyboard shortcuts
+  (Ctrl+Z/Y/D/C/V, Delete).
+
+ShawnderMind uses its own `useFlowSession` (which implements the same
+features plus session persistence and pipeline-specific logic). Tool
+Editor uses its singleton Zustand-style store but shares GlobalToolbar
+and CanvasContextMenu.
+
 ## AI ConceptLab — Character & Weapon Design
 
-ConceptLab nodes live on the same unified canvas as ShawnderMind nodes.
-All nodes are searchable and categorized in the ToolDock.
+ConceptLab has its own standalone canvas powered by `useCanvasSession`.
+ConceptLab-specific nodes (Character, Weapon, Turnaround) also appear
+in the ShawnderMind ToolDock for cross-tool use on the ideation canvas.
 
 ### Character Node
 
@@ -188,6 +227,28 @@ JSON spec that can be fed back to Cursor for implementation.
 - Labels on connections (editable, included in export)
 - Zoom-to-fit button
 - Image placeholder node
+
+## Gemini Studio — AI Media Generation
+
+Consumer-friendly point-and-shoot AI media generation with every
+available Google AI model. Has its own canvas powered by
+`useCanvasSession`, `GlobalToolbar`, and `CanvasContextMenu`.
+
+### Node Types
+
+- **Prompt Node** — text prompt input
+- **Image Reference Node** — image upload for reference-based generation
+- **Image Gen Node** — multi-model image generation (Imagen 4, Gemini 3
+  Pro, Gemini Flash Image) with model selector
+- **Video Gen Node** — Veo-based video generation with operation polling
+- **Output Viewer Node** — result display with export
+
+### Features
+
+- Model selector per generation node
+- Reference-based editing (image + text prompt)
+- Right-click export on generated images
+- All models routed through dual-backend `apiConfig.ts`
 
 ## Pending
 

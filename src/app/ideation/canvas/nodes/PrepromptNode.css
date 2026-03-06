@@ -1,0 +1,61 @@
+.preprompt-node {
+  min-width: 220px;
+  max-width: 300px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: visible;
+  position: relative;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.preprompt-node.selected {
+  border-color: #66bb6a;
+  box-shadow: 0 0 16px rgba(102, 187, 106, 0.3);
+}
+.preprompt-header {
+  padding: 6px 12px;
+  background: #66bb6a;
+  color: #0f0f1a;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.preprompt-header-icon {
+  font-size: 13px;
+  opacity: 0.8;
+}
+.preprompt-body {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.preprompt-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.preprompt-input {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-family: inherit;
+  padding: 6px 8px;
+  resize: vertical;
+  outline: none;
+  min-height: 48px;
+}
+.preprompt-input:focus {
+  border-color: #66bb6a;
+}
+.preprompt-input::placeholder {
+  color: var(--text-muted);
+}

@@ -148,3 +148,46 @@
 .ui-node-selected {
   box-shadow: 0 0 0 2px rgba(108,99,255,0.5);
 }
+
+/* ── Node Resize Scaling ──────────────────────────────────────────
+   When a node has explicit width/height (set by the resizer),
+   override the hard max-width caps and make the inner content
+   fill the container. The [style*="width"] selector only matches
+   nodes that have been resized (default nodes only have transform
+   and z-index in their inline style).
+   ─────────────────────────────────────────────────────────────── */
+
+.react-flow__node[style*="width"] > *:not([class*="resize"]) {
+  max-width: none !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.react-flow__node[style*="width"] [class*="-body"] {
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.react-flow__node[style*="width"] [class*="-body"] textarea,
+.react-flow__node[style*="width"] [class*="-body"] .seed-input {
+  flex: 1 !important;
+}
+
+.react-flow__node[style*="width"] [class*="-body"] .image-output-gallery,
+.react-flow__node[style*="width"] [class*="-body"] .text-output-content {
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+}
+
+.react-flow__node[style*="width"] .image-output-preview,
+.react-flow__node[style*="width"] .text-output-content {
+  max-height: none !important;
+}

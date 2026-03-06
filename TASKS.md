@@ -46,4 +46,14 @@
 - [ ] Walter web integration (extract timeline/storyboard UI from Electron)
 - [ ] Production build and deployment configuration
 - [ ] Add test suite (currently 0 test files)
-- [ ] Split large files (SessionContext.tsx ~950 lines, orchestrator.ts ~940 lines)
+- [ ] Split large files (SessionContext.tsx ~1060 lines, orchestrator.ts ~1039 lines)
+
+## Health Audit Cleanup
+
+- [ ] Sync ARCHITECTURE.md: remove deleted ContextMenu.tsx reference, add useCanvasSession, GlobalToolbar, CanvasContextMenu, PrepromptNode, PostPromptNode, Gemini Studio, Concept Lab standalone structure
+- [ ] Sync SPEC.md: add Gemini Studio section, Preprompt/PostPrompt nodes, unified canvas features (useCanvasSession, GlobalToolbar, CanvasContextMenu)
+- [ ] Sync PROJECT.md: add Gemini Studio tool, Preprompt/PostPrompt features, unified canvas features
+- [ ] Sync DECISIONS.md: add ADR for useCanvasSession extraction and unified toolbar/context menu, ADR for Preprompt/PostPrompt prompt injection design
+- [ ] Evaluate ContextMenu.css: merge shared styles into CanvasCommon.css or keep as shared stylesheet
+- [ ] Consolidate duplicate flowLayout.ts (use @shawnderland/ui copy)
+- [x] Health audit report generated (report_id: 20260306_080757)

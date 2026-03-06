@@ -1,3 +1,5 @@
+@import '../../components/CanvasCommon.css';
+
 /* ── Gemini Studio Shell ── */
 .gs-shell {
   display: flex;
@@ -35,6 +37,7 @@
 .gs-canvas-area {
   flex: 1;
   min-height: 0;
+  position: relative;
 }
 
 /* Gemini Studio uses the shared ToolDock component — old .gs-dock styles removed.

@@ -1,9 +1,9 @@
 "use client";
 
-import { Undo2, Redo2, Copy, Maximize2, Trash2, Upload, Save, Download } from 'lucide-react';
+import { Undo2, Redo2, Copy, Maximize2, Trash2, Upload, Save, Download, LayoutGrid } from 'lucide-react';
 import './GlobalToolbar.css';
 
-interface GlobalToolbarProps {
+export interface GlobalToolbarProps {
   title: string;
   hint?: string;
   canUndo?: boolean;
@@ -13,9 +13,16 @@ interface GlobalToolbarProps {
   onRedo?: () => void;
   onDuplicate?: () => void;
   onFitView?: () => void;
+  onAutoLayout?: () => void;
   onClear?: () => void;
+  onExportSelected?: () => void;
+  onSaveLayout?: () => void;
+  onImportLayout?: () => void;
+  /** @deprecated use onImportLayout */
   onImport?: () => void;
+  /** @deprecated use onSaveLayout */
   onSave?: () => void;
+  /** @deprecated use onExportSelected */
   onExport?: () => void;
 }
 
@@ -29,11 +36,19 @@ export default function GlobalToolbar({
   onRedo,
   onDuplicate,
   onFitView,
+  onAutoLayout,
   onClear,
+  onExportSelected,
+  onSaveLayout,
+  onImportLayout,
   onImport,
   onSave,
   onExport,
 }: GlobalToolbarProps) {
+  const handleImport = onImportLayout ?? onImport;
+  const handleSave = onSaveLayout ?? onSave;
+  const handleExport = onExportSelected ?? onExport;
+
   return (
     <header className="global-toolbar">
       <div className="global-toolbar-left">
@@ -62,29 +77,34 @@ export default function GlobalToolbar({
             <Maximize2 size={14} />
           </button>
         )}
+        {onAutoLayout && (
+          <button className="global-toolbar-btn" onClick={onAutoLayout} title="Auto-layout">
+            <LayoutGrid size={14} />
+          </button>
+        )}
         <div className="global-toolbar-sep" />
-        {onClear && (
-          <button className="global-toolbar-btn" onClick={onClear} title="Clear canvas">
-            <Trash2 size={14} />
-            <span>Clear</span>
+        {handleExport && (
+          <button className="global-toolbar-btn" onClick={handleExport} disabled={!hasSelection} title="Export selected to JSON">
+            <Download size={14} />
+            <span>Export</span>
           </button>
         )}
-        {onImport && (
-          <button className="global-toolbar-btn" onClick={onImport} title="Import layout">
-            <Upload size={14} />
-            <span>Import</span>
-          </button>
-        )}
-        {onSave && (
-          <button className="global-toolbar-btn" onClick={onSave} title="Save">
+        {handleSave && (
+          <button className="global-toolbar-btn" onClick={handleSave} title="Save layout">
             <Save size={14} />
             <span>Save</span>
           </button>
         )}
-        {onExport && (
-          <button className="global-toolbar-btn global-toolbar-export" onClick={onExport} title="Export">
-            <Download size={14} />
-            <span>Export</span>
+        {handleImport && (
+          <button className="global-toolbar-btn" onClick={handleImport} title="Import layout">
+            <Upload size={14} />
+            <span>Import</span>
+          </button>
+        )}
+        {onClear && (
+          <button className="global-toolbar-btn" onClick={onClear} title="Clear canvas">
+            <Trash2 size={14} />
+            <span>Clear</span>
           </button>
         )}
       </div>

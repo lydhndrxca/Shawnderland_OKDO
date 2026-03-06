@@ -1,0 +1,61 @@
+.postprompt-node {
+  min-width: 220px;
+  max-width: 300px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: visible;
+  position: relative;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.postprompt-node.selected {
+  border-color: #ffa726;
+  box-shadow: 0 0 16px rgba(255, 167, 38, 0.3);
+}
+.postprompt-header {
+  padding: 6px 12px;
+  background: #ffa726;
+  color: #0f0f1a;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.postprompt-header-icon {
+  font-size: 13px;
+  opacity: 0.8;
+}
+.postprompt-body {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.postprompt-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.postprompt-input {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-family: inherit;
+  padding: 6px 8px;
+  resize: vertical;
+  outline: none;
+  min-height: 48px;
+}
+.postprompt-input:focus {
+  border-color: #ffa726;
+}
+.postprompt-input::placeholder {
+  color: var(--text-muted);
+}

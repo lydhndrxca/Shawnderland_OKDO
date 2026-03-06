@@ -129,6 +129,58 @@ function resolveInfluenceContext(session: Session): string[] {
   return parts;
 }
 
+function resolvePromptInjections(session: Session): { preprompts: string[]; postprompts: string[] } {
+  const preprompts: string[] = [];
+  const postprompts: string[] = [];
+  const flowState = session.flowState;
+  if (!flowState?.nodes) return { preprompts, postprompts };
+
+  const nodeData = flowState.nodeData;
+
+  for (const n of flowState.nodes) {
+    if (!n.type) continue;
+    const data = nodeData?.[n.id];
+
+    if (n.type === 'preprompt') {
+      const text = data?.nodeText as string | undefined;
+      if (text?.trim()) {
+        preprompts.push(text.trim());
+      }
+    }
+
+    if (n.type === 'postprompt') {
+      const text = data?.nodeText as string | undefined;
+      if (text?.trim()) {
+        postprompts.push(text.trim());
+      }
+    }
+  }
+
+  return { preprompts, postprompts };
+}
+
+function buildPrepromptBlock(session: Session): string {
+  const { preprompts } = resolvePromptInjections(session);
+  if (preprompts.length === 0) return '';
+
+  const block = preprompts.map((p, i) =>
+    preprompts.length === 1 ? p : `${i + 1}. ${p}`
+  ).join('\n\n');
+
+  return `[PREPROMPT — READ THIS FIRST]\nThe user has provided framing context that must shape how you interpret everything that follows. Internalize this before processing the stage data.\n\n${block}\n\n`;
+}
+
+function buildPostpromptBlock(session: Session): string {
+  const { postprompts } = resolvePromptInjections(session);
+  if (postprompts.length === 0) return '';
+
+  const block = postprompts.map((p, i) =>
+    postprompts.length === 1 ? p : `${i + 1}. ${p}`
+  ).join('\n\n');
+
+  return `\n\n[POSTPROMPT — FINAL INSTRUCTION]\nAfter processing all the above data, apply the following user instruction as a final directive:\n\n${block}`;
+}
+
 function buildInfluenceBlock(session: Session): string {
   const parts = resolveInfluenceContext(session);
   if (parts.length === 0) return '';
@@ -189,7 +241,10 @@ function buildPrompt(
 ): string {
   const sanitized = userInputs.map(sanitizeUserInput);
   const schemaHint = STAGE_SCHEMA_HINTS[stageId] ?? '';
-  let instructions = `[STAGE:${stageId}]\n\n## Stage: ${stageId}\n\n## Inputs\n${JSON.stringify(inputs, null, 2)}\n\nGenerate the structured output for the ${stageId} stage.\n\n${schemaHint}`;
+
+  const preprompt = session ? buildPrepromptBlock(session) : '';
+
+  let instructions = `${preprompt}[STAGE:${stageId}]\n\n## Stage: ${stageId}\n\n## Inputs\n${JSON.stringify(inputs, null, 2)}\n\nGenerate the structured output for the ${stageId} stage.\n\n${schemaHint}`;
   if (settings?.crossCulturalEnabled) {
     instructions += addCultureInstructions({ proxyMode: settings.proxyCultureMode });
   }
@@ -201,6 +256,10 @@ function buildPrompt(
   instructions = appendStrictAdherence(instructions, session);
   instructions = appendTierDirective(instructions, session);
   instructions = appendCustomInstructions(instructions, session, stageId);
+
+  if (session) {
+    instructions += buildPostpromptBlock(session);
+  }
 
   return buildSafePrompt(instructions, sanitized);
 }
@@ -238,11 +297,13 @@ async function runNormalizeStage(
   const userInputs = getUserInputs(session);
   const settings = getEffectiveSettings(session);
   const influenceContext = resolveInfluenceContext(session);
-  let prompt = buildNormalizePrompt(session.seedText, userInputs, session.seedContext, influenceContext, settings.strictAdherence);
+  const preprompt = buildPrepromptBlock(session);
+  let prompt = preprompt + buildNormalizePrompt(session.seedText, userInputs, session.seedContext, influenceContext, settings.strictAdherence);
   prompt += buildInfluenceBlock(session);
   prompt = appendStrictAdherence(prompt, session);
   prompt = appendTierDirective(prompt, session);
   prompt = appendCustomInstructions(prompt, session, 'normalize');
+  prompt += buildPostpromptBlock(session);
 
   const schema = STAGE_SCHEMAS['normalize'];
   const rawOutput = await provider.generateStructured({ schema, prompt });
@@ -469,6 +530,8 @@ async function runDivergeStage(
   }
   session = guardResult.session;
 
+  const preprompt = buildPrepromptBlock(session);
+  const postprompt = buildPostpromptBlock(session);
   let influenceBlock = buildInfluenceBlock(session);
   if (settings.strictAdherence) {
     influenceBlock +=
@@ -479,6 +542,8 @@ async function runDivergeStage(
       'target audiences, markets, or commercial angles. If the idea is abstract or open-ended, ' +
       'generate candidates that explore it on its own terms — not as a product pitch.\n';
   }
+  if (preprompt) influenceBlock = preprompt + influenceBlock;
+  if (postprompt) influenceBlock += postprompt;
   const { output, meta } = await assemblePipeline(
     effectiveNormalize,
     userInputs,
@@ -533,11 +598,12 @@ async function runCritiqueSalvageStage(
     throw new Error('Normalize must be run before Critique/Salvage');
   }
 
-  let prompt = buildCritiquePrompt(candidates, effectiveNormalize);
+  let prompt = buildPrepromptBlock(session) + buildCritiquePrompt(candidates, effectiveNormalize);
   prompt += buildInfluenceBlock(session);
   prompt = appendStrictAdherence(prompt, session);
   prompt = appendTierDirective(prompt, session);
   prompt = appendCustomInstructions(prompt, session, 'critique-salvage');
+  prompt += buildPostpromptBlock(session);
   const rawOutput = await provider.generateStructured({
     schema: CritiqueSalvageOutputSchema,
     prompt,
@@ -599,17 +665,20 @@ async function runExpandStage(
 
   const userInputs = getUserInputs(session);
   const expandInfluence = buildInfluenceBlock(session);
+  const expandPreprompt = buildPrepromptBlock(session);
+  const expandPostprompt = buildPostpromptBlock(session);
   const expansions: ExpandExpansion[] = [];
 
   for (const id of shortlistIds) {
     const candidate = candidates.find((c) => c.id === id);
     if (!candidate) continue;
 
-    let prompt = buildExpandPrompt(candidate, effectiveNormalize, userInputs);
+    let prompt = expandPreprompt + buildExpandPrompt(candidate, effectiveNormalize, userInputs);
     prompt += expandInfluence;
     prompt = appendStrictAdherence(prompt, session);
     prompt = appendTierDirective(prompt, session);
     prompt = appendCustomInstructions(prompt, session, 'expand');
+    prompt += expandPostprompt;
     const rawExpansion = await provider.generateStructured({
       schema: ExpandExpansionSchema,
       prompt,
@@ -652,11 +721,12 @@ async function runConvergeStage(
   }
 
   const candidates = getEffectiveCandidatePool(session);
-  let prompt = buildScorePrompt(expansions, candidates);
+  let prompt = buildPrepromptBlock(session) + buildScorePrompt(expansions, candidates);
   prompt += buildInfluenceBlock(session);
   prompt = appendStrictAdherence(prompt, session);
   prompt = appendTierDirective(prompt, session);
   prompt = appendCustomInstructions(prompt, session, 'converge');
+  prompt += buildPostpromptBlock(session);
 
   const rawOutput = await provider.generateStructured({
     schema: ConvergeOutputSchema,
@@ -714,7 +784,7 @@ async function runCommitStage(
 
   const userInputs = getUserInputs(session);
 
-  let prompt = buildCommitPrompt({
+  let prompt = buildPrepromptBlock(session) + buildCommitPrompt({
     winnerId,
     candidate,
     expansion,
@@ -726,6 +796,7 @@ async function runCommitStage(
   prompt = appendStrictAdherence(prompt, session);
   prompt = appendTierDirective(prompt, session);
   prompt = appendCustomInstructions(prompt, session, 'commit');
+  prompt += buildPostpromptBlock(session);
 
   const rawOutput = await provider.generateStructured({
     schema: STAGE_SCHEMAS['commit'],

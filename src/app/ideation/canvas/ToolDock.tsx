@@ -7,6 +7,7 @@ import {
   OUTPUT_NODE_TYPES, INPUT_NODE_TYPES, INFLUENCE_NODE_TYPES, UTILITY_NODE_TYPES, CONTROL_NODE_TYPES,
   OUTPUT_NODE_META, INPUT_NODE_META, INFLUENCE_NODE_META, UTILITY_NODE_META, CONTROL_NODE_META,
   CONCEPTLAB_NODE_TYPES, CONCEPTLAB_NODE_META,
+  PROMPT_INJECTION_NODE_TYPES, PROMPT_INJECTION_NODE_META,
 } from './nodes/nodeRegistry';
 import { useSession } from '@/lib/ideation/context/SessionContext';
 import { getStageOutput, isStageStale } from '@/lib/ideation/state/sessionSelectors';
@@ -59,6 +60,8 @@ const NODE_SUBTITLES: Record<string, string> = {
   linkInfluence: 'Add URL / link',
   videoInfluence: 'Add video file',
   imageReference: 'Add reference image',
+  preprompt: 'Inject text before data',
+  postprompt: 'Inject text after data',
   start: 'Run the pipeline',
   character: 'Design a character',
   weapon: 'Design a weapon',
@@ -117,6 +120,12 @@ function buildCategories(): CategoryDef[] {
             subtitle: NODE_SUBTITLES[t] ?? '',
           };
         }),
+        ...PROMPT_INJECTION_NODE_TYPES.map((t) => ({
+          id: t,
+          label: PROMPT_INJECTION_NODE_META[t].label,
+          color: PROMPT_INJECTION_NODE_META[t].color,
+          subtitle: NODE_SUBTITLES[t] ?? '',
+        })),
       ],
     },
     {

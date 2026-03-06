@@ -1,0 +1,16 @@
+/* Shared canvas styles used across all canvas-based applications */
+
+.cut-line-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.cut-line {
+  stroke: #ef5350;
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgba(239, 83, 80, 0.5));
+}

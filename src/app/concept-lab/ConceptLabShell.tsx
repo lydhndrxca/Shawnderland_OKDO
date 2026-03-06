@@ -8,10 +8,6 @@ import {
   Controls,
   MiniMap,
   SelectionMode,
-  addEdge,
-  useNodesState,
-  useEdgesState,
-  type Connection,
   type Node,
   type Edge,
   type NodeTypes,
@@ -25,6 +21,7 @@ import PipelineEdge from '@/app/ideation/canvas/edges/PipelineEdge';
 import ConceptLabDock from './ConceptLabDock';
 import CanvasContextMenu, { type ContextMenuCategory } from '@/components/CanvasContextMenu';
 import GlobalToolbar from '@/components/GlobalToolbar';
+import { useCanvasSession, type CutLine } from '@/hooks/useCanvasSession';
 
 import CharIdentityNode from './nodes/CharIdentityNode';
 import CharAttributesNode from './nodes/CharAttributesNode';
@@ -202,76 +199,38 @@ const PROPS_PRESET_NODES: Node[] = [
 ];
 const PROPS_PRESET_EDGES: Edge[] = [];
 
-interface CtxMenuState { x: number; y: number; nodeId?: string }
+interface CtxMenuState { x: number; y: number; nodeId?: string; edgeId?: string }
 
-type ActivePreset = 'character' | 'weapon' | 'props';
+function CutLineOverlay({ cutLine }: { cutLine: CutLine | null }) {
+  if (!cutLine) return null;
+  return (
+    <svg className="cut-line-overlay">
+      <line x1={cutLine.x1} y1={cutLine.y1} x2={cutLine.x2} y2={cutLine.y2} className="cut-line" />
+    </svg>
+  );
+}
 
 function ConceptLabCanvas() {
   const reactFlowInstance = useReactFlow();
-  const { screenToFlowPosition } = reactFlowInstance;
-  const [nodes, setNodes, onNodesChange] = useNodesState(CHAR_PRESET_NODES);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(CHAR_PRESET_EDGES);
-  const nextId = useRef(100);
-  const [activePreset, setActivePreset] = useState<ActivePreset>('character');
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const cs = useCanvasSession({
+    appKey: 'concept-lab',
+    initialNodes: CHAR_PRESET_NODES,
+    initialEdges: CHAR_PRESET_EDGES,
+    idPrefix: 'cl',
+  });
 
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-
-  const onConnect = useCallback(
-    (connection: Connection) => setEdges((eds) => addEdge(connection, eds)),
-    [setEdges],
-  );
-
-  const addNodeToCanvas = useCallback(
-    (type: string, position: { x: number; y: number }) => {
-      const id = `cl-${nextId.current++}`;
-      setNodes((nds) => [...nds, { id, type, position, data: {} }]);
-      return id;
-    },
-    [setNodes],
-  );
-
-  const onDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  }, []);
-
-  const onDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      const type = e.dataTransfer.getData('application/cl-node-type');
-      if (!type) return;
-      const pos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
-      addNodeToCanvas(type, pos);
-    },
-    [addNodeToCanvas, screenToFlowPosition],
-  );
 
   const loadTemplate = useCallback(
     (templateNodes: Node[], templateEdges: Edge[]) => {
-      setNodes(templateNodes);
-      setEdges(templateEdges);
-    },
-    [setNodes, setEdges],
-  );
-
-  const handlePresetSelect = useCallback(
-    (preset: ActivePreset) => {
-      setActivePreset(preset);
-      switch (preset) {
-        case 'character':
-          loadTemplate(CHAR_PRESET_NODES, CHAR_PRESET_EDGES);
-          break;
-        case 'weapon':
-          loadTemplate(WEAPON_PRESET_NODES, WEAPON_PRESET_EDGES);
-          break;
-        case 'props':
-          loadTemplate(PROPS_PRESET_NODES, PROPS_PRESET_EDGES);
-          break;
-      }
+      cs.setNodes(templateNodes);
+      cs.setEdges(templateEdges);
       setTimeout(() => reactFlowInstance.fitView({ padding: 0.4, duration: 300 }), 100);
     },
-    [loadTemplate, reactFlowInstance],
+    [cs, reactFlowInstance],
   );
 
   const handlePaneContextMenu = useCallback((event: React.MouseEvent) => {
@@ -284,53 +243,117 @@ function ConceptLabCanvas() {
     setCtxMenu({ x: event.clientX, y: event.clientY, nodeId });
   }, []);
 
+  const handleEdgeContextMenu = useCallback((event: React.MouseEvent, edge: { id: string }) => {
+    event.preventDefault();
+    setCtxMenu({ x: event.clientX, y: event.clientY, edgeId: edge.id });
+  }, []);
+
+  const { screenToFlowPosition } = reactFlowInstance;
+
   const handleAddNodeFromMenu = useCallback(
     (nodeType: string) => {
       const pos = ctxMenu
         ? screenToFlowPosition({ x: ctxMenu.x, y: ctxMenu.y })
         : { x: 200, y: 200 };
-      addNodeToCanvas(nodeType, pos);
+      cs.addNodeToCanvas(nodeType, pos);
     },
-    [ctxMenu, addNodeToCanvas, screenToFlowPosition],
+    [ctxMenu, cs, screenToFlowPosition],
   );
 
   const handleDeleteNode = useCallback(() => {
-    if (!ctxMenu?.nodeId) return;
-    const nid = ctxMenu.nodeId;
-    setNodes((nds) => nds.filter((n) => n.id !== nid));
-    setEdges((eds) => eds.filter((e) => e.source !== nid && e.target !== nid));
-  }, [ctxMenu, setNodes, setEdges]);
-
-  const handleDeleteSelected = useCallback(() => {
-    const selected = nodes.filter((n) => n.selected).map((n) => n.id);
-    if (!selected.length) return;
-    const set = new Set(selected);
-    setNodes((nds) => nds.filter((n) => !set.has(n.id)));
-    setEdges((eds) => eds.filter((e) => !set.has(e.source) && !set.has(e.target)));
-  }, [nodes, setNodes, setEdges]);
-
-  const handleDuplicateSelected = useCallback(() => {
-    const selected = nodes.filter((n) => n.selected);
-    if (!selected.length) return;
-    const newNodes = selected.map((n) => ({
-      ...n,
-      id: `cl-${nextId.current++}`,
-      position: { x: n.position.x + 40, y: n.position.y + 40 },
-      selected: false,
-    }));
-    setNodes((nds) => [...nds, ...newNodes]);
-  }, [nodes, setNodes]);
+    if (ctxMenu?.nodeId) cs.removeNode(ctxMenu.nodeId);
+  }, [ctxMenu, cs]);
 
   const handleFitView = useCallback(() => {
     reactFlowInstance.fitView({ padding: 0.4, duration: 300 });
   }, [reactFlowInstance]);
 
   const handleClear = useCallback(() => {
-    setNodes([]);
-    setEdges([]);
-  }, [setNodes, setEdges]);
+    cs.setNodes([]);
+    cs.setEdges([]);
+  }, [cs]);
 
-  const selectedCount = useMemo(() => nodes.filter((n) => n.selected).length, [nodes]);
+  const onDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const onDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      const type = e.dataTransfer.getData('application/cl-node-type');
+      if (!type) return;
+      const pos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      cs.addNodeToCanvas(type, pos);
+    },
+    [cs, screenToFlowPosition],
+  );
+
+  const handleOpenImage = useCallback(async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const parts = dataUrl.split(',');
+        const mime = parts[0].match(/:(.*?);/)?.[1] ?? 'image/png';
+        const pos = ctxMenu
+          ? reactFlowInstance.screenToFlowPosition({ x: ctxMenu.x, y: ctxMenu.y })
+          : { x: 200, y: 200 };
+        cs.addNodeToCanvas('imageReference', pos, {
+          imageBase64: parts[1],
+          mimeType: mime,
+          fileName: file.name,
+        });
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
+  }, [ctxMenu, cs, reactFlowInstance]);
+
+  const handlePasteImage = useCallback(async () => {
+    try {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const imageType = item.types.find((t) => t.startsWith('image/'));
+        if (imageType) {
+          const blob = await item.getType(imageType);
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = reader.result as string;
+            const parts = dataUrl.split(',');
+            const mime = parts[0].match(/:(.*?);/)?.[1] ?? 'image/png';
+            const pos = ctxMenu
+              ? reactFlowInstance.screenToFlowPosition({ x: ctxMenu.x, y: ctxMenu.y })
+              : { x: 200, y: 200 };
+            cs.addNodeToCanvas('imageReference', pos, {
+              imageBase64: parts[1],
+              mimeType: mime,
+              fileName: 'pasted-image',
+            });
+          };
+          reader.readAsDataURL(blob);
+          return;
+        }
+      }
+    } catch { /* clipboard access may fail */ }
+  }, [ctxMenu, cs, reactFlowInstance]);
+
+  const handleImportLayout = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) cs.importLayout(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, [cs]);
+
+  const selectedCount = useMemo(() => cs.nodes.filter((n) => n.selected).length, [cs.nodes]);
   const memoNodeTypes = useMemo(() => NODE_TYPES, []);
   const memoEdgeTypes = useMemo(() => EDGE_TYPES, []);
 
@@ -340,63 +363,65 @@ function ConceptLabCanvas() {
     { label: 'Props (Blank)', icon: '\u{1F4E6}', nodes: PROPS_PRESET_NODES, edges: PROPS_PRESET_EDGES },
   ], []);
 
+  const isPinned = ctxMenu?.nodeId
+    ? !!(cs.nodes.find((n) => n.id === ctxMenu.nodeId)?.data as Record<string, unknown>)?.__pinned
+    : false;
+
+  const isGroupNode = ctxMenu?.nodeId
+    ? cs.nodes.find((n) => n.id === ctxMenu.nodeId)?.type === 'group'
+    : false;
+
+  const isGroupExpanded = ctxMenu?.nodeId
+    ? !!(cs.nodes.find((n) => n.id === ctxMenu.nodeId)?.data as Record<string, unknown>)?.expanded
+    : false;
+
   return (
     <div className="cl-shell">
       <GlobalToolbar
         title="AI ConceptLab"
         hint="Character & weapon concept generation"
+        canUndo={cs.canUndo}
+        canRedo={cs.canRedo}
         hasSelection={selectedCount > 0}
-        onDuplicate={handleDuplicateSelected}
+        onUndo={cs.undo}
+        onRedo={cs.redo}
+        onDuplicate={cs.duplicateSelected}
         onFitView={handleFitView}
         onClear={handleClear}
+        onExportSelected={cs.exportLayoutJSON}
+        onSaveLayout={cs.saveLayout}
+        onImportLayout={handleImportLayout}
       />
-
-      <div className="cl-presets-bar">
-        <span className="cl-presets-label">Preset:</span>
-        <button
-          className={`cl-preset-btn ${activePreset === 'character' ? 'active' : ''}`}
-          onClick={() => handlePresetSelect('character')}
-        >
-          <span className="cl-preset-icon">{'\u{1F464}'}</span>
-          Character
-        </button>
-        <button
-          className={`cl-preset-btn ${activePreset === 'weapon' ? 'active' : ''}`}
-          onClick={() => handlePresetSelect('weapon')}
-        >
-          <span className="cl-preset-icon">{'\u{1F52B}'}</span>
-          Weapon
-        </button>
-        <button
-          className={`cl-preset-btn ${activePreset === 'props' ? 'active' : ''}`}
-          onClick={() => handlePresetSelect('props')}
-        >
-          <span className="cl-preset-icon">{'\u{1F4E6}'}</span>
-          Props
-        </button>
-      </div>
 
       <div className="cl-main">
         <ConceptLabDock
           categories={DOCK_CATEGORIES}
           templates={presetTemplates}
           onLoadTemplate={loadTemplate}
-          selectedNodeId={selectedNodeId}
-          onCloseInspector={() => setSelectedNodeId(null)}
+          selectedNodeId={cs.selectedNodeId}
+          onCloseInspector={() => cs.setSelectedNodeId(null)}
         />
-        <div className="cl-canvas-area">
+        <div
+          className="cl-canvas-area"
+          ref={canvasRef}
+          onMouseDown={(e) => cs.handleCutMouseDown(e, canvasRef)}
+          onMouseMove={(e) => cs.handleCutMouseMove(e, canvasRef)}
+          onMouseUp={() => cs.handleCutMouseUp(canvasRef)}
+          onContextMenu={(e) => { if (cs.cutLine) e.preventDefault(); }}
+        >
           <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
+            nodes={cs.nodes}
+            edges={cs.edges}
+            onNodesChange={cs.onNodesChange}
+            onEdgesChange={cs.onEdgesChange}
+            onConnect={cs.onConnect}
             onDragOver={onDragOver}
             onDrop={onDrop}
-            onNodeClick={(_, node) => setSelectedNodeId(node.id)}
-            onPaneClick={() => { setSelectedNodeId(null); setCtxMenu(null); }}
+            onNodeClick={(_, node) => cs.setSelectedNodeId(node.id)}
+            onPaneClick={() => { cs.setSelectedNodeId(null); setCtxMenu(null); }}
             onPaneContextMenu={(e) => handlePaneContextMenu(e as unknown as React.MouseEvent)}
             onNodeContextMenu={(e, node) => handleNodeContextMenu(e as unknown as React.MouseEvent, node.id)}
+            onEdgeContextMenu={(e, edge) => handleEdgeContextMenu(e as unknown as React.MouseEvent, edge)}
             nodeTypes={memoNodeTypes}
             edgeTypes={memoEdgeTypes}
             defaultEdgeOptions={{ type: 'pipeline', data: { isComplete: true } }}
@@ -425,18 +450,38 @@ function ConceptLabCanvas() {
               x={ctxMenu.x}
               y={ctxMenu.y}
               nodeId={ctxMenu.nodeId}
+              edgeId={ctxMenu.edgeId}
               selectedNodeCount={selectedCount}
               categories={CTX_CATEGORIES}
               onClose={() => setCtxMenu(null)}
               onAddNode={handleAddNodeFromMenu}
               onDelete={handleDeleteNode}
-              onDeleteSelected={handleDeleteSelected}
-              onDuplicateSelected={handleDuplicateSelected}
+              onDeleteSelected={cs.deleteSelected}
+              onDuplicateSelected={cs.duplicateSelected}
               onFitView={handleFitView}
+              onCopy={cs.copySelectedNodes}
+              onPaste={() => cs.pasteNodes()}
+              onPin={ctxMenu.nodeId ? () => cs.togglePinNode(ctxMenu.nodeId!) : undefined}
+              isPinned={isPinned}
+              onCreateGroup={() => {
+                const sel = cs.nodes.filter((n) => n.selected);
+                if (sel.length >= 2) cs.createGroup(sel.map((n) => n.id), 'Group');
+              }}
+              onUngroupNode={ctxMenu.nodeId ? () => cs.ungroupNodes(ctxMenu.nodeId!) : undefined}
+              onExpandGroup={ctxMenu.nodeId ? () => cs.expandGroup(ctxMenu.nodeId!) : undefined}
+              onCollapseGroup={ctxMenu.nodeId ? () => cs.collapseGroup(ctxMenu.nodeId!) : undefined}
+              isGroupNode={isGroupNode}
+              isGroupExpanded={isGroupExpanded}
+              onOpenImage={handleOpenImage}
+              onPasteImage={handlePasteImage}
+              onDeleteEdge={ctxMenu.edgeId ? () => { cs.removeEdge(ctxMenu.edgeId!); setCtxMenu(null); } : undefined}
             />
           )}
+
+          <CutLineOverlay cutLine={cs.cutLine} />
         </div>
       </div>
+      <input ref={fileInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleFileChange} />
     </div>
   );
 }

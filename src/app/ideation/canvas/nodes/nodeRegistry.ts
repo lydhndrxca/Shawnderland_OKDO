@@ -102,13 +102,14 @@ export const STAGE_ORDER: StageId[] = [
 export type OutputNodeType = 'textOutput' | 'imageOutput' | 'videoOutput';
 export type InputNodeType = 'count';
 export type InfluenceNodeType = 'emotion' | 'influence' | 'textInfluence' | 'documentInfluence' | 'imageInfluence' | 'linkInfluence' | 'videoInfluence';
+export type PromptInjectionNodeType = 'preprompt' | 'postprompt';
 export type UtilityNodeType = 'imageReference' | 'extractData';
 export type ControlNodeType = 'start';
 export type ResultNodeType = 'resultNode';
 export type GroupNodeType = 'group';
 export type PackedPipelineNodeType = 'packedPipeline';
 export type ConceptLabNodeType = 'character' | 'weapon' | 'turnaround';
-export type AnyNodeType = StageId | OutputNodeType | InputNodeType | InfluenceNodeType | UtilityNodeType | ControlNodeType | ResultNodeType | GroupNodeType | PackedPipelineNodeType | ConceptLabNodeType;
+export type AnyNodeType = StageId | OutputNodeType | InputNodeType | InfluenceNodeType | PromptInjectionNodeType | UtilityNodeType | ControlNodeType | ResultNodeType | GroupNodeType | PackedPipelineNodeType | ConceptLabNodeType;
 
 export interface OutputNodeMeta {
   type: OutputNodeType;
@@ -205,6 +206,30 @@ export const INFLUENCE_NODE_META: Record<InfluenceNodeType, InfluenceNodeMeta> =
     tooltip: 'Upload a video file (.mp4, .webm, .mov) to influence the pipeline with visual content.',
   },
 };
+
+export interface PromptInjectionNodeMeta {
+  type: PromptInjectionNodeType;
+  label: string;
+  color: string;
+  tooltip: string;
+}
+
+export const PROMPT_INJECTION_NODE_META: Record<PromptInjectionNodeType, PromptInjectionNodeMeta> = {
+  preprompt: {
+    type: 'preprompt',
+    label: 'Preprompt',
+    color: '#66bb6a',
+    tooltip: 'Injects text BEFORE incoming data — sets the frame, lens, or context the AI reads everything through. Great for "Keep this in mind when reading what follows."',
+  },
+  postprompt: {
+    type: 'postprompt',
+    label: 'PostPrompt',
+    color: '#ffa726',
+    tooltip: 'Injects text AFTER incoming data — tells the AI what to DO with everything it just read. Great for "Summarize the above into an image prompt."',
+  },
+};
+
+export const PROMPT_INJECTION_NODE_TYPES: PromptInjectionNodeType[] = ['preprompt', 'postprompt'];
 
 export interface ControlNodeMeta {
   type: ControlNodeType;
@@ -343,6 +368,8 @@ export function isValidConnection(source: string, target: string): boolean {
   const targetIsOutput = OUTPUT_NODE_TYPES.includes(target as OutputNodeType);
   const sourceIsInput = INPUT_NODE_TYPES.includes(source as InputNodeType);
   const sourceIsInfluence = INFLUENCE_NODE_TYPES.includes(source as InfluenceNodeType);
+  const sourceIsPromptInjection = PROMPT_INJECTION_NODE_TYPES.includes(source as PromptInjectionNodeType);
+  const targetIsPromptInjection = PROMPT_INJECTION_NODE_TYPES.includes(target as PromptInjectionNodeType);
   const sourceIsUtility = UTILITY_NODE_TYPES.includes(source as UtilityNodeType);
   const targetIsUtility = UTILITY_NODE_TYPES.includes(target as UtilityNodeType);
   const sourceIsResult = RESULT_NODE_TYPES.includes(source as ResultNodeType);
@@ -373,6 +400,17 @@ export function isValidConnection(source: string, target: string): boolean {
   if (sourceIsUtility && targetIsOutput) return true;
 
   if (sourceIsResult && (targetIsStage || targetIsOutput || targetIsUtility)) return true;
+
+  // Preprompt/PostPrompt connections — can be wired inline in the flow
+  if (sourceIsPromptInjection && targetIsStage) return true;
+  if (sourceIsPromptInjection && targetIsOutput) return true;
+  if (sourceIsPromptInjection && targetIsUtility) return true;
+  if (sourceIsPromptInjection && targetIsConceptLab) return true;
+  if (sourceIsPromptInjection && targetIsPromptInjection && source !== target) return true;
+  if (sourceIsStage && targetIsPromptInjection) return true;
+  if (sourceIsInfluence && targetIsPromptInjection) return true;
+  if (sourceIsResult && targetIsPromptInjection) return true;
+  if (sourceIsUtility && targetIsPromptInjection) return true;
 
   // ConceptLab connections
   if ((source === 'character' || source === 'weapon') && target === 'turnaround') return true;

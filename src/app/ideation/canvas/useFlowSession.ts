@@ -21,12 +21,14 @@ import type { StageId } from '@/lib/ideation/engine/stages';
 export interface FlowSessionState {
   nodes: Node[];
   edges: Edge[];
+  setNodes: React.Dispatch<React.SetStateAction<Node[]>>;
+  setEdges: React.Dispatch<React.SetStateAction<Edge[]>>;
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
   selectedNodeId: string | null;
   setSelectedNodeId: (id: string | null) => void;
-  addNodeToCanvas: (nodeType: string, position?: { x: number; y: number }, extraData?: Record<string, unknown>) => void;
+  addNodeToCanvas: (nodeType: string, position?: { x: number; y: number }, extraData?: Record<string, unknown>) => string;
   removeNode: (nodeId: string) => void;
   removeEdge: (edgeId: string) => void;
   autoLayout: () => void;
@@ -45,6 +47,14 @@ export interface FlowSessionState {
   updateNodeData: (nodeId: string, data: Record<string, unknown>) => void;
   spawnFullChain: () => void;
   spawnPackedPipeline: () => void;
+  copySelectedNodes: () => void;
+  pasteNodes: (position?: { x: number; y: number }) => void;
+  togglePinNode: (nodeId: string) => void;
+  deleteSelected: () => void;
+  duplicateSelected: () => void;
+  exportLayoutJSON: () => void;
+  saveLayout: () => void;
+  importLayout: (file: File) => void;
 }
 
 interface HistorySnapshot {
@@ -427,7 +437,7 @@ export function useFlowSession(): FlowSessionState {
 
   const getFlowSnapshot = useCallback(() => {
     const nodeData: Record<string, Record<string, unknown>> = {};
-    const persistTypes = ['emotion', 'influence', 'group', 'packedPipeline', 'textInfluence', 'documentInfluence', 'imageInfluence', 'linkInfluence', 'videoInfluence'];
+    const persistTypes = ['emotion', 'influence', 'group', 'packedPipeline', 'textInfluence', 'documentInfluence', 'imageInfluence', 'linkInfluence', 'videoInfluence', 'preprompt', 'postprompt'];
     for (const n of nodes) {
       const d = n.data as Record<string, unknown>;
       const entry: Record<string, unknown> = {};
@@ -666,6 +676,99 @@ export function useFlowSession(): FlowSessionState {
     return node ? (node.data as Record<string, unknown>) : undefined;
   }, [nodes]);
 
+  // ── Clipboard ──────────────────────────────────────────────────
+  const clipboardRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null);
+
+  const copySelectedNodes = useCallback(() => {
+    const sel = nodes.filter((n) => n.selected);
+    if (!sel.length) return;
+    const ids = new Set(sel.map((n) => n.id));
+    clipboardRef.current = { nodes: sel, edges: edges.filter((e) => ids.has(e.source) && ids.has(e.target)) };
+  }, [nodes, edges]);
+
+  const pasteNodes = useCallback((position?: { x: number; y: number }) => {
+    if (!clipboardRef.current) return;
+    const { nodes: clipNodes, edges: clipEdges } = clipboardRef.current;
+    const idMap = new Map<string, string>();
+    const offset = position ? { x: position.x - clipNodes[0].position.x, y: position.y - clipNodes[0].position.y } : { x: 40, y: 40 };
+    const newNodes = clipNodes.map((n) => {
+      const newId = `${n.type ?? 'node'}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      idMap.set(n.id, newId);
+      return { ...n, id: newId, position: { x: n.position.x + offset.x, y: n.position.y + offset.y }, selected: false };
+    });
+    const newEdges = clipEdges.map((e) => ({
+      ...e,
+      id: `e-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      source: idMap.get(e.source) ?? e.source,
+      target: idMap.get(e.target) ?? e.target,
+    }));
+    setNodes((prev) => [...prev, ...newNodes]);
+    setEdges((prev) => [...prev, ...newEdges]);
+  }, [setNodes, setEdges]);
+
+  // ── Pin / freeze ──────────────────────────────────────────────
+  const togglePinNode = useCallback((nodeId: string) => {
+    setNodes((prev) =>
+      prev.map((n) => {
+        if (n.id !== nodeId) return n;
+        const pinned = !(n.data as Record<string, unknown>).__pinned;
+        return { ...n, draggable: !pinned, data: { ...n.data, __pinned: pinned } };
+      }),
+    );
+  }, [setNodes]);
+
+  // ── Delete / Duplicate selected ───────────────────────────────
+  const deleteSelected = useCallback(() => {
+    const selected = nodes.filter((n) => n.selected);
+    if (!selected.length) return;
+    for (const n of selected) removeNode(n.id);
+  }, [nodes, removeNode]);
+
+  const duplicateSelected = useCallback(() => {
+    const selected = nodes.filter((n) => n.selected);
+    if (!selected.length) return;
+    for (const n of selected) {
+      addNodeToCanvas(n.type ?? 'seed', { x: n.position.x + 40, y: n.position.y + 40 }, { ...(n.data as Record<string, unknown>) });
+    }
+  }, [nodes, addNodeToCanvas]);
+
+  // ── Export / Save / Import ────────────────────────────────────
+  const exportLayoutJSON = useCallback(() => {
+    const snapshot = getFlowSnapshot();
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'shawndermind-layout.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [getFlowSnapshot]);
+
+  const saveLayout = useCallback(() => {
+    const snapshot = getFlowSnapshot();
+    localStorage.setItem('shawnderland-layout-shawndermind', JSON.stringify(snapshot));
+  }, [getFlowSnapshot]);
+
+  const importLayout = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result as string);
+        if (data.nodes && data.edges) {
+          const nd = data.nodeData ?? {};
+          setNodes(data.nodes.map((n: { id: string; position: { x: number; y: number }; type?: string }) => ({
+            id: n.id, type: n.type, position: n.position,
+            data: { stageId: n.type, ...nd[n.id] },
+          })));
+          setEdges(data.edges.map((e: { id: string; source: string; target: string }) => ({
+            ...e, type: 'pipeline', data: { isComplete: true },
+          })));
+        }
+      } catch { /* invalid JSON */ }
+    };
+    reader.readAsText(file);
+  }, [setNodes, setEdges]);
+
   (window as unknown as Record<string, unknown>).__updateNodeData = updateNodeData;
   (window as unknown as Record<string, unknown>).__getNodeData = getNodeData;
   (window as unknown as Record<string, unknown>).__spawnFullChain = spawnFullChain;
@@ -677,6 +780,8 @@ export function useFlowSession(): FlowSessionState {
   return {
     nodes,
     edges,
+    setNodes,
+    setEdges,
     onNodesChange,
     onEdgesChange,
     onConnect,
@@ -701,5 +806,13 @@ export function useFlowSession(): FlowSessionState {
     updateNodeData,
     spawnFullChain,
     spawnPackedPipeline,
+    copySelectedNodes,
+    pasteNodes,
+    togglePinNode,
+    deleteSelected,
+    duplicateSelected,
+    exportLayoutJSON,
+    saveLayout,
+    importLayout,
   };
 }

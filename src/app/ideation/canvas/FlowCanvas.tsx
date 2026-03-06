@@ -36,6 +36,8 @@ import DocumentInfluenceNode from './nodes/DocumentInfluenceNode';
 import ImageInfluenceNode from './nodes/ImageInfluenceNode';
 import LinkInfluenceNode from './nodes/LinkInfluenceNode';
 import VideoInfluenceNode from './nodes/VideoInfluenceNode';
+import PrepromptNode from './nodes/PrepromptNode';
+import PostPromptNode from './nodes/PostPromptNode';
 import StartNode from './nodes/StartNode';
 import GroupNode from './nodes/GroupNode';
 import PackedPipelineNode from './nodes/PackedPipelineNode';
@@ -45,11 +47,18 @@ import WeaponNode from './nodes/WeaponNode';
 import TurnaroundNode from './nodes/TurnaroundNode';
 import PipelineEdge from './edges/PipelineEdge';
 import ToolDock from './ToolDock';
-import ContextMenu from './ContextMenu';
+import CanvasContextMenu, { type ContextMenuCategory, type CustomNodeAction } from '@/components/CanvasContextMenu';
+import GlobalToolbar from '@/components/GlobalToolbar';
 import DemoOverlay from './DemoOverlay';
 import GuidedRunOverlay from './GuidedRunOverlay';
 import { useFlowSession } from './useFlowSession';
-import { isValidConnection } from './nodes/nodeRegistry';
+import {
+  isValidConnection,
+  STAGE_ORDER, NODE_META,
+  OUTPUT_NODE_TYPES, INPUT_NODE_TYPES, INFLUENCE_NODE_TYPES, UTILITY_NODE_TYPES, CONTROL_NODE_TYPES,
+  OUTPUT_NODE_META, INPUT_NODE_META, INFLUENCE_NODE_META, UTILITY_NODE_META, CONTROL_NODE_META,
+  CONCEPTLAB_NODE_TYPES, CONCEPTLAB_NODE_META,
+} from './nodes/nodeRegistry';
 import { useSession } from '@/lib/ideation/context/SessionContext';
 import { getStageOutput } from '@/lib/ideation/state/sessionSelectors';
 import type { StageId } from '@/lib/ideation/engine/stages';
@@ -83,6 +92,8 @@ const rawNodeTypes: NodeTypes = {
   imageInfluence: withCompatCheck(ImageInfluenceNode),
   linkInfluence: withCompatCheck(LinkInfluenceNode),
   videoInfluence: withCompatCheck(VideoInfluenceNode),
+  preprompt: withCompatCheck(PrepromptNode),
+  postprompt: withCompatCheck(PostPromptNode),
   start: withCompatCheck(StartNode),
   group: GroupNode,
   packedPipeline: withCompatCheck(PackedPipelineNode),
@@ -108,11 +119,74 @@ const edgeTypes: EdgeTypes = {
 const SNAP_DISTANCE_X = 40;
 const SNAP_DISTANCE_Y = 60;
 
+const REFERENCE_INFLUENCES = ['textInfluence', 'documentInfluence', 'imageInfluence', 'linkInfluence', 'videoInfluence', 'imageReference'] as const;
+const MODIFIER_INFLUENCES = ['emotion', 'influence'] as const;
+
+function buildCtxCategories(): ContextMenuCategory[] {
+  return [
+    {
+      label: 'Pipeline',
+      items: STAGE_ORDER.map((s) => ({ id: s, label: NODE_META[s].label, color: NODE_META[s].color })),
+    },
+    {
+      label: 'Inputs & References',
+      items: REFERENCE_INFLUENCES.map((t) => {
+        const infMeta = (INFLUENCE_NODE_META as Record<string, { label: string; color: string }>)[t];
+        const utMeta = (UTILITY_NODE_META as Record<string, { label: string; color: string }>)[t];
+        const meta = infMeta ?? utMeta;
+        return { id: t, label: meta.label, color: meta.color };
+      }),
+    },
+    {
+      label: 'Modifiers',
+      items: [
+        ...INPUT_NODE_TYPES.map((t) => ({ id: t, label: INPUT_NODE_META[t].label, color: INPUT_NODE_META[t].color })),
+        ...MODIFIER_INFLUENCES.map((t) => ({ id: t, label: INFLUENCE_NODE_META[t].label, color: INFLUENCE_NODE_META[t].color })),
+      ],
+    },
+    {
+      label: 'Outputs',
+      items: [
+        ...OUTPUT_NODE_TYPES.map((t) => ({ id: t, label: OUTPUT_NODE_META[t].label, color: OUTPUT_NODE_META[t].color })),
+        ...UTILITY_NODE_TYPES.filter((t) => t === 'extractData').map((t) => ({ id: t, label: UTILITY_NODE_META[t].label, color: UTILITY_NODE_META[t].color })),
+      ],
+    },
+    {
+      label: 'Control',
+      items: CONTROL_NODE_TYPES.map((t) => ({ id: t, label: CONTROL_NODE_META[t].label, color: CONTROL_NODE_META[t].color })),
+    },
+    {
+      label: 'Concept Lab',
+      items: CONCEPTLAB_NODE_TYPES.map((t) => ({ id: t, label: CONCEPTLAB_NODE_META[t].label, color: CONCEPTLAB_NODE_META[t].color })),
+    },
+    {
+      label: 'UI Elements',
+      items: [
+        { id: 'uiButton', label: 'Button', color: '#5c6bc0' },
+        { id: 'uiTextBox', label: 'Text Box', color: '#66bb6a' },
+        { id: 'uiDropdown', label: 'Dropdown', color: '#ffa726' },
+        { id: 'uiImage', label: 'Image', color: '#ab47bc' },
+        { id: 'uiGeneric', label: 'Node', color: '#607d8b' },
+      ],
+    },
+    {
+      label: 'Containers',
+      items: [
+        { id: 'uiWindow', label: 'Window', color: '#26a69a' },
+        { id: 'uiFrame', label: 'Frame', color: '#78909c' },
+      ],
+    },
+  ];
+}
+
+const CTX_CATEGORIES = buildCtxCategories();
+
 function FlowCanvasInner() {
   const { session, createBranch, runStage, recordExport, setProjectName, saveFlowState, guidedRunState, awaitingInputNodeId } = useSession();
   const flow = useFlowSession();
   const reactFlowInstance = useReactFlow();
   const canvasRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
   const [isEditingName, setIsEditingName] = useState(false);
@@ -123,8 +197,8 @@ function FlowCanvasInner() {
     y: number;
     nodeId?: string;
     stageId?: StageId;
+    edgeId?: string;
   } | null>(null);
-  const [edgeCtxMenu, setEdgeCtxMenu] = useState<{ x: number; y: number; edgeId: string } | null>(null);
   const pendingConnectionRef = useRef<{ source: string; sourceHandle: string | null } | null>(null);
   const [snapPreviewIds, setSnapPreviewIds] = useState<Set<string>>(new Set());
   const snapCandidateRef = useRef<{ draggedId: string; targetId: string } | null>(null);
@@ -149,34 +223,25 @@ function FlowCanvasInner() {
     prevAwaitingRef.current = awaitingInputNodeId;
   }, [awaitingInputNodeId, flow.nodes, reactFlowInstance]);
 
-  const isInputElement = useCallback((el: EventTarget | null): boolean => {
-    if (!el || !(el instanceof HTMLElement)) return false;
-    const tag = el.tagName.toLowerCase();
-    if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
-    if (el.getAttribute('contenteditable') === 'true') return true;
-    return false;
-  }, []);
-
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (isInputElement(e.target)) return;
-
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        flow.undo();
+      const el = e.target as HTMLElement | null;
+      if (el) {
+        const tag = el.tagName.toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+        if (el.getAttribute('contenteditable') === 'true') return;
       }
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-        e.preventDefault();
-        flow.redo();
-      }
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault();
-        handleDeleteSelected();
-      }
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && e.key === 'z' && !e.shiftKey) { e.preventDefault(); flow.undo(); }
+      if (mod && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); flow.redo(); }
+      if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); flow.deleteSelected(); }
+      if (mod && e.key === 'd') { e.preventDefault(); flow.duplicateSelected(); }
+      if (mod && e.key === 'c') { flow.copySelectedNodes(); }
+      if (mod && e.key === 'v') { flow.pasteNodes(); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [flow.undo, flow.redo, flow.nodes]);
+  }, [flow]);
 
   const restoredViewportRef = useRef(false);
   useEffect(() => {
@@ -204,47 +269,23 @@ function FlowCanvasInner() {
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, [flow.nodes, flow.edges]);
 
-  const handleDeleteSelected = useCallback(() => {
-    const selected = flow.nodes.filter((n) => n.selected);
-    if (selected.length === 0) return;
-    for (const n of selected) {
-      flow.removeNode(n.id);
-    }
-  }, [flow]);
-
-  const handleDuplicateSelected = useCallback(() => {
-    const selected = flow.nodes.filter((n) => n.selected);
-    if (selected.length === 0) return;
-    for (const n of selected) {
-      flow.addNodeToCanvas(n.type ?? 'seed', {
-        x: n.position.x + 40,
-        y: n.position.y + 40,
-      }, { ...(n.data as Record<string, unknown>) });
-    }
-  }, [flow]);
-
   const handleDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
-
       const bounds = canvasRef.current?.getBoundingClientRect();
       if (!bounds) return;
-
       const position = reactFlowInstance.screenToFlowPosition({
         x: event.clientX - bounds.left,
         y: event.clientY - bounds.top,
       });
-
       const resultText = event.dataTransfer.getData('application/reactflow-result');
       if (resultText) {
         flow.addNodeToCanvas('seed', position, { prefillSeed: resultText });
         return;
       }
-
       const nodeType = event.dataTransfer.getData('application/reactflow-stage') ||
         event.dataTransfer.getData('application/reactflow-nodetype');
       if (!nodeType) return;
-
       flow.addNodeToCanvas(nodeType as StageId, position);
     },
     [reactFlowInstance, flow],
@@ -260,38 +301,28 @@ function FlowCanvasInner() {
       const others = flow.nodes.filter((n) => n.id !== draggedNode.id && n.type !== 'resultNode');
       let foundSnap = false;
       const snapIds = new Set<string>();
-
       for (const other of others) {
         const dragRight = draggedNode.position.x + (draggedNode.measured?.width ?? 200);
         const otherLeft = other.position.x;
         const dragLeft = draggedNode.position.x;
         const otherRight = other.position.x + (other.measured?.width ?? 200);
-
         const dragCenterY = draggedNode.position.y + (draggedNode.measured?.height ?? 100) / 2;
         const otherCenterY = other.position.y + (other.measured?.height ?? 100) / 2;
         const verticallyAligned = Math.abs(dragCenterY - otherCenterY) < SNAP_DISTANCE_Y;
-
         if (verticallyAligned) {
           if (Math.abs(dragRight - otherLeft) < SNAP_DISTANCE_X) {
-            snapIds.add(draggedNode.id);
-            snapIds.add(other.id);
+            snapIds.add(draggedNode.id); snapIds.add(other.id);
             snapCandidateRef.current = { draggedId: draggedNode.id, targetId: other.id };
-            foundSnap = true;
-            break;
+            foundSnap = true; break;
           }
           if (Math.abs(dragLeft - otherRight) < SNAP_DISTANCE_X) {
-            snapIds.add(draggedNode.id);
-            snapIds.add(other.id);
+            snapIds.add(draggedNode.id); snapIds.add(other.id);
             snapCandidateRef.current = { draggedId: draggedNode.id, targetId: other.id };
-            foundSnap = true;
-            break;
+            foundSnap = true; break;
           }
         }
       }
-
-      if (!foundSnap) {
-        snapCandidateRef.current = null;
-      }
+      if (!foundSnap) snapCandidateRef.current = null;
       setSnapPreviewIds(snapIds);
     },
     [flow.nodes],
@@ -303,31 +334,17 @@ function FlowCanvasInner() {
         const { draggedId, targetId } = snapCandidateRef.current;
         const draggedNode = flow.nodes.find((n) => n.id === draggedId);
         const targetNode = flow.nodes.find((n) => n.id === targetId);
-
         if (draggedNode && targetNode) {
           const draggedType = draggedNode.type ?? draggedId;
           const targetType = targetNode.type ?? targetId;
-
           const hasExistingEdge = flow.edges.some(
-            (e) => (e.source === draggedId && e.target === targetId) ||
-                   (e.source === targetId && e.target === draggedId)
+            (e) => (e.source === draggedId && e.target === targetId) || (e.source === targetId && e.target === draggedId)
           );
-
           if (!hasExistingEdge) {
             if (isValidConnection(draggedType, targetType)) {
-              flow.onConnect({
-                source: draggedId,
-                target: targetId,
-                sourceHandle: null,
-                targetHandle: null,
-              } as Parameters<typeof flow.onConnect>[0]);
+              flow.onConnect({ source: draggedId, target: targetId, sourceHandle: null, targetHandle: null } as Parameters<typeof flow.onConnect>[0]);
             } else if (isValidConnection(targetType, draggedType)) {
-              flow.onConnect({
-                source: targetId,
-                target: draggedId,
-                sourceHandle: null,
-                targetHandle: null,
-              } as Parameters<typeof flow.onConnect>[0]);
+              flow.onConnect({ source: targetId, target: draggedId, sourceHandle: null, targetHandle: null } as Parameters<typeof flow.onConnect>[0]);
             }
           }
         }
@@ -355,6 +372,14 @@ function FlowCanvasInner() {
     [],
   );
 
+  const handleEdgeContextMenu = useCallback(
+    (event: React.MouseEvent, edge: { id: string }) => {
+      event.preventDefault();
+      setCtxMenu({ x: event.clientX, y: event.clientY, edgeId: edge.id });
+    },
+    [],
+  );
+
   const handleCopy = useCallback(() => {
     if (!ctxMenu?.stageId) return;
     const output = getStageOutput(session, ctxMenu.stageId);
@@ -369,12 +394,11 @@ function FlowCanvasInner() {
     const output = getStageOutput(session, ctxMenu.stageId);
     if (output) {
       const content = JSON.stringify(output, null, 2);
-      const filename = `${ctxMenu.stageId}_output.json`;
       const blob = new Blob([content], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = filename;
+      a.download = `${ctxMenu.stageId}_output.json`;
       a.click();
       URL.revokeObjectURL(url);
     }
@@ -393,33 +417,6 @@ function FlowCanvasInner() {
   const handleDelete = useCallback(() => {
     if (ctxMenu?.nodeId) flow.removeNode(ctxMenu.nodeId);
   }, [ctxMenu, flow]);
-
-  const handleCreateGroup = useCallback(() => {
-    const selectedNodes = flow.nodes.filter((n) => n.selected);
-    if (selectedNodes.length < 2) return;
-    if (flow.createGroup) {
-      flow.createGroup(selectedNodes.map((n) => n.id), 'Group');
-    }
-  }, [flow]);
-
-  const handleUngroupNode = useCallback(() => {
-    if (!ctxMenu?.nodeId) return;
-    if (flow.ungroupNodes) {
-      flow.ungroupNodes(ctxMenu.nodeId);
-    }
-  }, [ctxMenu, flow]);
-
-  const handleExpandGroup = useCallback(() => {
-    if (!ctxMenu?.nodeId) return;
-    flow.expandGroup(ctxMenu.nodeId);
-  }, [ctxMenu, flow]);
-
-  const handleCollapseGroup = useCallback(() => {
-    if (!ctxMenu?.nodeId) return;
-    flow.collapseGroup(ctxMenu.nodeId);
-  }, [ctxMenu, flow]);
-
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleOpenImage = useCallback(async () => {
     const input = document.createElement('input');
@@ -472,9 +469,7 @@ function FlowCanvasInner() {
           return;
         }
       }
-    } catch {
-      /* clipboard access may fail */
-    }
+    } catch { /* clipboard access may fail */ }
   }, [ctxMenu, flow, reactFlowInstance]);
 
   const handleConnectStart = useCallback((_: unknown, params: { nodeId: string | null; handleId: string | null }) => {
@@ -503,7 +498,6 @@ function FlowCanvasInner() {
         ? reactFlowInstance.screenToFlowPosition({ x: ctxMenu.x, y: ctxMenu.y })
         : { x: 200, y: 200 };
       const newId = flow.addNodeToCanvas(nodeType, pos);
-
       if (pendingConnectionRef.current && newId) {
         const { source, sourceHandle } = pendingConnectionRef.current;
         setTimeout(() => {
@@ -519,21 +513,6 @@ function FlowCanvasInner() {
     },
     [ctxMenu, flow, reactFlowInstance],
   );
-
-  const handleEdgeContextMenu = useCallback(
-    (event: React.MouseEvent, edge: { id: string }) => {
-      event.preventDefault();
-      setEdgeCtxMenu({ x: event.clientX, y: event.clientY, edgeId: edge.id });
-    },
-    [],
-  );
-
-  const handleDeleteEdge = useCallback(() => {
-    if (edgeCtxMenu) {
-      flow.removeEdge(edgeCtxMenu.edgeId);
-      setEdgeCtxMenu(null);
-    }
-  }, [edgeCtxMenu, flow]);
 
   const segIntersect = useCallback((ax: number, ay: number, bx: number, by: number, cx: number, cy: number, dx: number, dy: number) => {
     const denom = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx);
@@ -568,7 +547,6 @@ function FlowCanvasInner() {
       setCutLine(null);
       return;
     }
-
     const fp1 = reactFlowInstance.screenToFlowPosition({
       x: cutLine.x1 + (canvasRef.current?.getBoundingClientRect().left ?? 0),
       y: cutLine.y1 + (canvasRef.current?.getBoundingClientRect().top ?? 0),
@@ -577,30 +555,35 @@ function FlowCanvasInner() {
       x: cutLine.x2 + (canvasRef.current?.getBoundingClientRect().left ?? 0),
       y: cutLine.y2 + (canvasRef.current?.getBoundingClientRect().top ?? 0),
     });
-
     const edgesToRemove: string[] = [];
     for (const edge of flow.edges) {
       const sourceNode = flow.nodes.find((n) => n.id === edge.source);
       const targetNode = flow.nodes.find((n) => n.id === edge.target);
       if (!sourceNode || !targetNode) continue;
-
       const sx = sourceNode.position.x + (sourceNode.measured?.width ?? 200);
       const sy = sourceNode.position.y + (sourceNode.measured?.height ?? 60) / 2;
       const tx = targetNode.position.x;
       const ty = targetNode.position.y + (targetNode.measured?.height ?? 60) / 2;
-
-      if (segIntersect(fp1.x, fp1.y, fp2.x, fp2.y, sx, sy, tx, ty)) {
-        edgesToRemove.push(edge.id);
-      }
+      if (segIntersect(fp1.x, fp1.y, fp2.x, fp2.y, sx, sy, tx, ty)) edgesToRemove.push(edge.id);
     }
-
-    for (const id of edgesToRemove) {
-      flow.removeEdge(id);
-    }
-
+    for (const id of edgesToRemove) flow.removeEdge(id);
     cutStartRef.current = null;
     setCutLine(null);
   }, [cutLine, flow, reactFlowInstance, segIntersect]);
+
+  const handleFitView = useCallback(() => {
+    reactFlowInstance.fitView({ padding: 0.4 });
+  }, [reactFlowInstance]);
+
+  const handleImportLayout = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) flow.importLayout(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, [flow]);
 
   const nodesWithSnapClass = flow.nodes.map((n) =>
     snapPreviewIds.has(n.id)
@@ -618,182 +601,189 @@ function FlowCanvasInner() {
   }, [flow.edges]);
 
   const compatErrors = useNodeCompatibility(flow.nodes, dedupedEdges);
+  const selectedCount = useMemo(() => flow.nodes.filter((n) => n.selected).length, [flow.nodes]);
+
+  const isPinned = ctxMenu?.nodeId
+    ? !!(flow.nodes.find((n) => n.id === ctxMenu.nodeId)?.data as Record<string, unknown>)?.__pinned
+    : false;
+
+  const isGroupNode = ctxMenu?.nodeId
+    ? flow.nodes.find((n) => n.id === ctxMenu.nodeId)?.type === 'group'
+    : false;
+
+  const isGroupExpanded = ctxMenu?.nodeId
+    ? !!(flow.nodes.find((n) => n.id === ctxMenu.nodeId)?.data as Record<string, unknown>)?.expanded
+    : false;
+
+  const customNodeActions: CustomNodeAction[] = useMemo(() => {
+    if (!ctxMenu?.nodeId) return [];
+    const actions: CustomNodeAction[] = [];
+    if (ctxMenu.stageId) {
+      actions.push(
+        { label: 'Copy idea state', icon: '\uD83D\uDCCB', onClick: handleCopy },
+        { label: 'Save as JSON', icon: '\uD83D\uDCBE', onClick: handleSaveJson },
+      );
+    }
+    actions.push(
+      { label: 'Branch from here', icon: '\uD83C\uDF3F', onClick: handleBranch },
+      { label: 'Run from here', icon: '\u25B6', onClick: handleRunFromHere },
+    );
+    return actions;
+  }, [ctxMenu, handleCopy, handleSaveJson, handleBranch, handleRunFromHere]);
 
   return (
     <CompatProvider errors={compatErrors}>
-    <div
-      className="flow-canvas"
-      ref={canvasRef}
-      onMouseDown={handleCutMouseDown}
-      onMouseMove={handleCutMouseMove}
-      onMouseUp={handleCutMouseUp}
-      onContextMenu={(e) => { if (cutStartRef.current) e.preventDefault(); }}
-    >
-      <ToolDock
-        inspectorNodeId={inspectorNodeId}
-        onCloseInspector={() => setInspectorNodeId(null)}
+    <div className="flow-canvas-shell">
+      <GlobalToolbar
+        title="ShawnderMind"
+        hint="Ideation pipeline"
+        canUndo={flow.canUndo}
+        canRedo={flow.canRedo}
+        hasSelection={selectedCount > 0}
+        onUndo={flow.undo}
+        onRedo={flow.redo}
+        onDuplicate={flow.duplicateSelected}
+        onFitView={handleFitView}
+        onAutoLayout={flow.autoLayout}
+        onClear={() => { flow.setNodes([]); flow.setEdges([]); }}
+        onExportSelected={flow.exportLayoutJSON}
+        onSaveLayout={flow.saveLayout}
+        onImportLayout={handleImportLayout}
       />
 
-      <button className="demo-trigger-btn" onClick={() => setShowDemo(true)} title="Learn how ShawnderMind works">
-        ?
-      </button>
-
-      <ReactFlow
-        nodes={nodesWithSnapClass}
-        edges={dedupedEdges}
-        onNodesChange={flow.onNodesChange}
-        onEdgesChange={flow.onEdgesChange}
-        onConnect={flow.onConnect}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        onNodeClick={(_, node) => {
-          flow.setSelectedNodeId(node.id);
-          setInspectorNodeId(node.id);
-        }}
-        onPaneClick={() => {
-          flow.setSelectedNodeId(null);
-          setCtxMenu(null);
-          setEdgeCtxMenu(null);
-          pendingConnectionRef.current = null;
-        }}
-        onConnectStart={handleConnectStart as never}
-        onConnectEnd={handleConnectEnd}
-        onPaneContextMenu={(e) => handlePaneContextMenu(e as unknown as React.MouseEvent)}
-        onNodeContextMenu={(e, node) => handleNodeContextMenu(e as unknown as React.MouseEvent, node.id)}
-        onEdgeContextMenu={(e, edge) => handleEdgeContextMenu(e as unknown as React.MouseEvent, edge)}
-        onNodeDrag={(e, node) => handleNodeDrag(e as unknown as React.MouseEvent, node)}
-        onNodeDragStop={(e, node) => handleNodeDragStop(e as unknown as React.MouseEvent, node)}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        panOnDrag={[1]}
-        selectionOnDrag
-        selectionMode={SelectionMode.Partial}
-        snapToGrid
-        snapGrid={[20, 20]}
-        fitView
-        fitViewOptions={{ padding: 0.4 }}
-        minZoom={0.2}
-        maxZoom={2}
-        elevateNodesOnSelect
-        defaultEdgeOptions={{ type: 'pipeline' }}
-        proOptions={{ hideAttribution: true }}
-        colorMode="dark"
+      <div
+        className="flow-canvas"
+        ref={canvasRef}
+        onMouseDown={handleCutMouseDown}
+        onMouseMove={handleCutMouseMove}
+        onMouseUp={handleCutMouseUp}
+        onContextMenu={(e) => { if (cutStartRef.current) e.preventDefault(); }}
       >
-        <Background variant={BackgroundVariant.Lines} gap={20} size={1} color="rgba(255,255,255,0.06)" />
-      </ReactFlow>
-
-      {ctxMenu && (
-        <ContextMenu
-          x={ctxMenu.x}
-          y={ctxMenu.y}
-          nodeId={ctxMenu.nodeId}
-          stageId={ctxMenu.stageId}
-          selectedNodeCount={flow.nodes.filter((n) => n.selected).length}
-          onClose={() => setCtxMenu(null)}
-          onCopy={handleCopy}
-          onSaveJson={handleSaveJson}
-          onBranch={handleBranch}
-          onRunFromHere={handleRunFromHere}
-          onDelete={handleDelete}
-          onAddNode={handleAddNodeMaybeConnect}
-          onAutoLayout={flow.autoLayout}
-          onFitView={() => reactFlowInstance.fitView({ padding: 0.4 })}
-          onOpenImage={handleOpenImage}
-          onPasteImage={handlePasteImage}
-          onCreateGroup={handleCreateGroup}
-          onUngroupNode={handleUngroupNode}
-          onExpandGroup={handleExpandGroup}
-          onCollapseGroup={handleCollapseGroup}
-          onDeleteSelected={handleDeleteSelected}
-          onDuplicateSelected={handleDuplicateSelected}
-          isGroupNode={ctxMenu.nodeId ? flow.nodes.find((n) => n.id === ctxMenu.nodeId)?.type === 'group' : false}
-          isGroupExpanded={ctxMenu.nodeId ? !!(flow.nodes.find((n) => n.id === ctxMenu.nodeId)?.data as Record<string, unknown>)?.expanded : false}
+        <ToolDock
+          inspectorNodeId={inspectorNodeId}
+          onCloseInspector={() => setInspectorNodeId(null)}
         />
-      )}
 
-      {edgeCtxMenu && (
-        <div
-          className="edge-ctx-menu"
-          style={{ left: edgeCtxMenu.x, top: edgeCtxMenu.y }}
-        >
-          <button className="edge-ctx-item" onClick={handleDeleteEdge}>
-            Delete Connection
-          </button>
-        </div>
-      )}
+        <button className="demo-trigger-btn" onClick={() => setShowDemo(true)} title="Learn how ShawnderMind works">
+          ?
+        </button>
 
-      <div className="undo-redo-bar">
-        <button
-          className="undo-redo-btn"
-          onClick={flow.undo}
-          disabled={!flow.canUndo}
-          title="Undo (Ctrl+Z)"
+        <ReactFlow
+          nodes={nodesWithSnapClass}
+          edges={dedupedEdges}
+          onNodesChange={flow.onNodesChange}
+          onEdgesChange={flow.onEdgesChange}
+          onConnect={flow.onConnect}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          onNodeClick={(_, node) => {
+            flow.setSelectedNodeId(node.id);
+            setInspectorNodeId(node.id);
+          }}
+          onPaneClick={() => {
+            flow.setSelectedNodeId(null);
+            setCtxMenu(null);
+            pendingConnectionRef.current = null;
+          }}
+          onConnectStart={handleConnectStart as never}
+          onConnectEnd={handleConnectEnd}
+          onPaneContextMenu={(e) => handlePaneContextMenu(e as unknown as React.MouseEvent)}
+          onNodeContextMenu={(e, node) => handleNodeContextMenu(e as unknown as React.MouseEvent, node.id)}
+          onEdgeContextMenu={(e, edge) => handleEdgeContextMenu(e as unknown as React.MouseEvent, edge)}
+          onNodeDrag={(e, node) => handleNodeDrag(e as unknown as React.MouseEvent, node)}
+          onNodeDragStop={(e, node) => handleNodeDragStop(e as unknown as React.MouseEvent, node)}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          panOnDrag={[1]}
+          selectionOnDrag
+          selectionMode={SelectionMode.Partial}
+          snapToGrid
+          snapGrid={[20, 20]}
+          fitView
+          fitViewOptions={{ padding: 0.4 }}
+          minZoom={0.2}
+          maxZoom={2}
+          elevateNodesOnSelect
+          defaultEdgeOptions={{ type: 'pipeline' }}
+          proOptions={{ hideAttribution: true }}
+          colorMode="dark"
         >
-          ↩
-        </button>
-        <button
-          className="undo-redo-btn"
-          onClick={flow.redo}
-          disabled={!flow.canRedo}
-          title="Redo (Ctrl+Y)"
-        >
-          ↪
-        </button>
-      </div>
+          <Background variant={BackgroundVariant.Lines} gap={20} size={1} color="rgba(255,255,255,0.06)" />
+        </ReactFlow>
 
-      <div className="layout-bar">
-        <button
-          className="layout-bar-btn"
-          onClick={flow.autoLayout}
-          title="Reset Layout — auto-arrange all nodes neatly"
-        >
-          Reset Layout
-        </button>
-        <button
-          className="layout-bar-btn"
-          onClick={() => reactFlowInstance.fitView({ padding: 0.4 })}
-          title="Fit View — zoom to see all nodes"
-        >
-          Fit View
-        </button>
-      </div>
-
-      {cutLine && (
-        <svg className="cut-line-overlay">
-          <line
-            x1={cutLine.x1} y1={cutLine.y1}
-            x2={cutLine.x2} y2={cutLine.y2}
-            className="cut-line"
+        {ctxMenu && (
+          <CanvasContextMenu
+            x={ctxMenu.x}
+            y={ctxMenu.y}
+            nodeId={ctxMenu.nodeId}
+            edgeId={ctxMenu.edgeId}
+            selectedNodeCount={selectedCount}
+            categories={CTX_CATEGORIES}
+            onClose={() => setCtxMenu(null)}
+            onAddNode={handleAddNodeMaybeConnect}
+            onDelete={handleDelete}
+            onDeleteSelected={flow.deleteSelected}
+            onDuplicateSelected={flow.duplicateSelected}
+            onAutoLayout={flow.autoLayout}
+            onFitView={handleFitView}
+            onCopy={flow.copySelectedNodes}
+            onPaste={() => flow.pasteNodes()}
+            onPin={ctxMenu.nodeId ? () => flow.togglePinNode(ctxMenu.nodeId!) : undefined}
+            isPinned={isPinned}
+            onCreateGroup={() => {
+              const sel = flow.nodes.filter((n) => n.selected);
+              if (sel.length >= 2) flow.createGroup(sel.map((n) => n.id), 'Group');
+            }}
+            onUngroupNode={ctxMenu.nodeId ? () => flow.ungroupNodes(ctxMenu.nodeId!) : undefined}
+            onExpandGroup={ctxMenu.nodeId ? () => flow.expandGroup(ctxMenu.nodeId!) : undefined}
+            onCollapseGroup={ctxMenu.nodeId ? () => flow.collapseGroup(ctxMenu.nodeId!) : undefined}
+            isGroupNode={isGroupNode}
+            isGroupExpanded={isGroupExpanded}
+            onOpenImage={handleOpenImage}
+            onPasteImage={handlePasteImage}
+            customNodeActions={customNodeActions}
+            onDeleteEdge={ctxMenu.edgeId ? () => { flow.removeEdge(ctxMenu.edgeId!); setCtxMenu(null); } : undefined}
           />
-        </svg>
-      )}
+        )}
 
-      {showDemo && <DemoOverlay onDismiss={() => setShowDemo(false)} />}
-      <GuidedRunOverlay guidedState={guidedRunState} />
-
-      {isEditingName && (
-        <div className="rename-overlay" onClick={() => setIsEditingName(false)}>
-          <div className="rename-dialog" onClick={(e) => e.stopPropagation()}>
-            <label className="rename-label">Project Name</label>
-            <input
-              className="rename-input"
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') { setProjectName(nameInput); setIsEditingName(false); }
-                if (e.key === 'Escape') setIsEditingName(false);
-              }}
-              autoFocus
-              placeholder="My Brilliant Idea"
+        {cutLine && (
+          <svg className="cut-line-overlay">
+            <line
+              x1={cutLine.x1} y1={cutLine.y1}
+              x2={cutLine.x2} y2={cutLine.y2}
+              className="cut-line"
             />
-            <div className="rename-actions">
-              <button className="rename-cancel" onClick={() => setIsEditingName(false)}>Cancel</button>
-              <button className="rename-save" onClick={() => { setProjectName(nameInput); setIsEditingName(false); }}>Save</button>
+          </svg>
+        )}
+
+        {showDemo && <DemoOverlay onDismiss={() => setShowDemo(false)} />}
+        <GuidedRunOverlay guidedState={guidedRunState} />
+
+        {isEditingName && (
+          <div className="rename-overlay" onClick={() => setIsEditingName(false)}>
+            <div className="rename-dialog" onClick={(e) => e.stopPropagation()}>
+              <label className="rename-label">Project Name</label>
+              <input
+                className="rename-input"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { setProjectName(nameInput); setIsEditingName(false); }
+                  if (e.key === 'Escape') setIsEditingName(false);
+                }}
+                autoFocus
+                placeholder="My Brilliant Idea"
+              />
+              <div className="rename-actions">
+                <button className="rename-cancel" onClick={() => setIsEditingName(false)}>Cancel</button>
+                <button className="rename-save" onClick={() => { setProjectName(nameInput); setIsEditingName(false); }}>Save</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
+    <input ref={fileInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleFileChange} />
     </CompatProvider>
   );
 }

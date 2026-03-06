@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import './CharacterNodes.css';
 
@@ -13,6 +13,15 @@ interface Props {
 function CharDescriptionNodeInner({ id, data, selected }: Props) {
   const { setNodes } = useReactFlow();
   const [description, setDescription] = useState((data?.description as string) ?? '');
+  const localEdit = useRef(false);
+
+  useEffect(() => {
+    const external = (data?.description as string) ?? '';
+    if (!localEdit.current && external !== description) {
+      setDescription(external);
+    }
+    localEdit.current = false;
+  }, [data?.description]);
 
   const persist = useCallback(
     (updates: Record<string, unknown>) => {
@@ -34,6 +43,7 @@ function CharDescriptionNodeInner({ id, data, selected }: Props) {
           value={description}
           onChange={(e) => {
             const v = e.target.value;
+            localEdit.current = true;
             setDescription(v);
             persist({ description: v });
           }}

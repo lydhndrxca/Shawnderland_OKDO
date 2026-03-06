@@ -71,6 +71,8 @@ export interface FlowSessionState {
   importLayout: (file: File) => void;
   saveNamedLayout: (name: string) => void;
   loadNamedLayout: (name: string) => boolean;
+  updateActiveLayout: () => void;
+  activeLayoutName: string | null;
   setDefaultLayout: () => void;
   deleteNamedLayout: (name: string) => void;
   savedLayoutsList: Array<{ name: string; savedAt: string }>;
@@ -953,6 +955,7 @@ export function useFlowSession(): FlowSessionState {
 
   // ── Named Layout Management ────────────────────────────────────
   const [savedLayoutsList, setSavedLayoutsList] = useState<Array<{ name: string; savedAt: string }>>([]);
+  const [activeLayoutName, setActiveLayoutName] = useState<string | null>(null);
   const APP_KEY = 'shawndermind';
 
   const refreshLayoutsList = useCallback(() => {
@@ -987,6 +990,7 @@ export function useFlowSession(): FlowSessionState {
 
   const saveNamedLayoutFn = useCallback((name: string) => {
     storeNamedLayout(APP_KEY, name, buildLayoutSnapshot());
+    setActiveLayoutName(name);
     refreshLayoutsList();
   }, [buildLayoutSnapshot, refreshLayoutsList]);
 
@@ -1021,8 +1025,16 @@ export function useFlowSession(): FlowSessionState {
   const loadNamedLayoutFn = useCallback((name: string): boolean => {
     const snap = storeLoadNamedLayout(APP_KEY, name);
     if (!snap) return false;
-    return restoreLayoutSnapshot(snap);
+    const ok = restoreLayoutSnapshot(snap);
+    if (ok) setActiveLayoutName(name);
+    return ok;
   }, [restoreLayoutSnapshot]);
+
+  const updateActiveLayoutFn = useCallback(() => {
+    if (!activeLayoutName) return;
+    storeNamedLayout(APP_KEY, activeLayoutName, buildLayoutSnapshot());
+    refreshLayoutsList();
+  }, [activeLayoutName, buildLayoutSnapshot, refreshLayoutsList]);
 
   const setDefaultLayoutFn = useCallback(() => {
     setDefaultFromSnapshot(APP_KEY, buildLayoutSnapshot());
@@ -1088,6 +1100,8 @@ export function useFlowSession(): FlowSessionState {
     loadNamedLayout: loadNamedLayoutFn,
     setDefaultLayout: setDefaultLayoutFn,
     deleteNamedLayout: deleteNamedLayoutFn,
+    updateActiveLayout: updateActiveLayoutFn,
+    activeLayoutName,
     savedLayoutsList,
     refreshLayoutsList,
   };

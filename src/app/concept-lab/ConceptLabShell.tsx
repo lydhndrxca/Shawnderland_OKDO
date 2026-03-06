@@ -450,6 +450,8 @@ function ConceptLabCanvas() {
         onLoadLayout={(name) => { cs.loadNamedLayout(name); showToast(`Layout "${name}" loaded`); }}
         onSetDefault={() => { cs.setDefaultLayout(); showToast('Current layout set as default'); }}
         onDeleteLayout={(name) => { cs.deleteNamedLayout(name); showToast(`Layout "${name}" deleted`); }}
+        onUpdateLayout={() => { cs.updateActiveLayout(); showToast(`Layout "${cs.activeLayoutName}" updated`); }}
+        activeLayoutName={cs.activeLayoutName}
         savedLayouts={cs.savedLayoutsList}
       />
       <ToastContainer />

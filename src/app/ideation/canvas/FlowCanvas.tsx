@@ -822,6 +822,8 @@ function FlowCanvasInner() {
         onLoadLayout={(name) => { flow.loadNamedLayout(name); showToast(`Layout "${name}" loaded`); }}
         onSetDefault={() => { flow.setDefaultLayout(); showToast('Current layout set as default'); }}
         onDeleteLayout={(name) => { flow.deleteNamedLayout(name); showToast(`Layout "${name}" deleted`); }}
+        onUpdateLayout={() => { flow.updateActiveLayout(); showToast(`Layout "${flow.activeLayoutName}" updated`); }}
+        activeLayoutName={flow.activeLayoutName}
         savedLayouts={flow.savedLayoutsList}
       />
       <ToastContainer />

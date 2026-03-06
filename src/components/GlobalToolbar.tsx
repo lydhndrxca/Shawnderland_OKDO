@@ -32,6 +32,8 @@ export interface GlobalToolbarProps {
   onLoadLayout?: (name: string) => void;
   onSetDefault?: () => void;
   onDeleteLayout?: (name: string) => void;
+  onUpdateLayout?: () => void;
+  activeLayoutName?: string | null;
   savedLayouts?: SavedLayoutEntry[];
 
   /** @deprecated */
@@ -69,6 +71,8 @@ export default function GlobalToolbar({
   onLoadLayout,
   onSetDefault,
   onDeleteLayout,
+  onUpdateLayout,
+  activeLayoutName,
   savedLayouts,
   onExportAll,
   onExportSelected,
@@ -263,6 +267,14 @@ export default function GlobalToolbar({
                     <button className="layout-menu-btn" onClick={() => setSavePrompt(true)}>
                       Save Layout...
                     </button>
+                    {onUpdateLayout && activeLayoutName && activeLayoutName !== '__default__' && (
+                      <button
+                        className="layout-menu-btn"
+                        onClick={() => { onUpdateLayout(); setLayoutDropdownOpen(false); }}
+                      >
+                        Save Updated Layout ({activeLayoutName})
+                      </button>
+                    )}
                     {onSetDefault && (
                       <button className="layout-menu-btn" onClick={() => { onSetDefault(); setLayoutDropdownOpen(false); }}>
                         Set as Default

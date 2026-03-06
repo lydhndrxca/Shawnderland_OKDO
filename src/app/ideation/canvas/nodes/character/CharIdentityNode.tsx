@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import {
   AGE_OPTIONS,
@@ -33,6 +33,18 @@ function CharIdentityNodeInner({ id, data, selected }: Props) {
     gender: (data?.identity as Identity)?.gender ?? '',
     build: (data?.identity as Identity)?.build ?? '',
   });
+  const localEdit = useRef(false);
+
+  useEffect(() => {
+    if (localEdit.current) { localEdit.current = false; return; }
+    const ext = data?.identity as Identity | undefined;
+    if (!ext) return;
+    setIdentity((prev) => {
+      if (prev.age === (ext.age ?? '') && prev.race === (ext.race ?? '') &&
+          prev.gender === (ext.gender ?? '') && prev.build === (ext.build ?? '')) return prev;
+      return { age: ext.age ?? '', race: ext.race ?? '', gender: ext.gender ?? '', build: ext.build ?? '' };
+    });
+  }, [data?.identity]);
 
   const persist = useCallback(
     (updates: Record<string, unknown>) => {
@@ -45,6 +57,7 @@ function CharIdentityNodeInner({ id, data, selected }: Props) {
 
   const setField = useCallback(
     (key: keyof Identity, val: string) => {
+      localEdit.current = true;
       const next = { ...identity, [key]: val };
       setIdentity(next);
       persist({ identity: next });
@@ -53,6 +66,7 @@ function CharIdentityNodeInner({ id, data, selected }: Props) {
   );
 
   const handleRandomize = useCallback(() => {
+    localEdit.current = true;
     const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
     const next: Identity = {
       age: pick(AGE_OPTIONS),

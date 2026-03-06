@@ -101,6 +101,8 @@ export interface CanvasSessionState {
   loadNamedLayout: (name: string) => boolean;
   setDefaultLayout: () => void;
   deleteNamedLayout: (name: string) => void;
+  updateActiveLayout: () => void;
+  activeLayoutName: string | null;
   savedLayoutsList: Array<{ name: string; savedAt: string }>;
   refreshLayoutsList: () => void;
 
@@ -648,6 +650,7 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
 
   // ── Named Layout Management ────────────────────────────────────
   const [savedLayoutsList, setSavedLayoutsList] = useState<Array<{ name: string; savedAt: string }>>([]);
+  const [activeLayoutName, setActiveLayoutName] = useState<string | null>(null);
 
   const refreshLayoutsList = useCallback(() => {
     const all = storeListLayouts(appKey);
@@ -673,14 +676,23 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
 
   const saveNamedLayout = useCallback((name: string) => {
     storeNamedLayout(appKey, name, buildSnapshot());
+    setActiveLayoutName(name);
     refreshLayoutsList();
   }, [appKey, buildSnapshot, refreshLayoutsList]);
 
   const loadNamedLayoutFn = useCallback((name: string): boolean => {
     const snap = storeLoadNamedLayout(appKey, name);
     if (!snap) return false;
-    return restoreSnapshot(snap);
+    const ok = restoreSnapshot(snap);
+    if (ok) setActiveLayoutName(name);
+    return ok;
   }, [appKey, restoreSnapshot]);
+
+  const updateActiveLayout = useCallback(() => {
+    if (!activeLayoutName) return;
+    storeNamedLayout(appKey, activeLayoutName, buildSnapshot());
+    refreshLayoutsList();
+  }, [appKey, activeLayoutName, buildSnapshot, refreshLayoutsList]);
 
   const setDefaultLayoutFn = useCallback(() => {
     setDefaultFromSnapshot(appKey, buildSnapshot());
@@ -747,6 +759,8 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     loadNamedLayout: loadNamedLayoutFn,
     setDefaultLayout: setDefaultLayoutFn,
     deleteNamedLayout: deleteNamedLayoutFn,
+    updateActiveLayout,
+    activeLayoutName,
     savedLayoutsList,
     refreshLayoutsList,
     getFlowSnapshot,

@@ -5,6 +5,10 @@ import { Handle, Position, useReactFlow } from '@xyflow/react';
 import {
   EXTRACT_ATTRIBUTES_PROMPT,
   ATTRIBUTE_GROUPS,
+  BUILD_OPTIONS,
+  AGE_OPTIONS,
+  RACE_OPTIONS,
+  GENDER_OPTIONS,
 } from '@/lib/ideation/engine/conceptlab/characterPrompts';
 import { generateText, type GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import './CharacterNodes.css';
@@ -13,6 +17,26 @@ interface Props {
   id: string;
   data: Record<string, unknown>;
   selected?: boolean;
+}
+
+const DESCRIBE_IMAGE_PROMPT = `Analyze this image in full detail and write a 1-2 paragraph character appearance summary.
+Focus ONLY on visible appearance: age, race, build, face, hair (color, length, texture, style), and clothing/gear (materials, colors, condition).
+Do NOT describe actions, pose, or what the person is doing. Do NOT mention background, setting, environment, or props outside the outfit.
+IMPORTANT: Explicitly state the body build using ONE of these exact terms: ${BUILD_OPTIONS.join(', ')}.
+Also describe body size/weight in plain language so it is unmistakable.
+Return ONLY the description text, no JSON or formatting.`;
+
+function bestMatch(value: string, options: string[]): string {
+  if (!value) return '';
+  const v = value.toLowerCase().trim();
+  const exact = options.find((o) => o.toLowerCase() === v);
+  if (exact) return exact;
+  const contains = options.find((o) => o.toLowerCase().includes(v) || v.includes(o.toLowerCase()));
+  if (contains) return contains;
+  const firstWord = v.split(/[\s,()/]+/)[0];
+  const partial = options.find((o) => o.toLowerCase().startsWith(firstWord));
+  if (partial) return partial;
+  return value;
 }
 
 function findUpstreamImage(
@@ -37,11 +61,12 @@ function findUpstreamImage(
 function ExtractAttributesNodeInner({ id, data, selected }: Props) {
   const { setNodes, getNode, getEdges } = useReactFlow();
   const [generating, setGenerating] = useState(false);
+  const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [resultText, setResultText] = useState((data?.resultText as string) ?? '');
 
   const pushToDownstream = useCallback(
-    (json: Record<string, string>) => {
+    (description: string, json: Record<string, string>) => {
       const edges = getEdges();
       const outgoing = edges.filter((e) => e.source === id);
 
@@ -55,18 +80,13 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
 
           if (n.type === 'charIdentity') {
             updates.identity = {
-              age: json.age ?? '',
-              race: json.race ?? '',
-              gender: json.gender ?? '',
-              build: json.build ?? '',
+              age: bestMatch(json.age ?? '', AGE_OPTIONS),
+              race: bestMatch(json.race ?? '', RACE_OPTIONS),
+              gender: bestMatch(json.gender ?? '', GENDER_OPTIONS),
+              build: bestMatch(json.build ?? '', BUILD_OPTIONS),
             };
           } else if (n.type === 'charDescription') {
-            const descParts: string[] = [];
-            if (json.age) descParts.push(json.age);
-            if (json.race) descParts.push(json.race);
-            if (json.gender) descParts.push(json.gender);
-            if (json.build) descParts.push(`${json.build} build`);
-            updates.description = descParts.join(', ');
+            updates.description = description;
           } else if (n.type === 'charAttributes') {
             const attrs: Record<string, string> = {};
             for (const g of ATTRIBUTE_GROUPS) {
@@ -91,16 +111,29 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
     }
     setGenerating(true);
     setError(null);
+    setStatus('Describing character...');
     try {
-      const text = await generateText(EXTRACT_ATTRIBUTES_PROMPT, img);
-      setResultText(text);
+      // Step 1: image → prose description (matches original tool)
+      const description = await generateText(DESCRIBE_IMAGE_PROMPT, img);
+
+      setStatus('Extracting identity and attributes...');
+
+      // Step 2: description → structured JSON attributes
+      const attrPrompt = `${EXTRACT_ATTRIBUTES_PROMPT}\n\nCHARACTER DESCRIPTION:\n${description}`;
+      const attrText = await generateText(attrPrompt, img);
+
+      const combined = `Description:\n${description}\n\nAttributes:\n${attrText}`;
+      setResultText(combined);
       setNodes((nds) =>
-        nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, resultText: text } } : n)),
+        nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, resultText: combined } } : n)),
       );
-      const json = JSON.parse(text.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
-      pushToDownstream(json);
+
+      const json = JSON.parse(attrText.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
+      pushToDownstream(description, json);
+      setStatus('');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      setStatus('');
     } finally {
       setGenerating(false);
     }
@@ -115,7 +148,7 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
         <button className="char-btn primary nodrag" onClick={handleExtract} disabled={generating}>
           {generating ? 'Extracting...' : 'Extract Attributes'}
         </button>
-        {generating && <div className="char-progress">Analyzing image...</div>}
+        {generating && status && <div className="char-progress">{status}</div>}
         {error && <div className="char-error">{error}</div>}
         {resultText && (
           <div className="char-scroll-area nodrag nowheel" style={{ maxHeight: 200 }}>

@@ -270,6 +270,12 @@ export const EXTRACT_ATTRIBUTES_PROMPT = `You are a data extraction tool. Analyz
   "detailing": string
 }
 
+IDENTITY FIELDS — you MUST pick one of these exact strings:
+- age: ${AGE_OPTIONS.map((o) => `"${o}"`).join(' | ')}
+- race: ${RACE_OPTIONS.map((o) => `"${o}"`).join(' | ')}
+- gender: ${GENDER_OPTIONS.map((o) => `"${o}"`).join(' | ')}
+- build: ${BUILD_OPTIONS.map((o) => `"${o}"`).join(' | ')}
+
 For clothing/gear fields, be specific and descriptive: include color, material, pattern, fit, and condition when known.
 Avoid generic single words like 'shirt' or 'pants' unless nothing else is known.
 - coloraccents: 2-5 primary colors, comma-separated

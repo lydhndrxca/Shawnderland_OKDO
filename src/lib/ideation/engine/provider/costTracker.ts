@@ -21,6 +21,11 @@ export interface ModelUsage {
   cost: number;
 }
 
+export interface AppUsage {
+  calls: number;
+  cost: number;
+}
+
 export interface CostSnapshot {
   inputTokens: number;
   outputTokens: number;
@@ -30,6 +35,7 @@ export interface CostSnapshot {
   firstCallAt: string | null;
   lastCallAt: string | null;
   byModel: Record<string, ModelUsage>;
+  byApp: Record<string, AppUsage>;
 }
 
 interface StoredData {
@@ -39,14 +45,33 @@ interface StoredData {
   firstCallAt: string | null;
   lastCallAt: string | null;
   byModel: Record<string, ModelUsage>;
+  byApp: Record<string, AppUsage>;
   totalCost: number;
 }
 
 const emptyStored = (): StoredData => ({
   inputTokens: 0, outputTokens: 0, apiCalls: 0,
   firstCallAt: null, lastCallAt: null,
-  byModel: {}, totalCost: 0,
+  byModel: {}, byApp: {}, totalCost: 0,
 });
+
+/** Set the active app key so all subsequent record calls are attributed to it. */
+export function setActiveApp(appKey: string) {
+  _activeApp = appKey;
+}
+
+export function getActiveApp(): string {
+  return _activeApp;
+}
+
+let _activeApp = 'unknown';
+
+function ensureApp(app: string): AppUsage {
+  if (!data.byApp[app]) {
+    data.byApp[app] = { calls: 0, cost: 0 };
+  }
+  return data.byApp[app];
+}
 
 let data: StoredData = emptyStored();
 let listeners: Array<() => void> = [];
@@ -66,6 +91,7 @@ function hydrate() {
         firstCallAt: parsed.firstCallAt ?? null,
         lastCallAt: parsed.lastCallAt ?? null,
         byModel: parsed.byModel ?? {},
+        byApp: parsed.byApp ?? {},
         totalCost: parsed.totalCost ?? 0,
       };
       snapshotVersion++;
@@ -119,6 +145,10 @@ export function recordUsage(
   m.outputTokens += output;
   m.cost += callCost;
 
+  const a = ensureApp(_activeApp);
+  a.calls += 1;
+  a.cost += callCost;
+
   persist();
   notifyListeners();
 }
@@ -139,6 +169,10 @@ export function recordImagenUsage(model: string, imageCount: number) {
   m.calls += 1;
   m.imagesGenerated += imageCount;
   m.cost += callCost;
+
+  const a = ensureApp(_activeApp);
+  a.calls += 1;
+  a.cost += callCost;
 
   persist();
   notifyListeners();
@@ -161,6 +195,10 @@ export function recordVeoUsage(model: string, durationSeconds: number) {
   m.videoSeconds += durationSeconds;
   m.cost += callCost;
 
+  const a = ensureApp(_activeApp);
+  a.calls += 1;
+  a.cost += callCost;
+
   persist();
   notifyListeners();
 }
@@ -182,6 +220,7 @@ export function getSnapshot(): CostSnapshot {
     firstCallAt: data.firstCallAt,
     lastCallAt: data.lastCallAt,
     byModel: { ...data.byModel },
+    byApp: { ...data.byApp },
   };
   cachedVersion = snapshotVersion;
   return cachedSnapshot;

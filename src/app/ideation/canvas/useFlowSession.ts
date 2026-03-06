@@ -13,10 +13,19 @@ import {
   addEdge,
 } from '@xyflow/react';
 import { useSession } from '@/lib/ideation/context/SessionContext';
-import { STAGE_ORDER, isValidConnection } from './nodes/nodeRegistry';
+import { STAGE_ORDER, isValidConnection, OUTPUT_NODE_TYPES, NODE_DEFAULT_STYLE, type OutputNodeType } from './nodes/nodeRegistry';
 import { getStageOutput } from '@/lib/ideation/state/sessionSelectors';
 import { applyDagreLayout } from './flowLayout';
 import type { StageId } from '@/lib/ideation/engine/stages';
+import {
+  saveNamedLayout as storeNamedLayout,
+  listLayouts as storeListLayouts,
+  loadNamedLayout as storeLoadNamedLayout,
+  deleteNamedLayout as storeDeleteNamedLayout,
+  setDefaultFromSnapshot,
+  loadDefaultOrLatest,
+  type LayoutSnapshot,
+} from '@/lib/layoutStore';
 
 export interface FlowSessionState {
   nodes: Node[];
@@ -28,7 +37,7 @@ export interface FlowSessionState {
   onConnect: OnConnect;
   selectedNodeId: string | null;
   setSelectedNodeId: (id: string | null) => void;
-  addNodeToCanvas: (nodeType: string, position?: { x: number; y: number }, extraData?: Record<string, unknown>) => string;
+  addNodeToCanvas: (nodeType: string, position?: { x: number; y: number }, extraData?: Record<string, unknown>, opts?: { skipAutoConnect?: boolean }) => string;
   removeNode: (nodeId: string) => void;
   removeEdge: (edgeId: string) => void;
   autoLayout: () => void;
@@ -53,8 +62,15 @@ export interface FlowSessionState {
   deleteSelected: () => void;
   duplicateSelected: () => void;
   exportLayoutJSON: () => void;
+  exportSelectedJSON: () => void;
   saveLayout: () => void;
   importLayout: (file: File) => void;
+  saveNamedLayout: (name: string) => void;
+  loadNamedLayout: (name: string) => boolean;
+  setDefaultLayout: () => void;
+  deleteNamedLayout: (name: string) => void;
+  savedLayoutsList: Array<{ name: string; savedAt: string }>;
+  refreshLayoutsList: () => void;
 }
 
 interface HistorySnapshot {
@@ -180,13 +196,29 @@ export function useFlowSession(): FlowSessionState {
   const savedFlowState = (session as unknown as Record<string, unknown>).flowState as FlowState | undefined;
 
   const laid = useMemo(() => {
-    const saved = savedFlowState;
+    let saved = savedFlowState;
+
+    if (!saved?.nodes?.length) {
+      const storeSnap = loadDefaultOrLatest('shawndermind');
+      if (storeSnap?.nodes?.length) {
+        saved = storeSnap as unknown as FlowState;
+      }
+    }
+
+    if (!saved?.nodes?.length) {
+      try {
+        const raw = localStorage.getItem('shawnderland-layout-shawndermind');
+        if (raw) {
+          const parsed = JSON.parse(raw) as FlowState;
+          if (parsed?.nodes?.length) saved = parsed;
+        }
+      } catch { /* ignore */ }
+    }
 
     if (saved?.nodes?.length) {
       const posMap = new Map(saved.nodes.map((n) => [n.id, n.position]));
       const savedNodeData = saved.nodeData ?? {};
 
-      const savedNodeTypes = new Map(saved.nodes.map((n) => [n.id, n.type]));
       const extraNodes: Node[] = [];
       for (const sn of saved.nodes) {
         if (!initialNodes.find((n) => n.id === sn.id) && sn.type) {
@@ -393,19 +425,56 @@ export function useFlowSession(): FlowSessionState {
   const lastAddedNodeIdRef = useRef<string | null>(null);
 
   const addNodeToCanvas = useCallback(
-    (nodeType: string, position?: { x: number; y: number }, extraData?: Record<string, unknown>) => {
+    (nodeType: string, position?: { x: number; y: number }, extraData?: Record<string, unknown>, opts?: { skipAutoConnect?: boolean }) => {
       const id = `${nodeType}-${Date.now()}`;
       lastAddedNodeIdRef.current = id;
+
+      const isOutputNode = OUTPUT_NODE_TYPES.includes(nodeType as OutputNodeType);
+      const shouldAutoConnect = isOutputNode && !opts?.skipAutoConnect;
+      const anchorNodeId = shouldAutoConnect ? selectedNodeId : null;
+      const anchorNode = anchorNodeId ? nodes.find((n) => n.id === anchorNodeId) : undefined;
+
+      let finalPosition = position ?? { x: 200, y: 200 };
+      if (shouldAutoConnect && anchorNode && !position) {
+        finalPosition = {
+          x: anchorNode.position.x + 340,
+          y: anchorNode.position.y,
+        };
+      }
+
+      const defaultStyle = NODE_DEFAULT_STYLE[nodeType];
       const newNode: Node = {
         id,
         type: nodeType,
-        position: position ?? { x: 200, y: 200 },
+        position: finalPosition,
         data: { stageId: nodeType, ...extraData },
+        ...(defaultStyle ? { style: { width: defaultStyle.width, height: defaultStyle.height } } : {}),
       };
       setNodes((prev) => [...prev, newNode]);
+
+      if (shouldAutoConnect && anchorNode && anchorNodeId) {
+        const sourceType = anchorNode.type ?? anchorNodeId;
+        if (isValidConnection(sourceType, nodeType)) {
+          const sourceHandle = sourceType === 'resultNode' ? 'output' : undefined;
+          const edgeId = `e-auto-${anchorNodeId}-${id}`;
+          setEdges((prev) => {
+            if (prev.some((e) => e.source === anchorNodeId && e.target === id)) return prev;
+            return [...prev, {
+              id: edgeId,
+              source: anchorNodeId,
+              sourceHandle,
+              target: id,
+              targetHandle: 'idea',
+              type: 'pipeline',
+              data: { isRunning: false, isComplete: false },
+            }];
+          });
+        }
+      }
+
       return id;
     },
-    [setNodes],
+    [setNodes, setEdges, selectedNodeId, nodes],
   );
 
   const removeNode = useCallback(
@@ -527,11 +596,15 @@ export function useFlowSession(): FlowSessionState {
         }
       }
       if (toAdd.length === 0) return prev;
-      const rightmostX = prev.reduce((max, n) => Math.max(max, n.position.x), -Infinity);
+      const seedNode = prev.find((n) => n.id === 'seed');
+      const seedY = seedNode?.position.y ?? 0;
+      const rightmostX = prev.length > 0
+        ? prev.reduce((max, n) => Math.max(max, n.position.x), -Infinity)
+        : 0;
       const GAP = 380;
       const positioned = toAdd.map((n, i) => ({
         ...n,
-        position: { x: rightmostX + GAP * (i + 1), y: 0 },
+        position: { x: rightmostX + GAP * (i + 1), y: seedY },
       }));
       return [...prev, ...positioned];
     });
@@ -733,20 +806,77 @@ export function useFlowSession(): FlowSessionState {
   }, [nodes, addNodeToCanvas]);
 
   // ── Export / Save / Import ────────────────────────────────────
-  const exportLayoutJSON = useCallback(() => {
-    const snapshot = getFlowSnapshot();
-    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+  const buildRichNodeData = useCallback((targetNodes: Node[]) => {
+    const nodeData: Record<string, Record<string, unknown>> = {};
+    for (const n of targetNodes) {
+      const d = n.data as Record<string, unknown>;
+      const entry: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(d)) {
+        if (key === 'stageId') continue;
+        entry[key] = val;
+      }
+      const stageId = (d.stageId ?? n.type) as StageId | undefined;
+      if (stageId && session.stageState[stageId]?.output) {
+        entry._stageOutput = session.stageState[stageId].output;
+      }
+      if (Object.keys(entry).length > 0) {
+        nodeData[n.id] = entry;
+      }
+    }
+    return nodeData;
+  }, [session.stageState]);
+
+  const saveAndCopy = useCallback((json: string, filename: string) => {
+    const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'shawndermind-layout.json';
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
-  }, [getFlowSnapshot]);
+    navigator.clipboard.writeText(json).catch(() => {});
+  }, []);
+
+  const exportLayoutJSON = useCallback(() => {
+    const nodeData = buildRichNodeData(nodes);
+    const payload = {
+      nodes: nodes.map((n) => ({ id: n.id, position: n.position, type: n.type })),
+      edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
+      nodeData,
+    };
+    saveAndCopy(JSON.stringify(payload, null, 2), 'shawndermind-layout.json');
+  }, [nodes, edges, buildRichNodeData, saveAndCopy]);
+
+  const exportSelectedJSON = useCallback(() => {
+    const selected = nodes.filter((n) => n.selected);
+    if (!selected.length) return;
+    const selectedIds = new Set(selected.map((n) => n.id));
+    const relevantEdges = edges.filter((e) => selectedIds.has(e.source) && selectedIds.has(e.target));
+    const nodeData = buildRichNodeData(selected);
+    const payload = {
+      nodes: selected.map((n) => ({ id: n.id, position: n.position, type: n.type })),
+      edges: relevantEdges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
+      nodeData,
+    };
+    saveAndCopy(JSON.stringify(payload, null, 2), 'shawndermind-selected.json');
+  }, [nodes, edges, buildRichNodeData, saveAndCopy]);
 
   const saveLayout = useCallback(() => {
     const snapshot = getFlowSnapshot();
-    localStorage.setItem('shawnderland-layout-shawndermind', JSON.stringify(snapshot));
+    const vp = { x: 0, y: 0, zoom: 1 };
+    try {
+      const rfEl = document.querySelector('.react-flow');
+      if (rfEl) {
+        const t = (rfEl as HTMLElement).style.transform;
+        const m = t?.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)\s*scale\(([-\d.]+)\)/);
+        if (m) { vp.x = parseFloat(m[1]); vp.y = parseFloat(m[2]); vp.zoom = parseFloat(m[3]); }
+      }
+    } catch { /* ignore */ }
+    const payload = { ...snapshot, viewport: vp };
+    localStorage.setItem('shawnderland-layout-shawndermind', JSON.stringify(payload));
+
+    const saveFlowState = (window as unknown as Record<string, unknown>).__saveFlowState as ((fs: unknown) => void) | undefined;
+    if (saveFlowState) saveFlowState(payload);
   }, [getFlowSnapshot]);
 
   const importLayout = useCallback((file: File) => {
@@ -768,6 +898,89 @@ export function useFlowSession(): FlowSessionState {
     };
     reader.readAsText(file);
   }, [setNodes, setEdges]);
+
+  // ── Named Layout Management ────────────────────────────────────
+  const [savedLayoutsList, setSavedLayoutsList] = useState<Array<{ name: string; savedAt: string }>>([]);
+  const APP_KEY = 'shawndermind';
+
+  const refreshLayoutsList = useCallback(() => {
+    const all = storeListLayouts(APP_KEY);
+    setSavedLayoutsList(all.map((l) => ({ name: l.name, savedAt: l.savedAt })));
+  }, []);
+
+  useEffect(() => {
+    refreshLayoutsList();
+  }, [refreshLayoutsList]);
+
+  const buildLayoutSnapshot = useCallback((): LayoutSnapshot => {
+    const snap = getFlowSnapshot();
+    const nodesWithStyle = nodes.map((n) => {
+      const base = { id: n.id, position: n.position, type: n.type };
+      if (n.style && (n.style.width || n.style.height)) {
+        return { ...base, style: { width: n.style.width, height: n.style.height } };
+      }
+      return base;
+    });
+    let vp = { x: 0, y: 0, zoom: 1 };
+    try {
+      const rfEl = document.querySelector('.react-flow');
+      if (rfEl) {
+        const t = (rfEl as HTMLElement).style.transform;
+        const m = t?.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)\s*scale\(([-\d.]+)\)/);
+        if (m) { vp = { x: parseFloat(m[1]), y: parseFloat(m[2]), zoom: parseFloat(m[3]) }; }
+      }
+    } catch { /* ignore */ }
+    return { ...snap, nodes: nodesWithStyle, viewport: vp };
+  }, [getFlowSnapshot, nodes]);
+
+  const saveNamedLayoutFn = useCallback((name: string) => {
+    storeNamedLayout(APP_KEY, name, buildLayoutSnapshot());
+    refreshLayoutsList();
+  }, [buildLayoutSnapshot, refreshLayoutsList]);
+
+  const restoreLayoutSnapshot = useCallback((snap: LayoutSnapshot): boolean => {
+    try {
+      const nd = snap.nodeData ?? {};
+      const restoredNodes: Node[] = snap.nodes.map((n) => ({
+        id: n.id,
+        type: n.type,
+        position: n.position,
+        data: { stageId: n.type, ...nd[n.id] },
+        draggable: nd[n.id]?.__pinned ? false : undefined,
+        style: n.style as Record<string, unknown> | undefined,
+      }));
+      const restoredEdges: Edge[] = snap.edges.map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        sourceHandle: e.sourceHandle,
+        targetHandle: e.targetHandle,
+        type: 'pipeline',
+        data: { isComplete: true },
+      }));
+      setNodes(restoredNodes);
+      setEdges(restoredEdges);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [setNodes, setEdges]);
+
+  const loadNamedLayoutFn = useCallback((name: string): boolean => {
+    const snap = storeLoadNamedLayout(APP_KEY, name);
+    if (!snap) return false;
+    return restoreLayoutSnapshot(snap);
+  }, [restoreLayoutSnapshot]);
+
+  const setDefaultLayoutFn = useCallback(() => {
+    setDefaultFromSnapshot(APP_KEY, buildLayoutSnapshot());
+    refreshLayoutsList();
+  }, [buildLayoutSnapshot, refreshLayoutsList]);
+
+  const deleteNamedLayoutFn = useCallback((name: string) => {
+    storeDeleteNamedLayout(APP_KEY, name);
+    refreshLayoutsList();
+  }, [refreshLayoutsList]);
 
   (window as unknown as Record<string, unknown>).__updateNodeData = updateNodeData;
   (window as unknown as Record<string, unknown>).__getNodeData = getNodeData;
@@ -812,7 +1025,14 @@ export function useFlowSession(): FlowSessionState {
     deleteSelected,
     duplicateSelected,
     exportLayoutJSON,
+    exportSelectedJSON,
     saveLayout,
     importLayout,
+    saveNamedLayout: saveNamedLayoutFn,
+    loadNamedLayout: loadNamedLayoutFn,
+    setDefaultLayout: setDefaultLayoutFn,
+    deleteNamedLayout: deleteNamedLayoutFn,
+    savedLayoutsList,
+    refreshLayoutsList,
   };
 }

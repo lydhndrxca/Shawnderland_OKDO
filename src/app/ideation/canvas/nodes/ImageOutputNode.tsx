@@ -1,7 +1,7 @@
 "use client";
 
-import { memo, useCallback, useState } from 'react';
-import { Handle, Position, useReactFlow } from '@xyflow/react';
+import { memo, useCallback, useState, useMemo } from 'react';
+import { Handle, Position, useReactFlow, useEdges, useNodes } from '@xyflow/react';
 import { IMAGE_MODELS, ASPECT_RATIOS, type ModelOption } from './modelCatalog';
 import { recordUsage, recordImagenUsage } from '@/lib/ideation/engine/provider/costTracker';
 import { logGeneration, buildLineageContext, type SessionSnapshot } from '@/lib/ideation/engine/generationLog';
@@ -15,8 +15,42 @@ interface ImageOutputNodeProps {
   selected?: boolean;
 }
 
+function extractUpstreamContext(nodeId: string, allNodes: ReturnType<typeof useNodes>, allEdges: ReturnType<typeof useEdges>): string {
+  const incomingEdges = allEdges.filter((e) => e.target === nodeId);
+  const contexts: string[] = [];
+  for (const edge of incomingEdges) {
+    const sourceNode = allNodes.find((n) => n.id === edge.source);
+    if (!sourceNode) continue;
+    const d = sourceNode.data as Record<string, unknown>;
+
+    if (d.extractedText && typeof d.extractedText === 'string') contexts.push(d.extractedText);
+    if (d.documentContent && typeof d.documentContent === 'string') contexts.push(d.documentContent);
+    if (d.characterDescription && typeof d.characterDescription === 'string') contexts.push(d.characterDescription);
+    if (d.weaponDescription && typeof d.weaponDescription === 'string') contexts.push(d.weaponDescription);
+    if (d.nodeText && typeof d.nodeText === 'string') contexts.push(d.nodeText);
+    if (d.nodeNotes && typeof d.nodeNotes === 'string') contexts.push(d.nodeNotes);
+
+    if (d.outputData && typeof d.outputData === 'object') {
+      const od = d.outputData as Record<string, unknown>;
+      if (od.title) contexts.push(`Title: ${od.title}`);
+      if (od.differentiator) contexts.push(`Differentiator: ${od.differentiator}`);
+      if (od.next3Actions) contexts.push(`Next actions: ${od.next3Actions}`);
+      if (od.seedSummary) contexts.push(`Summary: ${od.seedSummary}`);
+      if (od.candidates && Array.isArray(od.candidates)) {
+        contexts.push(`Ideas: ${(od.candidates as Array<{ hook?: string }>).slice(0, 3).map((c) => c.hook || '').join(', ')}`);
+      }
+    }
+    if (d.seedText && typeof d.seedText === 'string') contexts.push(d.seedText);
+    if (d.text && typeof d.text === 'string' && !contexts.length) contexts.push(d.text);
+    if (d.prefillSeed && typeof d.prefillSeed === 'string') contexts.push(d.prefillSeed);
+  }
+  return contexts.join('\n');
+}
+
 function ImageOutputNodeInner({ id, selected }: ImageOutputNodeProps) {
   const { setNodes } = useReactFlow();
+  const allNodes = useNodes();
+  const allEdges = useEdges();
   const [model, setModelLocal] = useState<ModelOption>(IMAGE_MODELS[0]);
 
   const setModel = useCallback((m: ModelOption) => {
@@ -38,16 +72,30 @@ function ImageOutputNodeInner({ id, selected }: ImageOutputNodeProps) {
   const [expanded, setExpanded] = useState(false);
   const [viewIdx, setViewIdx] = useState(0);
 
+  const upstreamContext = useMemo(() => extractUpstreamContext(id, allNodes, allEdges), [id, allNodes, allEdges]);
+  const hasUpstream = upstreamContext.trim().length > 0;
+
+  const buildEffectivePrompt = useCallback((): string => {
+    const parts: string[] = [];
+    if (hasUpstream) parts.push(`Context from connected nodes:\n${upstreamContext}`);
+    if (prompt.trim()) parts.push(prompt.trim());
+    return parts.join('\n\n');
+  }, [hasUpstream, upstreamContext, prompt]);
+
+  const canGenerate = prompt.trim().length > 0 || hasUpstream;
+
   const handleGenerate = useCallback(async () => {
-    if (!prompt.trim()) return;
+    const effectivePrompt = buildEffectivePrompt();
+    if (!effectivePrompt.trim()) return;
     setGenerating(true);
     setError(null);
 
+    const effectivePromptText = buildEffectivePrompt();
     try {
       if (model.endpoint === 'imagen') {
         const url = buildModelUrl(model.modelId, 'predict');
         const body = {
-          instances: [{ prompt: prompt.trim() }],
+          instances: [{ prompt: effectivePromptText }],
           parameters: {
             sampleCount: count,
             aspectRatio,
@@ -77,14 +125,14 @@ function ImageOutputNodeInner({ id, selected }: ImageOutputNodeProps) {
         const w = window as unknown as Record<string, unknown>;
         const sid = (w.__sessionId as string) ?? 'unknown';
         const snap = w.__sessionSnapshot as SessionSnapshot | undefined;
-        logGeneration({ sessionId: sid, category: 'image', source: 'ImageOutputNode', model: model.modelId, prompt: prompt.trim(), output: { imageCount: newImages.length, aspectRatio, mimeTypes: newImages.map((img: { mimeType: string }) => img.mimeType) }, lineage: snap ? buildLineageContext(snap) : undefined });
+        logGeneration({ sessionId: sid, category: 'image', source: 'ImageOutputNode', model: model.modelId, prompt: effectivePromptText, output: { imageCount: newImages.length, aspectRatio, mimeTypes: newImages.map((img: { mimeType: string }) => img.mimeType) }, lineage: snap ? buildLineageContext(snap) : undefined });
 
         setImages(newImages);
         setViewIdx(0);
       } else {
         const url = buildModelUrl('gemini-2.0-flash-exp', 'generateContent');
         const body = {
-          contents: [{ parts: [{ text: `Generate an image: ${prompt.trim()}. Aspect ratio: ${aspectRatio}.` }] }],
+          contents: [{ parts: [{ text: `Generate an image: ${effectivePromptText}. Aspect ratio: ${aspectRatio}.` }] }],
           generationConfig: {
             responseModalities: ['TEXT', 'IMAGE'],
           },
@@ -115,7 +163,7 @@ function ImageOutputNodeInner({ id, selected }: ImageOutputNodeProps) {
         const w2 = window as unknown as Record<string, unknown>;
         const sid2 = (w2.__sessionId as string) ?? 'unknown';
         const snap2 = w2.__sessionSnapshot as SessionSnapshot | undefined;
-        logGeneration({ sessionId: sid2, category: 'image', source: 'ImageOutputNode', model: 'gemini-2.0-flash-exp', prompt: prompt.trim(), output: { imageCount: newImages.length, aspectRatio, mimeTypes: newImages.map((img: { mimeType: string }) => img.mimeType) }, lineage: snap2 ? buildLineageContext(snap2) : undefined });
+        logGeneration({ sessionId: sid2, category: 'image', source: 'ImageOutputNode', model: 'gemini-2.0-flash-exp', prompt: effectivePromptText, output: { imageCount: newImages.length, aspectRatio, mimeTypes: newImages.map((img: { mimeType: string }) => img.mimeType) }, lineage: snap2 ? buildLineageContext(snap2) : undefined });
 
         setImages(newImages);
         setViewIdx(0);
@@ -125,7 +173,7 @@ function ImageOutputNodeInner({ id, selected }: ImageOutputNodeProps) {
     } finally {
       setGenerating(false);
     }
-  }, [prompt, model, count, aspectRatio]);
+  }, [buildEffectivePrompt, model, count, aspectRatio]);
 
   return (
     <div
@@ -197,10 +245,16 @@ function ImageOutputNodeInner({ id, selected }: ImageOutputNodeProps) {
           rows={2}
         />
 
+        {hasUpstream && (
+          <div className="image-output-upstream-hint">
+            Connected upstream data will be used as context
+          </div>
+        )}
+
         <button
           className="image-output-generate nodrag"
           onClick={(e) => { e.stopPropagation(); handleGenerate(); }}
-          disabled={generating || !prompt.trim()}
+          disabled={generating || !canGenerate}
           style={{ borderColor: '#f06292', color: generating ? 'var(--text-muted)' : '#f06292' }}
         >
           {generating ? 'Generating...' : 'Generate Image'}
@@ -251,6 +305,13 @@ function ImageOutputNodeInner({ id, selected }: ImageOutputNodeProps) {
         id="count"
         className="image-output-handle count-target"
         style={{ background: '#78909c' }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="output"
+        className="image-output-handle"
+        style={{ background: '#f06292' }}
       />
     </div>
   );

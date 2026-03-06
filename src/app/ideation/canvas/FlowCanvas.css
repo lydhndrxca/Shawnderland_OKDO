@@ -241,3 +241,163 @@
   from { outline-color: rgba(108, 99, 255, 0.4); }
   to { outline-color: rgba(108, 99, 255, 0.8); }
 }
+
+/* ── Lineage Tracing Highlight ── */
+.react-flow__node.lineage-highlight {
+  outline: 2px solid rgba(105, 240, 174, 0.5) !important;
+  outline-offset: 3px;
+  border-radius: 8px;
+  animation: lineage-glow 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes lineage-glow {
+  from { outline-color: rgba(105, 240, 174, 0.3); box-shadow: 0 0 8px rgba(105, 240, 174, 0.15); }
+  to { outline-color: rgba(105, 240, 174, 0.7); box-shadow: 0 0 16px rgba(105, 240, 174, 0.3); }
+}
+
+/* ── Glossary Toggle ── */
+.glossary-toggle-btn {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--accent);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: background 0.15s, transform 0.15s;
+}
+
+.glossary-toggle-btn:hover {
+  background: var(--accent);
+  color: #fff;
+  transform: scale(1.1);
+}
+
+/* ── Preset Dialog ── */
+.preset-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preset-dialog {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  min-width: 300px;
+  max-width: 420px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.preset-dialog-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.preset-dialog-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  margin-bottom: 12px;
+}
+
+.preset-dialog-input:focus {
+  border-color: var(--accent);
+}
+
+.preset-dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.preset-dialog-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.preset-dialog-btn:hover { background: var(--bg-elevated); }
+.preset-dialog-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.preset-dialog-btn.primary:hover { filter: brightness(1.1); }
+.preset-dialog-btn:disabled { opacity: 0.4; cursor: default; }
+
+.preset-dialog-list {
+  max-height: 260px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.preset-dialog-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 16px;
+}
+
+.preset-dialog-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+}
+
+.preset-dialog-item:hover {
+  background: var(--bg-elevated);
+}
+
+.preset-item-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.preset-item-desc {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

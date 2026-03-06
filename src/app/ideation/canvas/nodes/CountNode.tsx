@@ -51,6 +51,13 @@ function CountNodeInner({ data, selected }: CountNodeProps) {
         </button>
       </div>
       <Handle
+        type="target"
+        position={Position.Left}
+        id="input"
+        className="count-handle"
+        style={{ background: '#78909c' }}
+      />
+      <Handle
         type="source"
         position={Position.Right}
         id="count"

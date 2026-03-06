@@ -105,6 +105,13 @@ function ImageReferenceNodeInner({ data, selected }: ImageReferenceNodeProps) {
       </div>
 
       <Handle
+        type="target"
+        position={Position.Left}
+        id="input"
+        className="image-ref-handle"
+        style={{ background: '#26a69a' }}
+      />
+      <Handle
         type="source"
         position={Position.Right}
         id="image"

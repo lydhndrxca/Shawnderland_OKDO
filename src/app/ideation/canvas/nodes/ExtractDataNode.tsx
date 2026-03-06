@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useCallback, useState } from 'react';
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, useReactFlow } from '@xyflow/react';
 import { recordUsage } from '@/lib/ideation/engine/provider/costTracker';
 import { logGeneration, buildLineageContext, type SessionSnapshot } from '@/lib/ideation/engine/generationLog';
 import { buildModelUrl } from '@/lib/ideation/engine/apiConfig';
@@ -43,11 +43,16 @@ function findConnectedImageData(nodeId: string): { base64: string; mimeType: str
         mimeType: (data.mimeType as string) || 'image/png',
       };
     }
+    if (data?.generatedImage && typeof data.generatedImage === 'object') {
+      const img = data.generatedImage as { base64?: string; mimeType?: string };
+      if (img.base64) return { base64: img.base64, mimeType: img.mimeType || 'image/png' };
+    }
   }
   return null;
 }
 
 function ExtractDataNodeInner({ id, selected }: ExtractDataNodeProps) {
+  const { setNodes } = useReactFlow();
   const [mode, setMode] = useState<ExtractMode>('image-to-text');
   const [extractedText, setExtractedText] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
@@ -97,12 +102,19 @@ function ExtractDataNodeInner({ id, selected }: ExtractDataNodeProps) {
       logGeneration({ sessionId: sid, category: 'extract', source: 'ExtractDataNode', model: 'gemini-2.0-flash', prompt: mode === 'image-to-text' ? 'Image to text description' : 'Image to style parameters', output: { mode, resultLength: text.length, preview: text.slice(0, 200) }, lineage: snap ? buildLineageContext(snap) : undefined });
 
       setExtractedText(text);
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === id
+            ? { ...n, data: { ...(n.data as Record<string, unknown>), extractedText: text, text: text } }
+            : n,
+        ),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setProcessing(false);
     }
-  }, [mode, id]);
+  }, [mode, id, setNodes]);
 
   const handleCopy = useCallback(() => {
     if (!extractedText) return;

@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 import type { NodeProps } from '@xyflow/react';
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, useReactFlow } from '@xyflow/react';
 import BaseNode from './BaseNode';
 import type { NodeStatus } from './BaseNode';
 import { useSession } from '@/lib/ideation/context/SessionContext';
@@ -14,8 +14,11 @@ const SUB_HANDLES = [
   { id: 'mutations', label: 'Mutations', color: '#6c63ff' },
 ] as const;
 
-export default function CritiqueNode({ data, selected }: NodeProps) {
+export default function CritiqueNode({ data, selected, id: nodeId }: NodeProps) {
   const nodeSubName = ((data as Record<string, unknown>).subName as string) ?? '';
+  const nodeData = data as Record<string, unknown>;
+  const critiqueCount = typeof nodeData.critiqueCount === 'number' ? nodeData.critiqueCount : 0;
+  const { setNodes } = useReactFlow();
   const { session, runStage, runningStageId } = useSession();
   const output = getStageOutput(session, 'critique-salvage') as CritiqueSalvageOutput | null;
   const stale = isStageStale(session, 'critique-salvage');
@@ -25,6 +28,10 @@ export default function CritiqueNode({ data, selected }: NodeProps) {
   const handleRun = useCallback(async () => {
     try { await runStage('critique-salvage'); } catch { /* StatusBar */ }
   }, [runStage]);
+
+  const updateCount = useCallback((field: string, value: number) => {
+    setNodes((nds) => nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, [field]: value } } : n));
+  }, [nodeId, setNodes]);
 
   const genericCount = output?.critiques.filter(c => c.genericness >= 7).length ?? 0;
 
@@ -48,6 +55,15 @@ export default function CritiqueNode({ data, selected }: NodeProps) {
       ) : (
         <div className="base-node-summary">Awaiting candidates...</div>
       )}
+
+      <div className="inline-count-controls nodrag">
+        <div className="inline-count-row">
+          <span className="inline-count-label">Critiques</span>
+          <button className="inline-count-btn" onClick={() => updateCount('critiqueCount', Math.max(0, critiqueCount - 1))} disabled={critiqueCount <= 0}>-</button>
+          <span className="inline-count-value">{critiqueCount || 'Auto'}</span>
+          <button className="inline-count-btn" onClick={() => updateCount('critiqueCount', Math.min(20, critiqueCount + 1))} disabled={critiqueCount >= 20}>+</button>
+        </div>
+      </div>
 
       <div className="multi-handle-group">
         {SUB_HANDLES.map((h) => (

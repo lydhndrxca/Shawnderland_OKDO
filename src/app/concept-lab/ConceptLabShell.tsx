@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useMemo, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -21,14 +21,29 @@ import PipelineEdge from '@/app/ideation/canvas/edges/PipelineEdge';
 import ConceptLabDock from './ConceptLabDock';
 import CanvasContextMenu, { type ContextMenuCategory } from '@/components/CanvasContextMenu';
 import GlobalToolbar from '@/components/GlobalToolbar';
+import { ToastContainer, showToast } from '@/components/Toast';
+import CostWidget from '@/components/CostWidget';
 import { useCanvasSession, type CutLine } from '@/hooks/useCanvasSession';
 
-import CharIdentityNode from './nodes/CharIdentityNode';
-import CharAttributesNode from './nodes/CharAttributesNode';
 import WeapBaseNode from './nodes/WeapBaseNode';
 import WeapComponentsNode from './nodes/WeapComponentsNode';
-import MultiViewerNode from './nodes/MultiViewerNode';
-import EditImageNode from './nodes/EditImageNode';
+
+import CharIdentityNode from '@/app/ideation/canvas/nodes/character/CharIdentityNode';
+import CharDescriptionNode from '@/app/ideation/canvas/nodes/character/CharDescriptionNode';
+import CharAttributesNode from '@/app/ideation/canvas/nodes/character/CharAttributesNode';
+import ExtractAttributesNode from '@/app/ideation/canvas/nodes/character/ExtractAttributesNode';
+import EnhanceDescriptionNode from '@/app/ideation/canvas/nodes/character/EnhanceDescriptionNode';
+import GenerateCharImageNode from '@/app/ideation/canvas/nodes/character/GenerateCharImageNode';
+import GenerateViewsNode from '@/app/ideation/canvas/nodes/character/GenerateViewsNode';
+import ReferenceCalloutNode from '@/app/ideation/canvas/nodes/character/ReferenceCalloutNode';
+import MainStageViewerNode from '@/app/ideation/canvas/nodes/character/MainStageViewerNode';
+import EditCharacterNode from '@/app/ideation/canvas/nodes/character/EditCharacterNode';
+import CharHistoryNode from '@/app/ideation/canvas/nodes/character/CharHistoryNode';
+import ResetCharacterNode from '@/app/ideation/canvas/nodes/character/ResetCharacterNode';
+import SendToPhotoshopNode from '@/app/ideation/canvas/nodes/character/SendToPhotoshopNode';
+import ShowXMLNode from '@/app/ideation/canvas/nodes/character/ShowXMLNode';
+import QuickGenerateNode from '@/app/ideation/canvas/nodes/character/QuickGenerateNode';
+import ProjectSettingsNode from '@/app/ideation/canvas/nodes/character/ProjectSettingsNode';
 
 import TurnaroundNode from '@/app/ideation/canvas/nodes/TurnaroundNode';
 import CountNode from '@/app/ideation/canvas/nodes/CountNode';
@@ -41,16 +56,27 @@ import ExtractDataNode from '@/app/ideation/canvas/nodes/ExtractDataNode';
 
 import { UIButtonNode, UITextBoxNode, UIDropdownNode, UIImageNode, UIWindowNode, UIFrameNode, UIGenericNode } from '@/components/nodes/ui';
 import { applyResizeToAll } from '@/components/nodes/withNodeResize';
-
 import './ConceptLab.css';
 
 const RAW_NODE_TYPES: NodeTypes = {
   charIdentity: CharIdentityNode,
+  charDescription: CharDescriptionNode,
   charAttributes: CharAttributesNode,
+  charExtractAttrs: ExtractAttributesNode,
+  charEnhanceDesc: EnhanceDescriptionNode,
+  charGenerate: GenerateCharImageNode,
+  charGenViews: GenerateViewsNode,
+  charRefCallout: ReferenceCalloutNode,
+  charViewer: MainStageViewerNode,
+  charEdit: EditCharacterNode,
+  charHistory: CharHistoryNode,
+  charReset: ResetCharacterNode,
+  charSendPS: SendToPhotoshopNode,
+  charShowXML: ShowXMLNode,
+  charQuickGen: QuickGenerateNode,
+  charProject: ProjectSettingsNode,
   weapBase: WeapBaseNode,
   weapComponents: WeapComponentsNode,
-  multiViewer: MultiViewerNode,
-  editImage: EditImageNode,
   turnaround: TurnaroundNode,
   count: CountNode,
   emotion: EmotionNode,
@@ -80,8 +106,19 @@ const DOCK_CATEGORIES = [
     label: 'Character',
     icon: '\u{1F464}',
     items: [
-      { type: 'charIdentity', label: 'Character Identity', desc: 'Age, race, gender, build, description + generate', color: '#7c4dff' },
-      { type: 'charAttributes', label: 'Character Attributes', desc: 'All 14 clothing/gear/pose attribute dropdowns', color: '#9c27b0' },
+      { type: 'charIdentity', label: 'Character Identity', desc: 'Age, race, gender, build presets', color: '#7c4dff' },
+      { type: 'charDescription', label: 'Character Description', desc: 'Freeform character description', color: '#5c6bc0' },
+      { type: 'charAttributes', label: 'Character Attributes', desc: '14 attribute groups with dropdowns', color: '#9c27b0' },
+      { type: 'charExtractAttrs', label: 'Extract Attributes', desc: 'AI analysis of reference image', color: '#ffab40' },
+      { type: 'charEnhanceDesc', label: 'Enhance Description', desc: 'AI-enhanced description text', color: '#66bb6a' },
+      { type: 'charGenerate', label: 'Generate Character', desc: 'Main character image generation', color: '#e91e63' },
+      { type: 'charGenViews', label: 'Generate Views', desc: 'Front, back, side view generation', color: '#00bfa5' },
+      { type: 'charRefCallout', label: 'Reference Callout', desc: 'Annotate reference image for generation', color: '#26a69a' },
+      { type: 'charViewer', label: 'Main Stage Viewer', desc: 'Multi-tab image viewer with zoom', color: '#00bfa5' },
+      { type: 'charEdit', label: 'Edit Character', desc: 'Text-based image edits', color: '#29b6f6' },
+      { type: 'charHistory', label: 'History', desc: 'Generation history with thumbnails', color: '#78909c' },
+      { type: 'charQuickGen', label: 'Quick Generate', desc: 'Randomly generate a character', color: '#ffa726' },
+      { type: 'charProject', label: 'Project Settings', desc: 'Name and output directory', color: '#546e7a' },
     ],
   },
   {
@@ -94,12 +131,20 @@ const DOCK_CATEGORIES = [
     ],
   },
   {
+    key: 'charUtils',
+    label: 'Character Utilities',
+    icon: '\u{1F6E0}',
+    items: [
+      { type: 'charReset', label: 'Reset Character', desc: 'Clear all character data', color: '#ef5350' },
+      { type: 'charSendPS', label: 'Send to Photoshop', desc: 'Send images to Adobe Photoshop', color: '#1565c0' },
+      { type: 'charShowXML', label: 'Show XML', desc: 'View character config as XML', color: '#8d6e63' },
+    ],
+  },
+  {
     key: 'viewers',
     label: 'Viewers & Editors',
     icon: '\u{1F5BC}',
     items: [
-      { type: 'multiViewer', label: 'Image Viewer', desc: 'Multi-tab viewer: Main, Front, Back, Side, Refs', color: '#00bfa5' },
-      { type: 'editImage', label: 'Edit / Refine', desc: 'Apply text-based edits to generated image', color: '#29b6f6' },
       { type: 'turnaround', label: 'Turnaround', desc: 'Multi-view turnaround sheet generator', color: '#00bfa5' },
     ],
   },
@@ -224,13 +269,25 @@ function ConceptLabCanvas() {
 
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
 
+  const handleFitView = useCallback(() => {
+    reactFlowInstance.fitView({ padding: 0.4, duration: 300 });
+  }, [reactFlowInstance]);
+
+  const initialFitDone = useRef(false);
+  useEffect(() => {
+    if (!initialFitDone.current && cs.nodes.length > 0) {
+      initialFitDone.current = true;
+      setTimeout(() => handleFitView(), 200);
+    }
+  }, [cs.nodes.length, handleFitView]);
+
   const loadTemplate = useCallback(
     (templateNodes: Node[], templateEdges: Edge[]) => {
       cs.setNodes(templateNodes);
       cs.setEdges(templateEdges);
-      setTimeout(() => reactFlowInstance.fitView({ padding: 0.4, duration: 300 }), 100);
+      setTimeout(() => handleFitView(), 100);
     },
-    [cs, reactFlowInstance],
+    [cs, handleFitView],
   );
 
   const handlePaneContextMenu = useCallback((event: React.MouseEvent) => {
@@ -263,10 +320,6 @@ function ConceptLabCanvas() {
   const handleDeleteNode = useCallback(() => {
     if (ctxMenu?.nodeId) cs.removeNode(ctxMenu.nodeId);
   }, [ctxMenu, cs]);
-
-  const handleFitView = useCallback(() => {
-    reactFlowInstance.fitView({ padding: 0.4, duration: 300 });
-  }, [reactFlowInstance]);
 
   const handleClear = useCallback(() => {
     cs.setNodes([]);
@@ -389,9 +442,14 @@ function ConceptLabCanvas() {
         onFitView={handleFitView}
         onClear={handleClear}
         onExportSelected={cs.exportLayoutJSON}
-        onSaveLayout={cs.saveLayout}
         onImportLayout={handleImportLayout}
+        onSaveLayoutNamed={(name) => { cs.saveNamedLayout(name); showToast(`Layout "${name}" saved`); }}
+        onLoadLayout={(name) => { cs.loadNamedLayout(name); showToast(`Layout "${name}" loaded`); }}
+        onSetDefault={() => { cs.setDefaultLayout(); showToast('Current layout set as default'); }}
+        onDeleteLayout={(name) => { cs.deleteNamedLayout(name); showToast(`Layout "${name}" deleted`); }}
+        savedLayouts={cs.savedLayoutsList}
       />
+      <ToastContainer />
 
       <div className="cl-main">
         <ConceptLabDock
@@ -430,8 +488,7 @@ function ConceptLabCanvas() {
             selectionMode={SelectionMode.Partial}
             snapToGrid
             snapGrid={[20, 20]}
-            fitView
-            fitViewOptions={{ padding: 0.4 }}
+            fitView={false}
             minZoom={0.2}
             colorMode="dark"
             proOptions={{ hideAttribution: true }}
@@ -482,6 +539,7 @@ function ConceptLabCanvas() {
         </div>
       </div>
       <input ref={fileInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleFileChange} />
+      <CostWidget appKey="concept-lab" />
     </div>
   );
 }

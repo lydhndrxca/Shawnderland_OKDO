@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import type { NodeProps } from '@xyflow/react';
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, useReactFlow } from '@xyflow/react';
 import BaseNode from './BaseNode';
 import type { NodeStatus } from './BaseNode';
 import { useSession } from '@/lib/ideation/context/SessionContext';
@@ -15,9 +15,16 @@ const SUB_HANDLES = [
   { id: 'questions', label: 'Questions', color: '#90caf9' },
 ] as const;
 
-export default function NormalizeNode({ data, selected }: NodeProps) {
+export default function NormalizeNode({ data, selected, id: nodeId }: NodeProps) {
   const nodeSubName = ((data as Record<string, unknown>).subName as string) ?? '';
+  const nodeData = data as Record<string, unknown>;
+  const questionCount = typeof nodeData.questionCount === 'number' ? nodeData.questionCount : 4;
+  const { setNodes } = useReactFlow();
   const { session, runStage, runningStageId, answerNormalizeQuestion } = useSession();
+
+  const updateCount = useCallback((field: string, value: number) => {
+    setNodes((nds) => nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, [field]: value } } : n));
+  }, [nodeId, setNodes]);
   const output = getStageOutput(session, 'normalize') as NormalizeOutput | null;
   const stale = isStageStale(session, 'normalize');
   const effective = deriveEffectiveNormalize(session);
@@ -132,6 +139,15 @@ export default function NormalizeNode({ data, selected }: NodeProps) {
       ) : (
         <div className="base-node-summary">Awaiting seed input...</div>
       )}
+
+      <div className="inline-count-controls nodrag">
+        <div className="inline-count-row">
+          <span className="inline-count-label">Questions</span>
+          <button className="inline-count-btn" onClick={() => updateCount('questionCount', Math.max(1, questionCount - 1))} disabled={questionCount <= 1}>-</button>
+          <span className="inline-count-value">{questionCount}</span>
+          <button className="inline-count-btn" onClick={() => updateCount('questionCount', Math.min(10, questionCount + 1))} disabled={questionCount >= 10}>+</button>
+        </div>
+      </div>
 
       <div className="multi-handle-group">
         {SUB_HANDLES.map((h) => (

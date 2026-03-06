@@ -1,4 +1,4 @@
-import type { Provider, ProviderGenerateOpts } from './types';
+import type { Provider, ProviderGenerateOpts, MediaPart } from './types';
 import { recordUsage } from './costTracker';
 import type { ThinkingTier } from '../../state/sessionTypes';
 import { buildModelUrl, getApiKey } from '../apiConfig';
@@ -45,11 +45,19 @@ function resolveApiKey(explicitKey?: string): string {
   return getApiKey();
 }
 
-async function callGemini(prompt: string, tier: ThinkingTier = 'standard', apiKey?: string): Promise<string> {
+async function callGemini(prompt: string, tier: ThinkingTier = 'standard', apiKey?: string, mediaParts?: MediaPart[]): Promise<string> {
   resolveApiKey(apiKey);
 
+  const parts: Array<Record<string, unknown>> = [];
+  if (mediaParts?.length) {
+    for (const mp of mediaParts) {
+      parts.push({ inlineData: mp.inlineData });
+    }
+  }
+  parts.push({ text: prompt });
+
   const body = {
-    contents: [{ parts: [{ text: prompt }] }],
+    contents: [{ parts }],
     generationConfig: getGenerationConfig(tier),
   };
 
@@ -114,7 +122,7 @@ function parseJsonResponse(text: string): unknown {
 export function createGeminiProvider(apiKey?: string, tier: ThinkingTier = 'standard'): Provider {
   return {
     async generateStructured<T>(opts: ProviderGenerateOpts<T>): Promise<T> {
-      const text = await callGemini(opts.prompt, tier, apiKey);
+      const text = await callGemini(opts.prompt, tier, apiKey, opts.mediaParts);
       const parsed = parseJsonResponse(text);
 
       try {
@@ -160,6 +168,7 @@ export function createGeminiProvider(apiKey?: string, tier: ThinkingTier = 'stan
         const result = await this.generateStructured({
           schema: opts.schema,
           prompt: `${opts.prompt}\n[Sample ${i + 1} of ${opts.n}]`,
+          mediaParts: opts.mediaParts,
         });
         results.push(result);
       }

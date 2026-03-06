@@ -25,7 +25,7 @@ export default function IterateNode({ data, selected }: NodeProps) {
     : [];
 
   return (
-    <BaseNode stageId="iterate" status={status} selected={selected} onRun={handleRun} hideSourceHandle subName={nodeSubName}>
+    <BaseNode stageId="iterate" status={status} selected={selected} onRun={handleRun} subName={nodeSubName}>
       {output ? (
         <>
           {suggestions.slice(0, 2).map((s, i) => (

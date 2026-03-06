@@ -80,13 +80,23 @@ export async function assemblePipeline(
   provider: Provider,
   pinnedCandidates: DivergeCandidate[] = [],
   influenceBlock?: string,
+  customLensCounts?: { practical?: number; inversion?: number; constraint?: number },
 ): Promise<PipelineResult> {
   const pinnedIds = new Set(pinnedCandidates.map((c) => c.id));
   const slotsNeeded = INITIAL_TARGET - pinnedCandidates.length;
-  const lensCounts = distributeCounts(
-    Math.max(slotsNeeded, 0),
-    LENS_TYPES.length,
-  );
+  let lensCounts: number[];
+  if (customLensCounts && (customLensCounts.practical || customLensCounts.inversion || customLensCounts.constraint)) {
+    lensCounts = [
+      customLensCounts.practical ?? 6,
+      customLensCounts.inversion ?? 6,
+      customLensCounts.constraint ?? 6,
+    ];
+  } else {
+    lensCounts = distributeCounts(
+      Math.max(slotsNeeded, 0),
+      LENS_TYPES.length,
+    );
+  }
 
   let allCandidates = [...pinnedCandidates];
   const prompts: string[] = [];

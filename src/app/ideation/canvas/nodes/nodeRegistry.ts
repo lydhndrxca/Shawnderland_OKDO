@@ -109,7 +109,14 @@ export type ResultNodeType = 'resultNode';
 export type GroupNodeType = 'group';
 export type PackedPipelineNodeType = 'packedPipeline';
 export type ConceptLabNodeType = 'character' | 'weapon' | 'turnaround';
-export type AnyNodeType = StageId | OutputNodeType | InputNodeType | InfluenceNodeType | PromptInjectionNodeType | UtilityNodeType | ControlNodeType | ResultNodeType | GroupNodeType | PackedPipelineNodeType | ConceptLabNodeType;
+export type CharGeneratorNodeType =
+  | 'charIdentity' | 'charDescription' | 'charAttributes'
+  | 'charExtractAttrs' | 'charEnhanceDesc'
+  | 'charGenerate' | 'charGenViews'
+  | 'charRefCallout' | 'charViewer'
+  | 'charEdit' | 'charHistory'
+  | 'charReset' | 'charSendPS' | 'charShowXML' | 'charQuickGen' | 'charProject';
+export type AnyNodeType = StageId | OutputNodeType | InputNodeType | InfluenceNodeType | PromptInjectionNodeType | UtilityNodeType | ControlNodeType | ResultNodeType | GroupNodeType | PackedPipelineNodeType | ConceptLabNodeType | CharGeneratorNodeType;
 
 export interface OutputNodeMeta {
   type: OutputNodeType;
@@ -376,6 +383,7 @@ export function isValidConnection(source: string, target: string): boolean {
   const sourceIsControl = CONTROL_NODE_TYPES.includes(source as ControlNodeType);
   const sourceIsPacked = source === 'packedPipeline' || (source as string).startsWith('packedPipeline');
   const targetIsPacked = target === 'packedPipeline' || (target as string).startsWith('packedPipeline');
+  const sourceIsOutput = OUTPUT_NODE_TYPES.includes(source as OutputNodeType);
   const sourceIsConceptLab = CONCEPTLAB_NODE_TYPES.includes(source as ConceptLabNodeType);
   const targetIsConceptLab = CONCEPTLAB_NODE_TYPES.includes(target as ConceptLabNodeType);
 
@@ -400,6 +408,7 @@ export function isValidConnection(source: string, target: string): boolean {
   if (sourceIsUtility && targetIsOutput) return true;
 
   if (sourceIsResult && (targetIsStage || targetIsOutput || targetIsUtility)) return true;
+  if (sourceIsOutput && (targetIsUtility || targetIsStage || targetIsOutput || targetIsPromptInjection)) return true;
 
   // Preprompt/PostPrompt connections — can be wired inline in the flow
   if (sourceIsPromptInjection && targetIsStage) return true;
@@ -418,5 +427,34 @@ export function isValidConnection(source: string, target: string): boolean {
   if (sourceIsConceptLab && targetIsConceptLab && source !== target) return true;
   if (source === 'imageReference' && targetIsConceptLab) return true;
 
+  // Character Generator connections — flexible chaining
+  const CHAR_GEN_TYPES: string[] = [
+    'charIdentity', 'charDescription', 'charAttributes',
+    'charExtractAttrs', 'charEnhanceDesc',
+    'charGenerate', 'charGenViews',
+    'charRefCallout', 'charViewer',
+    'charEdit', 'charHistory',
+    'charReset', 'charSendPS', 'charShowXML', 'charQuickGen', 'charProject',
+  ];
+  const sourceIsCharGen = CHAR_GEN_TYPES.includes(source);
+  const targetIsCharGen = CHAR_GEN_TYPES.includes(target);
+
+  if (sourceIsCharGen && targetIsCharGen && source !== target) return true;
+  if (sourceIsCharGen && targetIsOutput) return true;
+  if (sourceIsCharGen && targetIsUtility) return true;
+  if (sourceIsUtility && targetIsCharGen) return true;
+  if (sourceIsInfluence && targetIsCharGen) return true;
+  if (source === 'imageReference' && targetIsCharGen) return true;
+  if (sourceIsPromptInjection && targetIsCharGen) return true;
+  if (sourceIsResult && targetIsCharGen) return true;
+  if (sourceIsCharGen && targetIsConceptLab) return true;
+  if (sourceIsConceptLab && targetIsCharGen) return true;
+  if (sourceIsOutput && targetIsCharGen) return true;
+
   return false;
 }
+
+export const NODE_DEFAULT_STYLE: Record<string, { width: number; height: number }> = {
+  character: { width: 240, height: 200 },
+  weapon: { width: 240, height: 220 },
+};

@@ -9,6 +9,7 @@ import ExportDialog from './ExportDialog';
 import SaveDialog from './SaveDialog';
 import ImportDialog from './ImportDialog';
 import GlobalToolbar from '@/components/GlobalToolbar';
+import CostWidget from '@/components/CostWidget';
 import { useToolEditorStore } from './useToolEditorStore';
 import type { TENodeData } from './types';
 import './ToolEditorShell.css';
@@ -83,6 +84,7 @@ function ToolEditorInner() {
       <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} />
       <SaveDialog open={saveOpen} onClose={() => setSaveOpen(false)} />
       <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
+      <CostWidget appKey="tool-editor" />
     </div>
   );
 }

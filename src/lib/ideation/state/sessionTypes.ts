@@ -86,12 +86,22 @@ export interface FlowState {
   nodeData?: Record<string, Record<string, unknown>>;
 }
 
+export interface SeedMediaItem {
+  type: 'image' | 'video' | 'document';
+  base64?: string;
+  mimeType: string;
+  fileName: string;
+  /** Plain text extracted from a document upload */
+  textContent?: string;
+}
+
 export interface Session {
   id: string;
   createdAt: string;
   updatedAt: string;
   seedText: string;
   seedContext?: string;
+  seedMedia?: SeedMediaItem[];
   activeBranchId: string;
   projectName: string;
   settings: SessionSettings;

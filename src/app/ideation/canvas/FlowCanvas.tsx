@@ -45,10 +45,27 @@ import ResultNode from './nodes/ResultNode';
 import CharacterNode from './nodes/CharacterNode';
 import WeaponNode from './nodes/WeaponNode';
 import TurnaroundNode from './nodes/TurnaroundNode';
+import CharIdentityNode from './nodes/character/CharIdentityNode';
+import CharDescriptionNode from './nodes/character/CharDescriptionNode';
+import CharAttributesNode from './nodes/character/CharAttributesNode';
+import ExtractAttributesNode from './nodes/character/ExtractAttributesNode';
+import EnhanceDescriptionNode from './nodes/character/EnhanceDescriptionNode';
+import GenerateCharImageNode from './nodes/character/GenerateCharImageNode';
+import GenerateViewsNode from './nodes/character/GenerateViewsNode';
+import ReferenceCalloutNode from './nodes/character/ReferenceCalloutNode';
+import MainStageViewerNode from './nodes/character/MainStageViewerNode';
+import EditCharacterNode from './nodes/character/EditCharacterNode';
+import CharHistoryNode from './nodes/character/CharHistoryNode';
+import ResetCharacterNode from './nodes/character/ResetCharacterNode';
+import SendToPhotoshopNode from './nodes/character/SendToPhotoshopNode';
+import ShowXMLNode from './nodes/character/ShowXMLNode';
+import QuickGenerateNode from './nodes/character/QuickGenerateNode';
+import ProjectSettingsNode from './nodes/character/ProjectSettingsNode';
 import PipelineEdge from './edges/PipelineEdge';
 import ToolDock from './ToolDock';
 import CanvasContextMenu, { type ContextMenuCategory, type CustomNodeAction } from '@/components/CanvasContextMenu';
 import GlobalToolbar from '@/components/GlobalToolbar';
+import { ToastContainer, showToast } from '@/components/Toast';
 import DemoOverlay from './DemoOverlay';
 import GuidedRunOverlay from './GuidedRunOverlay';
 import { useFlowSession } from './useFlowSession';
@@ -65,9 +82,13 @@ import type { StageId } from '@/lib/ideation/engine/stages';
 import { CompatProvider } from './compat/CompatContext';
 import { withCompatCheck } from './compat/withCompatCheck';
 import { useNodeCompatibility } from './hooks/useNodeCompatibility';
+import { savePreset, loadPresets } from '@/lib/ideation/state/presetStore';
+import GlossaryOverlay from './GlossaryOverlay';
+import { materializeGraph } from '@/lib/ideation/engine/lineage/materializeGraph';
+import { getAncestors, getDescendants } from '@/lib/ideation/engine/lineage/graphSelectors';
+import type { LineageNode } from '@/lib/ideation/engine/lineage/graphTypes';
 import { UIButtonNode, UITextBoxNode, UIDropdownNode, UIImageNode, UIWindowNode, UIFrameNode, UIGenericNode } from '@/components/nodes/ui';
 import { applyResizeToAll } from '@/components/nodes/withNodeResize';
-
 import './FlowCanvas.css';
 
 const rawNodeTypes: NodeTypes = {
@@ -101,6 +122,22 @@ const rawNodeTypes: NodeTypes = {
   character: withCompatCheck(CharacterNode),
   weapon: withCompatCheck(WeaponNode),
   turnaround: withCompatCheck(TurnaroundNode),
+  charIdentity: withCompatCheck(CharIdentityNode),
+  charDescription: withCompatCheck(CharDescriptionNode),
+  charAttributes: withCompatCheck(CharAttributesNode),
+  charExtractAttrs: withCompatCheck(ExtractAttributesNode),
+  charEnhanceDesc: withCompatCheck(EnhanceDescriptionNode),
+  charGenerate: withCompatCheck(GenerateCharImageNode),
+  charGenViews: withCompatCheck(GenerateViewsNode),
+  charRefCallout: withCompatCheck(ReferenceCalloutNode),
+  charViewer: withCompatCheck(MainStageViewerNode),
+  charEdit: withCompatCheck(EditCharacterNode),
+  charHistory: withCompatCheck(CharHistoryNode),
+  charReset: withCompatCheck(ResetCharacterNode),
+  charSendPS: withCompatCheck(SendToPhotoshopNode),
+  charShowXML: withCompatCheck(ShowXMLNode),
+  charQuickGen: withCompatCheck(QuickGenerateNode),
+  charProject: withCompatCheck(ProjectSettingsNode),
   uiButton: UIButtonNode,
   uiTextBox: UITextBoxNode,
   uiDropdown: UIDropdownNode,
@@ -160,6 +197,27 @@ function buildCtxCategories(): ContextMenuCategory[] {
       items: CONCEPTLAB_NODE_TYPES.map((t) => ({ id: t, label: CONCEPTLAB_NODE_META[t].label, color: CONCEPTLAB_NODE_META[t].color })),
     },
     {
+      label: 'Character Generator',
+      items: [
+        { id: 'charIdentity', label: 'Character Identity', color: '#7c4dff' },
+        { id: 'charDescription', label: 'Character Description', color: '#5c6bc0' },
+        { id: 'charAttributes', label: 'Character Attributes', color: '#9c27b0' },
+        { id: 'charExtractAttrs', label: 'Extract Attributes', color: '#ffab40' },
+        { id: 'charEnhanceDesc', label: 'Enhance Description', color: '#66bb6a' },
+        { id: 'charGenerate', label: 'Generate Character', color: '#e91e63' },
+        { id: 'charGenViews', label: 'Generate Views', color: '#00bfa5' },
+        { id: 'charRefCallout', label: 'Reference Callout', color: '#26a69a' },
+        { id: 'charViewer', label: 'Main Stage Viewer', color: '#00bfa5' },
+        { id: 'charEdit', label: 'Edit Character', color: '#29b6f6' },
+        { id: 'charHistory', label: 'History', color: '#78909c' },
+        { id: 'charReset', label: 'Reset Character', color: '#ef5350' },
+        { id: 'charSendPS', label: 'Send to Photoshop', color: '#1565c0' },
+        { id: 'charShowXML', label: 'Show XML', color: '#8d6e63' },
+        { id: 'charQuickGen', label: 'Quick Generate', color: '#ffa726' },
+        { id: 'charProject', label: 'Project Settings', color: '#546e7a' },
+      ],
+    },
+    {
       label: 'UI Elements',
       items: [
         { id: 'uiButton', label: 'Button', color: '#5c6bc0' },
@@ -206,6 +264,10 @@ function FlowCanvasInner() {
   const [cutLine, setCutLine] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const cutStartRef = useRef<{ x: number; y: number } | null>(null);
   const prevAwaitingRef = useRef<string | null>(null);
+  const [presetDialog, setPresetDialog] = useState<{ mode: 'save' | 'load'; nodeId: string; nodeType: string } | null>(null);
+  const [presetName, setPresetName] = useState('');
+  const [showGlossary, setShowGlossary] = useState(false);
+  const [lineageHighlightStages, setLineageHighlightStages] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (awaitingInputNodeId && awaitingInputNodeId !== prevAwaitingRef.current) {
@@ -243,17 +305,30 @@ function FlowCanvasInner() {
     return () => window.removeEventListener('keydown', handler);
   }, [flow]);
 
+  const handleFitView = useCallback(() => {
+    reactFlowInstance.fitView({ padding: 0.4 });
+  }, [reactFlowInstance]);
+
   const restoredViewportRef = useRef(false);
   useEffect(() => {
-    if (!restoredViewportRef.current && flow.savedViewport) {
+    if (restoredViewportRef.current) return;
+    if (flow.savedViewport) {
       restoredViewportRef.current = true;
       setTimeout(() => {
         reactFlowInstance.setViewport(flow.savedViewport!);
       }, 100);
+    } else if (flow.nodes.length > 0) {
+      restoredViewportRef.current = true;
+      setTimeout(() => handleFitView(), 200);
     }
-  }, [flow.savedViewport]);
+  }, [flow.savedViewport, flow.nodes.length, handleFitView]);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__saveFlowState = (fs: unknown) => saveFlowState(fs as Parameters<typeof saveFlowState>[0]);
+    return () => { delete (window as unknown as Record<string, unknown>).__saveFlowState; };
+  }, [saveFlowState]);
+
   useEffect(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
@@ -494,12 +569,13 @@ function FlowCanvasInner() {
 
   const handleAddNodeMaybeConnect = useCallback(
     (nodeType: string) => {
+      const hasPendingDrag = !!pendingConnectionRef.current;
       const pos = ctxMenu
         ? reactFlowInstance.screenToFlowPosition({ x: ctxMenu.x, y: ctxMenu.y })
-        : { x: 200, y: 200 };
-      const newId = flow.addNodeToCanvas(nodeType, pos);
-      if (pendingConnectionRef.current && newId) {
-        const { source, sourceHandle } = pendingConnectionRef.current;
+        : undefined;
+      const newId = flow.addNodeToCanvas(nodeType, pos, undefined, { skipAutoConnect: hasPendingDrag });
+      if (hasPendingDrag && newId) {
+        const { source, sourceHandle } = pendingConnectionRef.current!;
         setTimeout(() => {
           flow.onConnect({
             source,
@@ -571,9 +647,53 @@ function FlowCanvasInner() {
     setCutLine(null);
   }, [cutLine, flow, reactFlowInstance, segIntersect]);
 
-  const handleFitView = useCallback(() => {
-    reactFlowInstance.fitView({ padding: 0.4 });
-  }, [reactFlowInstance]);
+  const lineageTypeToStage: Record<string, string> = {
+    Seed: 'seed',
+    NormalizedSeed: 'normalize',
+    IdeaCandidate: 'diverge',
+    Critique: 'critique-salvage',
+    Mutation: 'critique-salvage',
+    Expansion: 'expand',
+    Scorecard: 'converge',
+    CommitArtifact: 'commit',
+  };
+
+  const handleLineageTrace = useCallback((candidateId: string | null) => {
+    if (!candidateId) {
+      setLineageHighlightStages(new Set());
+      return;
+    }
+    try {
+      const graph = materializeGraph(session);
+      const lineageNodeId = `cand-${candidateId}`;
+      const lineageNode = graph.nodes.find((n) => n.id === lineageNodeId);
+      if (!lineageNode) {
+        setLineageHighlightStages(new Set());
+        return;
+      }
+      const ancestors = getAncestors(graph, lineageNodeId);
+      const descendants = getDescendants(graph, lineageNodeId);
+      const chain: LineageNode[] = [lineageNode, ...ancestors, ...descendants];
+      const stageIds = new Set<string>();
+      for (const ln of chain) {
+        const stageId = lineageTypeToStage[ln.type];
+        if (stageId) stageIds.add(stageId);
+      }
+      stageIds.add('result-diverge');
+      stageIds.add('result-critique-salvage');
+      stageIds.add('result-expand');
+      stageIds.add('result-converge');
+      setLineageHighlightStages(stageIds);
+    } catch {
+      setLineageHighlightStages(new Set());
+    }
+  }, [session]);
+
+  useEffect(() => {
+    const w = window as unknown as Record<string, unknown>;
+    w.__lineageTrace = handleLineageTrace;
+    return () => { delete w.__lineageTrace; };
+  }, [handleLineageTrace]);
 
   const handleImportLayout = useCallback(() => {
     fileInputRef.current?.click();
@@ -585,11 +705,22 @@ function FlowCanvasInner() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, [flow]);
 
-  const nodesWithSnapClass = flow.nodes.map((n) =>
-    snapPreviewIds.has(n.id)
-      ? { ...n, className: `${n.className ?? ''} snap-preview`.trim() }
-      : n.className ? { ...n, className: n.className.replace(/\bsnap-preview\b/g, '').trim() } : n,
-  );
+  const nodesWithSnapClass = flow.nodes.map((n) => {
+    let cls = n.className ?? '';
+    if (snapPreviewIds.has(n.id)) {
+      cls = `${cls} snap-preview`.trim();
+    } else {
+      cls = cls.replace(/\bsnap-preview\b/g, '').trim();
+    }
+    const nodeStageId = n.type === 'resultNode' ? (n.data as Record<string, unknown>).sourceStage as string : n.id;
+    const resultNodeId = n.type === 'resultNode' ? `result-${(n.data as Record<string, unknown>).sourceStage}` : '';
+    if (lineageHighlightStages.size > 0 && (lineageHighlightStages.has(nodeStageId) || lineageHighlightStages.has(resultNodeId))) {
+      cls = `${cls} lineage-highlight`.trim();
+    } else {
+      cls = cls.replace(/\blineage-highlight\b/g, '').trim();
+    }
+    return cls !== (n.className ?? '') ? { ...n, className: cls || undefined } : n;
+  });
 
   const dedupedEdges = useMemo(() => {
     const seen = new Set<string>();
@@ -615,6 +746,40 @@ function FlowCanvasInner() {
     ? !!(flow.nodes.find((n) => n.id === ctxMenu.nodeId)?.data as Record<string, unknown>)?.expanded
     : false;
 
+  const handleSavePreset = useCallback(() => {
+    if (!ctxMenu?.nodeId) return;
+    const node = flow.nodes.find((n) => n.id === ctxMenu.nodeId);
+    if (!node) return;
+    setPresetDialog({ mode: 'save', nodeId: node.id, nodeType: node.type ?? 'unknown' });
+    setPresetName('');
+  }, [ctxMenu, flow.nodes]);
+
+  const handleLoadPreset = useCallback(() => {
+    if (!ctxMenu?.nodeId) return;
+    const node = flow.nodes.find((n) => n.id === ctxMenu.nodeId);
+    if (!node) return;
+    setPresetDialog({ mode: 'load', nodeId: node.id, nodeType: node.type ?? 'unknown' });
+  }, [ctxMenu, flow.nodes]);
+
+  const confirmSavePreset = useCallback(() => {
+    if (!presetDialog || !presetName.trim()) return;
+    const node = flow.nodes.find((n) => n.id === presetDialog.nodeId);
+    if (!node) return;
+    savePreset(presetDialog.nodeType, presetName.trim(), node.data as Record<string, unknown>);
+    setPresetDialog(null);
+  }, [presetDialog, presetName, flow.nodes]);
+
+  const applyPreset = useCallback((presetData: Record<string, unknown>) => {
+    if (!presetDialog) return;
+    const { setNodes } = reactFlowInstance;
+    setNodes((nds) => nds.map((n) =>
+      n.id === presetDialog.nodeId
+        ? { ...n, data: { ...n.data, ...presetData } }
+        : n,
+    ));
+    setPresetDialog(null);
+  }, [presetDialog, reactFlowInstance]);
+
   const customNodeActions: CustomNodeAction[] = useMemo(() => {
     if (!ctxMenu?.nodeId) return [];
     const actions: CustomNodeAction[] = [];
@@ -627,9 +792,11 @@ function FlowCanvasInner() {
     actions.push(
       { label: 'Branch from here', icon: '\uD83C\uDF3F', onClick: handleBranch },
       { label: 'Run from here', icon: '\u25B6', onClick: handleRunFromHere },
+      { label: 'Save Node Preset', icon: '\uD83D\uDCE5', onClick: handleSavePreset },
+      { label: 'Load Preset', icon: '\uD83D\uDCE4', onClick: handleLoadPreset },
     );
     return actions;
-  }, [ctxMenu, handleCopy, handleSaveJson, handleBranch, handleRunFromHere]);
+  }, [ctxMenu, handleCopy, handleSaveJson, handleBranch, handleRunFromHere, handleSavePreset, handleLoadPreset]);
 
   return (
     <CompatProvider errors={compatErrors}>
@@ -646,10 +813,16 @@ function FlowCanvasInner() {
         onFitView={handleFitView}
         onAutoLayout={flow.autoLayout}
         onClear={() => { flow.setNodes([]); flow.setEdges([]); }}
-        onExportSelected={flow.exportLayoutJSON}
-        onSaveLayout={flow.saveLayout}
+        onExportAll={flow.exportLayoutJSON}
+        onExportSelected={flow.exportSelectedJSON}
         onImportLayout={handleImportLayout}
+        onSaveLayoutNamed={(name) => { flow.saveNamedLayout(name); showToast(`Layout "${name}" saved`); }}
+        onLoadLayout={(name) => { flow.loadNamedLayout(name); showToast(`Layout "${name}" loaded`); }}
+        onSetDefault={() => { flow.setDefaultLayout(); showToast('Current layout set as default'); }}
+        onDeleteLayout={(name) => { flow.deleteNamedLayout(name); showToast(`Layout "${name}" deleted`); }}
+        savedLayouts={flow.savedLayoutsList}
       />
+      <ToastContainer />
 
       <div
         className="flow-canvas"
@@ -684,6 +857,7 @@ function FlowCanvasInner() {
             flow.setSelectedNodeId(null);
             setCtxMenu(null);
             pendingConnectionRef.current = null;
+            setLineageHighlightStages(new Set());
           }}
           onConnectStart={handleConnectStart as never}
           onConnectEnd={handleConnectEnd}
@@ -699,8 +873,7 @@ function FlowCanvasInner() {
           selectionMode={SelectionMode.Partial}
           snapToGrid
           snapGrid={[20, 20]}
-          fitView
-          fitViewOptions={{ padding: 0.4 }}
+          fitView={false}
           minZoom={0.2}
           maxZoom={2}
           elevateNodesOnSelect
@@ -778,6 +951,63 @@ function FlowCanvasInner() {
                 <button className="rename-cancel" onClick={() => setIsEditingName(false)}>Cancel</button>
                 <button className="rename-save" onClick={() => { setProjectName(nameInput); setIsEditingName(false); }}>Save</button>
               </div>
+            </div>
+          </div>
+        )}
+        {showGlossary && <GlossaryOverlay onClose={() => setShowGlossary(false)} />}
+
+        <button
+          className="glossary-toggle-btn"
+          onClick={() => setShowGlossary(!showGlossary)}
+          title="Toggle terminology guide"
+        >
+          ?
+        </button>
+
+        {presetDialog && (
+          <div className="preset-dialog-overlay" onClick={() => setPresetDialog(null)}>
+            <div className="preset-dialog" onClick={(e) => e.stopPropagation()}>
+              {presetDialog.mode === 'save' ? (
+                <>
+                  <div className="preset-dialog-title">Save Node Preset</div>
+                  <input
+                    className="preset-dialog-input"
+                    value={presetName}
+                    onChange={(e) => setPresetName(e.target.value)}
+                    placeholder="Preset name..."
+                    autoFocus
+                    onKeyDown={(e) => { if (e.key === 'Enter') confirmSavePreset(); }}
+                  />
+                  <div className="preset-dialog-actions">
+                    <button className="preset-dialog-btn primary" onClick={confirmSavePreset} disabled={!presetName.trim()}>Save</button>
+                    <button className="preset-dialog-btn" onClick={() => setPresetDialog(null)}>Cancel</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="preset-dialog-title">Load Preset</div>
+                  <div className="preset-dialog-list">
+                    {loadPresets(presetDialog.nodeType).length === 0 ? (
+                      <div className="preset-dialog-empty">No presets saved for this node type.</div>
+                    ) : (
+                      loadPresets(presetDialog.nodeType).map((p) => (
+                        <button
+                          key={p.name}
+                          className="preset-dialog-item"
+                          onClick={() => applyPreset(p.data)}
+                          title={`Saved ${new Date(p.savedAt).toLocaleString()}`}
+                        >
+                          <span className="preset-item-name">{p.name}</span>
+                          <span className="preset-item-desc">{p.description}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                  <div className="preset-dialog-actions">
+                    <button className="preset-dialog-btn" onClick={() => setPresetDialog(null)}>Close</button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

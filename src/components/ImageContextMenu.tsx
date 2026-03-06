@@ -13,6 +13,8 @@ interface ImageContextMenuProps {
   alt?: string;
   className?: string;
   children?: React.ReactNode;
+  onPasteImage?: (img: ImageData) => void;
+  onResetView?: () => void;
 }
 
 interface MenuPosition {
@@ -38,7 +40,7 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function ImageContextMenu({ image, alt, className, children }: ImageContextMenuProps) {
+export function ImageContextMenu({ image, alt, className, children, onPasteImage, onResetView }: ImageContextMenuProps) {
   const [menu, setMenu] = useState<MenuPosition | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -129,6 +131,36 @@ export function ImageContextMenu({ image, alt, className, children }: ImageConte
     }
   }, [image, alt]);
 
+  const pasteImage = useCallback(async () => {
+    setMenu(null);
+    if (!onPasteImage) return;
+    try {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const imgType = item.types.find((t) => t.startsWith('image/'));
+        if (imgType) {
+          const blob = await item.getType(imgType);
+          const reader = new FileReader();
+          reader.onload = () => {
+            const b64 = (reader.result as string).split(',')[1];
+            onPasteImage({ base64: b64, mimeType: imgType });
+            showToast('Image pasted');
+          };
+          reader.readAsDataURL(blob);
+          return;
+        }
+      }
+      showToast('No image on clipboard');
+    } catch {
+      showToast('Paste failed — clipboard access denied');
+    }
+  }, [onPasteImage, showToast]);
+
+  const resetView = useCallback(() => {
+    setMenu(null);
+    onResetView?.();
+  }, [onResetView]);
+
   return (
     <div className={`icm-wrapper ${className ?? ''}`} onContextMenu={handleContextMenu}>
       {children ?? (
@@ -162,6 +194,19 @@ export function ImageContextMenu({ image, alt, className, children }: ImageConte
           <button className="icm-item" onClick={openInNewTab}>
             <span className="icm-icon">↗</span> Open in New Tab
           </button>
+          {onPasteImage && (
+            <>
+              <div className="icm-sep" />
+              <button className="icm-item" onClick={pasteImage}>
+                <span className="icm-icon">📋</span> Paste Image
+              </button>
+            </>
+          )}
+          {onResetView && (
+            <button className="icm-item" onClick={resetView}>
+              <span className="icm-icon">🔄</span> Reset View
+            </button>
+          )}
         </div>
       )}
 

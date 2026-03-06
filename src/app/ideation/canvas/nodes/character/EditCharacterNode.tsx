@@ -4,9 +4,9 @@ import { memo, useState, useCallback } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import { generateWithGeminiRef, type GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { ImageContextMenu } from '@/components/ImageContextMenu';
-import './ConceptLabNodes.css';
+import './CharacterNodes.css';
 
-interface EditImageNodeProps {
+interface Props {
   id: string;
   data: Record<string, unknown>;
   selected?: boolean;
@@ -22,22 +22,24 @@ Background: Solid flat grey (#D3D3D3). No floor, no shadows, no environment.`;
 
 function getSourceImage(
   nodeId: string,
-  getNode: (id: string) => { data?: Record<string, unknown> } | undefined,
-  getEdges: () => { source: string; target: string; targetHandle?: string | null }[],
+  getNode: ReturnType<typeof useReactFlow>['getNode'],
+  getEdges: ReturnType<typeof useReactFlow>['getEdges'],
 ): GeneratedImage | null {
   const edges = getEdges();
-  const edge = edges.find((e) => e.target === nodeId && e.targetHandle === 'image-in');
-  if (!edge) return null;
-  const src = getNode(edge.source);
-  if (!src?.data) return null;
-  const img = src.data.generatedImage as GeneratedImage | undefined;
-  if (img?.base64) return img;
-  const b64 = src.data.imageBase64 as string | undefined;
-  if (b64) return { base64: b64, mimeType: (src.data.mimeType as string) || 'image/png' };
+  const incoming = edges.filter((e) => e.target === nodeId);
+  for (const e of incoming) {
+    const src = getNode(e.source);
+    if (!src?.data) continue;
+    const d = src.data as Record<string, unknown>;
+    const img = d.generatedImage as GeneratedImage | undefined;
+    if (img?.base64) return img;
+    const b64 = d.imageBase64 as string | undefined;
+    if (b64) return { base64: b64, mimeType: (d.mimeType as string) || 'image/png' };
+  }
   return null;
 }
 
-function EditImageNodeInner({ id, data, selected }: EditImageNodeProps) {
+function EditCharacterNodeInner({ id, data, selected }: Props) {
   const { getNode, getEdges, setNodes } = useReactFlow();
   const [editText, setEditText] = useState((data?.editText as string) ?? '');
   const [resultImage, setResultImage] = useState<GeneratedImage | null>(
@@ -74,42 +76,42 @@ function EditImageNodeInner({ id, data, selected }: EditImageNodeProps) {
   }, [sourceImage, editText, id, setNodes]);
 
   return (
-    <div className={`cl-node ${selected ? 'selected' : ''}`}>
-      <div className="cl-node-header" style={{ background: '#29b6f6' }}>
-        Edit / Refine
+    <div className={`char-node ${selected ? 'selected' : ''}`}>
+      <div className="char-node-header" style={{ background: '#29b6f6' }}>
+        Edit Character
       </div>
-      <div className="cl-node-body">
+      <div className="char-node-body">
         <textarea
-          className="cl-textarea nodrag nowheel"
+          className="char-textarea nodrag nowheel"
           value={editText}
           onChange={(e) => setEditText(e.target.value)}
           placeholder="Describe changes to apply..."
           rows={4}
         />
         <button
-          className="cl-btn primary nodrag"
+          className="char-btn primary nodrag"
           onClick={handleApply}
           disabled={generating || !sourceImage || !editText.trim()}
         >
           {generating ? 'Applying...' : 'Apply Changes'}
         </button>
-        {generating && <div className="cl-progress">Editing image...</div>}
-        {error && <div className="cl-error">{error}</div>}
+        {generating && <div className="char-progress">Editing image...</div>}
+        {error && <div className="char-error">{error}</div>}
         {resultImage && (
           <ImageContextMenu image={resultImage} alt="edited">
             <img
               src={`data:${resultImage.mimeType};base64,${resultImage.base64}`}
               alt="Edited result"
-              className="cl-preview"
+              className="char-preview"
             />
           </ImageContextMenu>
         )}
       </div>
 
-      <Handle type="target" position={Position.Left} id="image-in" className="cl-handle" style={{ top: '40%' }} />
-      <Handle type="source" position={Position.Right} id="image-out" className="cl-handle" style={{ top: '50%' }} />
+      <Handle type="target" position={Position.Left} id="image-in" className="char-handle" style={{ top: '40%' }} />
+      <Handle type="source" position={Position.Right} id="image-out" className="char-handle" style={{ top: '50%' }} />
     </div>
   );
 }
 
-export default memo(EditImageNodeInner);
+export default memo(EditCharacterNodeInner);

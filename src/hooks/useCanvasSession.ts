@@ -20,6 +20,15 @@ import {
   type OnEdgesChange,
   type Connection,
 } from '@xyflow/react';
+import {
+  saveNamedLayout as storeNamedLayout,
+  listLayouts as storeListLayouts,
+  loadNamedLayout as storeLoadNamedLayout,
+  deleteNamedLayout as storeDeleteNamedLayout,
+  setDefaultFromSnapshot,
+  loadDefaultOrLatest,
+  type LayoutSnapshot,
+} from '@/lib/layoutStore';
 
 export interface CutLine {
   x1: number;
@@ -83,6 +92,13 @@ export interface CanvasSessionState {
   saveLayout: () => void;
   loadLayout: () => boolean;
   importLayout: (file: File) => void;
+
+  saveNamedLayout: (name: string) => void;
+  loadNamedLayout: (name: string) => boolean;
+  setDefaultLayout: () => void;
+  deleteNamedLayout: (name: string) => void;
+  savedLayoutsList: Array<{ name: string; savedAt: string }>;
+  refreshLayoutsList: () => void;
 
   getFlowSnapshot: () => {
     nodes: Array<{ id: string; position: { x: number; y: number }; type?: string }>;
@@ -484,13 +500,15 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     const snapshot = getFlowSnapshot();
     const vp = reactFlow.getViewport();
     const payload = { ...snapshot, viewport: vp, appKey };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `${appKey}-layout.json`;
     a.click();
     URL.revokeObjectURL(url);
+    navigator.clipboard.writeText(json).catch(() => {});
   }, [getFlowSnapshot, reactFlow, appKey]);
 
   const saveLayout = useCallback(() => {
@@ -499,16 +517,8 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     localStorage.setItem(`shawnderland-layout-${appKey}`, JSON.stringify({ ...snapshot, viewport: vp }));
   }, [getFlowSnapshot, reactFlow, appKey]);
 
-  const loadLayout = useCallback((): boolean => {
-    const raw = localStorage.getItem(`shawnderland-layout-${appKey}`);
-    if (!raw) return false;
+  const restoreSnapshot = useCallback((saved: LayoutSnapshot): boolean => {
     try {
-      const saved = JSON.parse(raw) as {
-        nodes: Array<{ id: string; position: { x: number; y: number }; type?: string }>;
-        edges: Array<{ id: string; source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }>;
-        nodeData?: Record<string, Record<string, unknown>>;
-        viewport?: { x: number; y: number; zoom: number };
-      };
       const nd = saved.nodeData ?? {};
       const restoredNodes: Node[] = saved.nodes.map((n) => ({
         id: n.id,
@@ -516,6 +526,7 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
         position: n.position,
         data: { stageId: n.type, ...nd[n.id] },
         draggable: nd[n.id]?.__pinned ? false : undefined,
+        style: n.style as Record<string, unknown> | undefined,
       }));
       const restoredEdges: Edge[] = saved.edges.map((e) => ({
         id: e.id,
@@ -535,7 +546,18 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     } catch {
       return false;
     }
-  }, [appKey, setNodes, setEdges, reactFlow]);
+  }, [setNodes, setEdges, reactFlow]);
+
+  const loadLayout = useCallback((): boolean => {
+    const raw = localStorage.getItem(`shawnderland-layout-${appKey}`);
+    if (!raw) return false;
+    try {
+      const saved = JSON.parse(raw) as LayoutSnapshot;
+      return restoreSnapshot(saved);
+    } catch {
+      return false;
+    }
+  }, [appKey, restoreSnapshot]);
 
   const importLayout = useCallback((file: File) => {
     const reader = new FileReader();
@@ -543,26 +565,69 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
       try {
         const data = JSON.parse(reader.result as string);
         if (data.nodes && data.edges) {
-          const nd = data.nodeData ?? {};
-          setNodes(data.nodes.map((n: { id: string; position: { x: number; y: number }; type?: string }) => ({
-            id: n.id,
-            type: n.type,
-            position: n.position,
-            data: { stageId: n.type, ...nd[n.id] },
-          })));
-          setEdges(data.edges.map((e: { id: string; source: string; target: string; sourceHandle?: string; targetHandle?: string }) => ({
-            ...e,
-            type: 'pipeline',
-            data: { isComplete: true },
-          })));
-          if (data.viewport) {
-            setTimeout(() => reactFlow.setViewport(data.viewport), 100);
-          }
+          restoreSnapshot(data as LayoutSnapshot);
         }
       } catch { /* invalid JSON */ }
     };
     reader.readAsText(file);
-  }, [setNodes, setEdges, reactFlow]);
+  }, [restoreSnapshot]);
+
+  // ── Named Layout Management ────────────────────────────────────
+  const [savedLayoutsList, setSavedLayoutsList] = useState<Array<{ name: string; savedAt: string }>>([]);
+
+  const refreshLayoutsList = useCallback(() => {
+    const all = storeListLayouts(appKey);
+    setSavedLayoutsList(all.map((l) => ({ name: l.name, savedAt: l.savedAt })));
+  }, [appKey]);
+
+  useEffect(() => {
+    refreshLayoutsList();
+  }, [refreshLayoutsList]);
+
+  const buildSnapshot = useCallback((): LayoutSnapshot => {
+    const snap = getFlowSnapshot();
+    const vp = reactFlow.getViewport();
+    const nodesWithStyle = nodes.map((n) => {
+      const base = { id: n.id, position: n.position, type: n.type };
+      if (n.style && (n.style.width || n.style.height)) {
+        return { ...base, style: { width: n.style.width, height: n.style.height } };
+      }
+      return base;
+    });
+    return { ...snap, nodes: nodesWithStyle, viewport: vp };
+  }, [getFlowSnapshot, reactFlow, nodes]);
+
+  const saveNamedLayout = useCallback((name: string) => {
+    storeNamedLayout(appKey, name, buildSnapshot());
+    refreshLayoutsList();
+  }, [appKey, buildSnapshot, refreshLayoutsList]);
+
+  const loadNamedLayoutFn = useCallback((name: string): boolean => {
+    const snap = storeLoadNamedLayout(appKey, name);
+    if (!snap) return false;
+    return restoreSnapshot(snap);
+  }, [appKey, restoreSnapshot]);
+
+  const setDefaultLayoutFn = useCallback(() => {
+    setDefaultFromSnapshot(appKey, buildSnapshot());
+    refreshLayoutsList();
+  }, [appKey, buildSnapshot, refreshLayoutsList]);
+
+  const deleteNamedLayoutFn = useCallback((name: string) => {
+    storeDeleteNamedLayout(appKey, name);
+    refreshLayoutsList();
+  }, [appKey, refreshLayoutsList]);
+
+  // ── Auto-load default layout on mount ──────────────────────────
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    if (mountedRef.current) return;
+    mountedRef.current = true;
+    const snap = loadDefaultOrLatest(appKey);
+    if (snap) {
+      restoreSnapshot(snap);
+    }
+  }, [appKey, restoreSnapshot]);
 
   return {
     nodes,
@@ -600,6 +665,12 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     saveLayout,
     loadLayout,
     importLayout,
+    saveNamedLayout: saveNamedLayout,
+    loadNamedLayout: loadNamedLayoutFn,
+    setDefaultLayout: setDefaultLayoutFn,
+    deleteNamedLayout: deleteNamedLayoutFn,
+    savedLayoutsList,
+    refreshLayoutsList,
     getFlowSnapshot,
   };
 }

@@ -25,6 +25,7 @@ import PipelineEdge from '@/app/ideation/canvas/edges/PipelineEdge';
 import GeminiStudioDock from './GeminiStudioDock';
 import CanvasContextMenu, { type ContextMenuCategory } from '@/components/CanvasContextMenu';
 import GlobalToolbar from '@/components/GlobalToolbar';
+import CostWidget from '@/components/CostWidget';
 import { useCanvasSession, type CutLine } from '@/hooks/useCanvasSession';
 
 import EmotionNode from '@/app/ideation/canvas/nodes/EmotionNode';
@@ -466,6 +467,7 @@ function GeminiStudioCanvas() {
         </div>
       </div>
       <input ref={fileInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleFileChange} />
+      <CostWidget appKey="gemini-studio" />
     </div>
   );
 }

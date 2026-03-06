@@ -1,12 +1,34 @@
 "use client";
 
-import { memo, useCallback, useState, useRef } from 'react';
-import { Handle, Position } from '@xyflow/react';
+import { memo, useCallback, useState, useRef, useMemo } from 'react';
+import { Handle, Position, useEdges, useNodes } from '@xyflow/react';
 import { VIDEO_MODELS, ASPECT_RATIOS, type ModelOption } from './modelCatalog';
 import { recordVeoUsage } from '@/lib/ideation/engine/provider/costTracker';
 import { logGeneration, buildLineageContext, type SessionSnapshot } from '@/lib/ideation/engine/generationLog';
 import { buildModelUrl, buildOperationUrl } from '@/lib/ideation/engine/apiConfig';
 import './VideoOutputNode.css';
+
+function extractUpstreamContext(nodeId: string, allNodes: ReturnType<typeof useNodes>, allEdges: ReturnType<typeof useEdges>): string {
+  const incomingEdges = allEdges.filter((e) => e.target === nodeId);
+  const contexts: string[] = [];
+  for (const edge of incomingEdges) {
+    const sourceNode = allNodes.find((n) => n.id === edge.source);
+    if (!sourceNode) continue;
+    const d = sourceNode.data as Record<string, unknown>;
+    if (d.extractedText && typeof d.extractedText === 'string') contexts.push(d.extractedText);
+    if (d.documentContent && typeof d.documentContent === 'string') contexts.push(d.documentContent);
+    if (d.nodeText && typeof d.nodeText === 'string') contexts.push(d.nodeText);
+    if (d.outputData && typeof d.outputData === 'object') {
+      const od = d.outputData as Record<string, unknown>;
+      if (od.title) contexts.push(`Title: ${od.title}`);
+      if (od.seedSummary) contexts.push(`Summary: ${od.seedSummary}`);
+    }
+    if (d.seedText && typeof d.seedText === 'string') contexts.push(d.seedText);
+    if (d.text && typeof d.text === 'string' && !contexts.length) contexts.push(d.text);
+    if (d.prefillSeed && typeof d.prefillSeed === 'string') contexts.push(d.prefillSeed);
+  }
+  return contexts.join('\n');
+}
 
 interface VideoOutputNodeProps {
   id: string;
@@ -14,7 +36,9 @@ interface VideoOutputNodeProps {
   selected?: boolean;
 }
 
-function VideoOutputNodeInner({ selected }: VideoOutputNodeProps) {
+function VideoOutputNodeInner({ id, selected }: VideoOutputNodeProps) {
+  const allNodes = useNodes();
+  const allEdges = useEdges();
   const [model, setModel] = useState<ModelOption>(VIDEO_MODELS[0]);
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [prompt, setPrompt] = useState('');
@@ -25,8 +49,21 @@ function VideoOutputNodeInner({ selected }: VideoOutputNodeProps) {
   const [expanded, setExpanded] = useState(false);
   const pollRef = useRef(false);
 
+  const upstreamContext = useMemo(() => extractUpstreamContext(id, allNodes, allEdges), [id, allNodes, allEdges]);
+  const hasUpstream = upstreamContext.trim().length > 0;
+
+  const buildEffectivePrompt = useCallback((): string => {
+    const parts: string[] = [];
+    if (hasUpstream) parts.push(upstreamContext);
+    if (prompt.trim()) parts.push(prompt.trim());
+    return parts.join('\n\n');
+  }, [hasUpstream, upstreamContext, prompt]);
+
+  const canGenerate = prompt.trim().length > 0 || hasUpstream;
+
   const handleGenerate = useCallback(async () => {
-    if (!prompt.trim()) return;
+    const effectivePrompt = buildEffectivePrompt();
+    if (!effectivePrompt.trim()) return;
     setGenerating(true);
     setError(null);
     setPollStatus('Submitting to Veo...');
@@ -35,7 +72,7 @@ function VideoOutputNodeInner({ selected }: VideoOutputNodeProps) {
     try {
       const url = buildModelUrl(model.modelId, 'predictLongRunning');
       const body = {
-        instances: [{ prompt: prompt.trim() }],
+        instances: [{ prompt: effectivePrompt }],
         parameters: { aspectRatio },
       };
 
@@ -113,7 +150,7 @@ function VideoOutputNodeInner({ selected }: VideoOutputNodeProps) {
       setGenerating(false);
       pollRef.current = false;
     }
-  }, [prompt, model, aspectRatio]);
+  }, [buildEffectivePrompt, model, aspectRatio]);
 
   return (
     <div
@@ -167,10 +204,16 @@ function VideoOutputNodeInner({ selected }: VideoOutputNodeProps) {
           rows={2}
         />
 
+        {hasUpstream && (
+          <div className="video-output-upstream-hint" style={{ fontSize: '10px', color: 'rgba(186,104,200,0.6)', marginBottom: 4 }}>
+            Connected upstream data will be used as context
+          </div>
+        )}
+
         <button
           className="video-output-generate nodrag"
           onClick={(e) => { e.stopPropagation(); handleGenerate(); }}
-          disabled={generating || !prompt.trim()}
+          disabled={generating || !canGenerate}
           style={{ borderColor: '#ba68c8', color: generating ? 'var(--text-muted)' : '#ba68c8' }}
         >
           {generating ? 'Generating...' : 'Generate Video'}
@@ -212,6 +255,13 @@ function VideoOutputNodeInner({ selected }: VideoOutputNodeProps) {
         id="count"
         className="video-output-handle count-target"
         style={{ background: '#78909c' }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="output"
+        className="video-output-handle"
+        style={{ background: '#ba68c8' }}
       />
     </div>
   );

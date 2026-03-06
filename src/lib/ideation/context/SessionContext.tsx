@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { Session, SessionEvent, SessionSettings, FlowState } from '../state/sessionTypes';
+import type { Session, SessionEvent, SessionSettings, FlowState, SeedMediaItem } from '../state/sessionTypes';
 import type { StageId } from '../engine/stages';
 import { STAGE_IDS, getDownstreamStages } from '../engine/stages';
 import { createNewSession } from '../state/sessionStore';
@@ -49,6 +49,7 @@ interface SessionContextValue {
   setActiveStageId: (id: StageId) => void;
   editSeed: (text: string) => void;
   editSeedContext: (text: string) => void;
+  editSeedMedia: (media: SeedMediaItem[]) => void;
   addUserInput: (text: string) => void;
   runStage: (stageId: StageId, opts?: { templateType?: string }) => Promise<void>;
   editNormalizeSummary: (newSummary: string, previousSummary: string) => void;
@@ -240,6 +241,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const editSeedMedia = useCallback((media: SeedMediaItem[]) => {
+    setSession((prev) => {
+      const event = makeEvent('SEED_EDIT', 'seed', { seedMedia: media.map((m) => ({ type: m.type, fileName: m.fileName, mimeType: m.mimeType })) }, prev.activeBranchId);
+      let updated = appendEvent({ ...prev, seedMedia: media }, event);
+      updated = markAllDownstreamStale(updated, 'seed');
+      return updated;
+    });
+  }, []);
+
   const addUserInput = useCallback((text: string) => {
     setSession((prev) => {
       const event = makeEvent('USER_INPUT', undefined, { content: text }, prev.activeBranchId);
@@ -258,6 +268,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const runStage = useCallback(
     async (stageId: StageId, opts?: { templateType?: string }) => {
+      const getSnapshot = (window as unknown as Record<string, unknown>).__getFlowSnapshot as (() => {
+        nodes: Array<{ id: string; position: { x: number; y: number }; type?: string }>;
+        edges: Array<{ id: string; source: string; target: string }>;
+        nodeData: Record<string, Record<string, unknown>>;
+      }) | undefined;
+      if (getSnapshot) {
+        const snapshot = getSnapshot();
+        setSession((prev) => ({
+          ...prev,
+          flowState: { ...prev.flowState, nodes: snapshot.nodes, edges: snapshot.edges, nodeData: snapshot.nodeData },
+        }));
+      }
       setIsRunning(true);
       setRunningStageId(stageId);
       const startMs = Date.now();
@@ -997,6 +1019,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         setActiveStageId,
         editSeed,
         editSeedContext,
+        editSeedMedia,
         addUserInput,
         runStage,
         editNormalizeSummary,

@@ -1,0 +1,228 @@
+/* ── Global Cost Widget (bottom-right) ── */
+
+.cost-widget {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 9999;
+}
+
+.cost-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border, #333);
+  border-radius: 20px;
+  background: var(--bg-surface, #1a1a2e);
+  color: var(--text-muted, #888);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+}
+
+.cost-pill:hover {
+  color: var(--text-primary, #fff);
+  border-color: var(--text-muted, #666);
+}
+
+.cost-pill.active {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #fff);
+  border-color: var(--accent, #6c63ff);
+}
+
+.cost-pill.has-data .cost-pill-icon {
+  color: #ffab40;
+}
+
+.cost-pill-icon {
+  font-size: 13px;
+}
+
+.cost-pill-amount {
+  font-family: monospace;
+  color: #69f0ae;
+  font-size: 11px;
+}
+
+/* ── Panel ── */
+
+.cost-panel {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  width: 300px;
+  background: #1a1a2e;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  animation: cost-panel-in 0.15s ease-out;
+}
+
+@keyframes cost-panel-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.cost-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cost-panel-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary, #fff);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.cost-panel-badge {
+  font-size: 10px;
+  font-family: monospace;
+  color: var(--text-muted, #888);
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.cost-panel-body {
+  padding: 8px 14px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.cost-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 0;
+}
+
+.cost-row-total {
+  padding-top: 4px;
+}
+
+.cost-label {
+  font-size: 11px;
+  color: var(--text-secondary, #b0b0b0);
+}
+
+.cost-value {
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--text-primary, #fff);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cost-value-green {
+  color: #69f0ae;
+  font-weight: 700;
+}
+
+.cost-value-muted {
+  font-size: 10px;
+  color: var(--text-muted, #888);
+}
+
+.cost-app-calls {
+  font-size: 10px;
+  color: var(--text-muted, #888);
+  font-weight: 400;
+}
+
+.cost-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 6px 0;
+}
+
+.cost-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted, #888);
+  padding: 2px 0 4px;
+}
+
+.cost-model-block {
+  padding: 4px 0;
+}
+
+.cost-model-name {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--text-primary, #fff);
+  font-weight: 600;
+}
+
+.cost-model-calls {
+  font-size: 10px;
+  color: var(--text-muted, #888);
+  font-weight: 400;
+}
+
+.cost-model-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--text-secondary, #b0b0b0);
+  font-family: monospace;
+}
+
+.cost-pricing-note {
+  padding: 6px 14px;
+  font-size: 10px;
+  color: var(--text-muted, #888);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  text-align: center;
+}
+
+.cost-actions {
+  display: flex;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cost-action-btn {
+  flex: 1;
+  padding: 8px;
+  background: none;
+  border: none;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.cost-reset {
+  color: #ff8a80;
+}
+
+.cost-reset:hover {
+  background: rgba(255, 138, 128, 0.08);
+}
+
+.cost-export {
+  color: #80cbc4;
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cost-export:hover {
+  background: rgba(128, 203, 196, 0.08);
+}

@@ -120,6 +120,13 @@ function StartNodeInner({ selected }: StartNodeProps) {
       </div>
 
       <Handle
+        type="target"
+        position={Position.Left}
+        id="input"
+        className="base-handle target-handle"
+        style={{ background: '#42a5f5' }}
+      />
+      <Handle
         type="source"
         position={Position.Right}
         className="base-handle source-handle"

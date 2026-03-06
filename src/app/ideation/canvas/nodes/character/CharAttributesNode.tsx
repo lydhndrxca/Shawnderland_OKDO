@@ -3,9 +3,9 @@
 import { memo, useCallback, useState } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import { ATTRIBUTE_GROUPS, type CharacterAttributes } from '@/lib/ideation/engine/conceptlab/characterPrompts';
-import './ConceptLabNodes.css';
+import './CharacterNodes.css';
 
-interface CharAttributesNodeProps {
+interface Props {
   id: string;
   data: Record<string, unknown>;
   selected?: boolean;
@@ -13,14 +13,14 @@ interface CharAttributesNodeProps {
 
 const CUSTOM_VALUE = '__custom__';
 
-function CharAttributesNodeInner({ id, data, selected }: CharAttributesNodeProps) {
+function CharAttributesNodeInner({ id, data, selected }: Props) {
   const { setNodes } = useReactFlow();
   const [attributes, setAttributes] = useState<CharacterAttributes>(
     (data?.attributes as CharacterAttributes) ?? {},
   );
   const [customText, setCustomText] = useState<Record<string, string>>({});
 
-  const persistData = useCallback(
+  const persistAttrs = useCallback(
     (attrs: CharacterAttributes) => {
       setNodes((nds) =>
         nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, attributes: attrs } } : n)),
@@ -34,9 +34,9 @@ function CharAttributesNodeInner({ id, data, selected }: CharAttributesNodeProps
       if (val === CUSTOM_VALUE) return;
       const next = { ...attributes, [key]: val };
       setAttributes(next);
-      persistData(next);
+      persistAttrs(next);
     },
-    [attributes, persistData],
+    [attributes, persistAttrs],
   );
 
   const setCustom = useCallback(
@@ -44,9 +44,9 @@ function CharAttributesNodeInner({ id, data, selected }: CharAttributesNodeProps
       setCustomText((p) => ({ ...p, [key]: val }));
       const next = { ...attributes, [key]: val };
       setAttributes(next);
-      persistData(next);
+      persistAttrs(next);
     },
-    [attributes, persistData],
+    [attributes, persistAttrs],
   );
 
   const randomizeOne = useCallback(
@@ -66,28 +66,29 @@ function CharAttributesNodeInner({ id, data, selected }: CharAttributesNodeProps
     }
     setAttributes(next);
     setCustomText({});
-    persistData(next);
-  }, [persistData]);
+    persistAttrs(next);
+  }, [persistAttrs]);
 
   return (
-    <div className={`cl-node ${selected ? 'selected' : ''}`}>
-      <div className="cl-node-header" style={{ background: '#9c27b0' }}>
+    <div className={`char-node ${selected ? 'selected' : ''}`}>
+      <div className="char-node-header" style={{ background: '#9c27b0' }}>
         Character Attributes
       </div>
-      <div className="cl-node-body">
-        <div className="cl-scroll-area">
+      <div className="char-node-body">
+        <div className="char-scroll-area nodrag nowheel">
           {ATTRIBUTE_GROUPS.map((g) => {
             const currentVal = attributes[g.key] ?? '';
             const allOpts = [...g.common, ...g.rare];
-            const isCustom = currentVal && !allOpts.includes(currentVal);
+            const isCustom = currentVal !== '' && !allOpts.includes(currentVal);
             return (
-              <div key={g.key} className="cl-field">
-                <span className="cl-field-label wide">{g.label}</span>
-                <div style={{ flex: 1, display: 'flex', gap: 4, alignItems: 'center' }}>
+              <div key={g.key} className="char-attr-group">
+                <div className="char-attr-row">
+                  <span className="char-attr-label">{g.label}</span>
                   <select
-                    className="cl-select nodrag"
+                    className="char-select nodrag"
                     value={isCustom ? CUSTOM_VALUE : currentVal}
                     onChange={(e) => setAttr(g.key, e.target.value)}
+                    style={{ flex: 1 }}
                   >
                     <option value="">—</option>
                     <optgroup label="Common">
@@ -102,14 +103,14 @@ function CharAttributesNodeInner({ id, data, selected }: CharAttributesNodeProps
                     </optgroup>
                     <option value={CUSTOM_VALUE}>Custom...</option>
                   </select>
-                  <button className="cl-btn-sm nodrag" onClick={() => randomizeOne(g)} title="Random">
+                  <button className="char-btn-sm nodrag" onClick={() => randomizeOne(g)} title="Random">
                     R
                   </button>
                 </div>
                 {isCustom && (
                   <input
-                    className="cl-input nodrag"
-                    style={{ marginTop: 4, width: '100%' }}
+                    className="char-input nodrag"
+                    style={{ marginTop: 2 }}
                     value={customText[g.key] ?? currentVal}
                     onChange={(e) => setCustom(g.key, e.target.value)}
                     placeholder={`Custom ${g.label.toLowerCase()}...`}
@@ -119,13 +120,15 @@ function CharAttributesNodeInner({ id, data, selected }: CharAttributesNodeProps
             );
           })}
         </div>
-        <div className="cl-btn-row">
-          <button className="cl-btn nodrag" onClick={randomizeAll}>
+        <div className="char-btn-row">
+          <button className="char-btn nodrag" onClick={randomizeAll}>
             Randomize All
           </button>
         </div>
       </div>
-      <Handle type="source" position={Position.Right} id="attrs-out" className="cl-handle" />
+
+      <Handle type="target" position={Position.Left} id="input" className="char-handle" style={{ top: '50%' }} />
+      <Handle type="source" position={Position.Right} id="attrs-out" className="char-handle" style={{ top: '50%' }} />
     </div>
   );
 }

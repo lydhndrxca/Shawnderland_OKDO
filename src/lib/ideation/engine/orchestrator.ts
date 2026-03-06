@@ -18,8 +18,8 @@ import type {
   CultureBlock,
 } from './schemas';
 import { getDownstreamStages, getPreviousStage } from './stages';
-import type { Provider } from './provider/types';
-import type { Session, SessionEvent, StageState } from '../state/sessionTypes';
+import type { Provider, MediaPart } from './provider/types';
+import type { Session, SessionEvent, StageState, SeedMediaItem } from '../state/sessionTypes';
 import { deriveEffectiveNormalize } from './normalize';
 import { assemblePipeline } from './diverge/portfolio';
 import { buildVariantPrompt } from './prompts/divergePrompt';
@@ -47,8 +47,13 @@ import {
   getEffectiveSettings,
 } from '../state/sessionSelectors';
 
+function buildNormalizeSchemaHint(session: Session): string {
+  const nodeData = session.flowState?.nodeData?.['normalize'] as Record<string, unknown> | undefined;
+  const qCount = typeof nodeData?.questionCount === 'number' ? nodeData.questionCount : 4;
+  return `Return JSON: { "seedSummary": "<one-paragraph structured summary of the seed idea>", "assumptions": [{ "key": "<name>", "value": "<assumption text>", "userOverride": false }], "clarifyingQuestions": ["<question1>", "<question2>", ...] }. Generate 3-5 assumptions and exactly ${qCount} clarifying questions that would help refine the ideation if answered.`;
+}
+
 const STAGE_SCHEMA_HINTS: Partial<Record<StageId, string>> = {
-  normalize: `Return JSON: { "seedSummary": "<one-paragraph structured summary of the seed idea>", "assumptions": [{ "key": "<name>", "value": "<assumption text>", "userOverride": false }], "clarifyingQuestions": ["<question1>", "<question2>", ...] }. Generate 3-5 assumptions and 2-4 clarifying questions that would help refine the ideation if answered.`,
   iterate: `Return JSON: { "nextPromptSuggestions": "<markdown list of 3-5 follow-up prompt suggestions for the next iteration>" }`,
 };
 
@@ -240,7 +245,9 @@ function buildPrompt(
   session?: Session,
 ): string {
   const sanitized = userInputs.map(sanitizeUserInput);
-  const schemaHint = STAGE_SCHEMA_HINTS[stageId] ?? '';
+  const schemaHint = stageId === 'normalize' && session
+    ? buildNormalizeSchemaHint(session)
+    : (STAGE_SCHEMA_HINTS[stageId] ?? '');
 
   const preprompt = session ? buildPrepromptBlock(session) : '';
 
@@ -264,14 +271,59 @@ function buildPrompt(
   return buildSafePrompt(instructions, sanitized);
 }
 
+function buildSeedMediaParts(session: Session): MediaPart[] {
+  const parts: MediaPart[] = [];
+  if (!session.seedMedia?.length) return parts;
+  for (const m of session.seedMedia) {
+    if ((m.type === 'image' || m.type === 'video') && m.base64) {
+      parts.push({ inlineData: { mimeType: m.mimeType, data: m.base64 } });
+    }
+  }
+  return parts;
+}
+
+function buildSeedMediaTextBlock(session: Session): string {
+  if (!session.seedMedia?.length) return '';
+  const blocks: string[] = [];
+  for (const m of session.seedMedia) {
+    if (m.type === 'document' && m.textContent) {
+      blocks.push(`[UPLOADED DOCUMENT: "${m.fileName}"]\n${m.textContent}`);
+    }
+    if (m.type === 'image') {
+      blocks.push(`[UPLOADED IMAGE: "${m.fileName}" — analyze the image content above and incorporate it as the seed idea]`);
+    }
+    if (m.type === 'video') {
+      blocks.push(`[UPLOADED VIDEO: "${m.fileName}" — analyze the video content above and incorporate it as the seed idea]`);
+    }
+  }
+  if (blocks.length === 0) return '';
+  return '\n\n[SEED MEDIA INPUTS]\n' + blocks.join('\n\n');
+}
+
+function hasSeedContent(session: Session): boolean {
+  return session.seedText.trim().length > 0 || (session.seedMedia ?? []).length > 0;
+}
+
+function getSeedDescription(session: Session): string {
+  if (session.seedText.trim()) return session.seedText;
+  const media = session.seedMedia ?? [];
+  if (media.length === 0) return '';
+  return media.map((m) => `[${m.type}: ${m.fileName}]`).join(', ');
+}
+
 function runSeedStage(session: Session): Session {
-  if (!session.seedText.trim()) {
-    throw new Error('Enter a seed idea before running.');
+  if (!hasSeedContent(session)) {
+    throw new Error('Enter a seed idea or upload media before running.');
   }
 
-  const output = { seedText: session.seedText, ...(session.seedContext ? { seedContext: session.seedContext } : {}) };
+  const seedDesc = getSeedDescription(session);
+  const output = {
+    seedText: seedDesc,
+    ...(session.seedContext ? { seedContext: session.seedContext } : {}),
+    ...(session.seedMedia?.length ? { hasMedia: true, mediaCount: session.seedMedia.length } : {}),
+  };
   const event = createEvent('STAGE_RUN', 'seed', {
-    inputs: { seedText: session.seedText, ...(session.seedContext ? { seedContext: session.seedContext } : {}) },
+    inputs: { seedText: seedDesc, ...(session.seedContext ? { seedContext: session.seedContext } : {}) },
     output,
   });
 
@@ -290,27 +342,30 @@ async function runNormalizeStage(
   session: Session,
   provider: Provider,
 ): Promise<Session> {
-  if (!session.seedText.trim()) {
-    throw new Error('Enter a seed idea before running Normalize.');
+  if (!hasSeedContent(session)) {
+    throw new Error('Enter a seed idea or upload media before running Normalize.');
   }
 
   const userInputs = getUserInputs(session);
   const settings = getEffectiveSettings(session);
   const influenceContext = resolveInfluenceContext(session);
   const preprompt = buildPrepromptBlock(session);
-  let prompt = preprompt + buildNormalizePrompt(session.seedText, userInputs, session.seedContext, influenceContext, settings.strictAdherence);
+  const seedDesc = getSeedDescription(session);
+  let prompt = preprompt + buildNormalizePrompt(seedDesc, userInputs, session.seedContext, influenceContext, settings.strictAdherence);
+  prompt += buildSeedMediaTextBlock(session);
   prompt += buildInfluenceBlock(session);
   prompt = appendStrictAdherence(prompt, session);
   prompt = appendTierDirective(prompt, session);
   prompt = appendCustomInstructions(prompt, session, 'normalize');
   prompt += buildPostpromptBlock(session);
 
+  const mediaParts = buildSeedMediaParts(session);
   const schema = STAGE_SCHEMAS['normalize'];
-  const rawOutput = await provider.generateStructured({ schema, prompt });
+  const rawOutput = await provider.generateStructured({ schema, prompt, mediaParts: mediaParts.length > 0 ? mediaParts : undefined });
   const output = schema.parse(rawOutput);
 
   const event = createEvent('STAGE_RUN', 'normalize', {
-    inputs: { seedText: session.seedText, seedContext: session.seedContext },
+    inputs: { seedText: seedDesc, seedContext: session.seedContext },
     output: JSON.parse(JSON.stringify(output)),
   });
 
@@ -330,16 +385,17 @@ function getStageInputs(
   stageId: StageId,
 ): Record<string, unknown> {
   const contextPart = session.seedContext ? { seedContext: session.seedContext } : {};
+  const seedDesc = getSeedDescription(session);
 
   if (stageId === 'seed') {
-    return { seedText: session.seedText, ...contextPart };
+    return { seedText: seedDesc, ...contextPart };
   }
 
   if (stageId === 'diverge') {
     const eff = deriveEffectiveNormalize(session);
     return eff
-      ? { effectiveNormalize: eff, seedText: session.seedText, ...contextPart }
-      : { seedText: session.seedText, ...contextPart };
+      ? { effectiveNormalize: eff, seedText: seedDesc, ...contextPart }
+      : { seedText: seedDesc, ...contextPart };
   }
 
   if (stageId === 'critique-salvage') {
@@ -392,8 +448,8 @@ function getStageInputs(
 
   const prevOutput = session.stageState[prevStage]?.output;
   return prevOutput
-    ? { previousStageOutput: prevOutput, seedText: session.seedText, ...contextPart }
-    : { seedText: session.seedText, ...contextPart };
+    ? { previousStageOutput: prevOutput, seedText: seedDesc, ...contextPart }
+    : { seedText: seedDesc, ...contextPart };
 }
 
 function getUserInputs(session: Session): string[] {
@@ -544,12 +600,20 @@ async function runDivergeStage(
   }
   if (preprompt) influenceBlock = preprompt + influenceBlock;
   if (postprompt) influenceBlock += postprompt;
+  const divergeNodeData = session.flowState?.nodeData?.['diverge'] as Record<string, unknown> | undefined;
+  const customLensCounts = divergeNodeData ? {
+    practical: typeof divergeNodeData.practicalCount === 'number' ? divergeNodeData.practicalCount : undefined,
+    inversion: typeof divergeNodeData.inversionCount === 'number' ? divergeNodeData.inversionCount : undefined,
+    constraint: typeof divergeNodeData.constraintCount === 'number' ? divergeNodeData.constraintCount : undefined,
+  } : undefined;
+
   const { output, meta } = await assemblePipeline(
     effectiveNormalize,
     userInputs,
     provider,
     [],
     influenceBlock || undefined,
+    customLensCounts,
   );
 
   const { session: checkedSession } = runCultureChecks(
@@ -645,16 +709,19 @@ async function runExpandStage(
 ): Promise<Session> {
   let shortlistIds = getExpandShortlistIds(session);
 
+  const expandNodeData = session.flowState?.nodeData?.['expand'] as Record<string, unknown> | undefined;
+  const configuredExpandCount = typeof expandNodeData?.expandCount === 'number' ? expandNodeData.expandCount : 5;
+
   if (shortlistIds.length === 0) {
     const pool = getEffectiveCandidatePool(session);
     if (pool.length === 0) {
       throw new Error('No candidates available — run Diverge and Critique first');
     }
-    shortlistIds = pool.slice(0, Math.min(5, pool.length)).map((c) => c.id);
+    shortlistIds = pool.slice(0, Math.min(configuredExpandCount, pool.length)).map((c) => c.id);
   }
 
-  if (shortlistIds.length < 1 || shortlistIds.length > 5) {
-    throw new Error('Expand requires a shortlist of 1–5 candidates');
+  if (shortlistIds.length < 1 || shortlistIds.length > 15) {
+    throw new Error('Expand requires a shortlist of 1–15 candidates');
   }
 
   const candidates = getEffectiveCandidatePool(session);

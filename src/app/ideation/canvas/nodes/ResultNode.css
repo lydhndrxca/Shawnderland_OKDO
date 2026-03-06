@@ -47,6 +47,7 @@
 .result-node-list {
   max-height: 400px;
   overflow-y: auto;
+  scroll-behavior: smooth;
 }
 
 .result-node-list::-webkit-scrollbar { width: 4px; }
@@ -103,6 +104,8 @@
 .result-entry-row:hover .result-entry-actions { opacity: 1; }
 .result-entry-highlighted .result-entry-actions { opacity: 1; }
 
+.result-seed-btn,
+.result-copy-btn,
 .result-highlight-btn,
 .result-delete-btn {
   flex-shrink: 0;
@@ -120,6 +123,9 @@
   transition: background 0.15s, color 0.15s;
 }
 
+.result-seed-btn:hover { background: rgba(105, 240, 174, 0.15); color: #69f0ae; }
+.result-copy-btn:hover { background: rgba(144, 202, 249, 0.15); color: #90caf9; }
+.result-copy-btn.copied { color: #69f0ae; }
 .result-highlight-btn:hover { background: rgba(255, 213, 79, 0.15); color: #ffd54f; }
 .result-highlight-btn.active { color: #ffd54f; opacity: 1; }
 .result-delete-btn:hover { background: rgba(239, 83, 80, 0.2); color: #ef5350; }
@@ -133,6 +139,7 @@
   background: rgba(0, 0, 0, 0.1);
   max-height: 300px;
   overflow-y: auto;
+  scroll-behavior: smooth;
 }
 
 .result-entry-detail::-webkit-scrollbar { width: 3px; }
@@ -188,6 +195,65 @@
 .result-field-value {
   padding-left: 4px;
   color: var(--text-secondary);
+}
+
+/* ── Category Headers ── */
+.result-category-group {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.result-category-group:last-child { border-bottom: none; }
+
+.result-category-header {
+  padding: 6px 12px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* ── Score Chip ── */
+.result-entry-score {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(108, 99, 255, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-right: 2px;
+}
+
+/* ── Compact Scores in Detail ── */
+.result-scores-compact {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.result-score-chip {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
+/* ── Mutation Entries ── */
+.result-entry-mutation > .result-entry-row {
+  padding-left: 24px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.result-entry-mutation > .result-entry-row .result-entry-tldr {
+  font-style: italic;
+  color: var(--text-muted);
 }
 
 /* ── Question Badge on Row ── */

@@ -63,6 +63,10 @@ export interface FlowSessionState {
   duplicateSelected: () => void;
   exportLayoutJSON: () => void;
   exportSelectedJSON: () => void;
+  exportSelectedNodesOnly: () => void;
+  exportSelectedWithConnections: () => void;
+  exportAllNodesOnly: () => void;
+  exportAllWithConnections: () => void;
   saveLayout: () => void;
   importLayout: (file: File) => void;
   saveNamedLayout: (name: string) => void;
@@ -861,6 +865,54 @@ export function useFlowSession(): FlowSessionState {
     saveAndCopy(JSON.stringify(payload, null, 2), 'shawndermind-selected.json');
   }, [nodes, edges, buildRichNodeData, saveAndCopy]);
 
+  const buildNodeWithStyle = useCallback((targetNodes: Node[]) => {
+    return targetNodes.map((n) => {
+      const base: Record<string, unknown> = { id: n.id, position: n.position, type: n.type };
+      if (n.style && (n.style.width || n.style.height)) {
+        base.style = { width: n.style.width, height: n.style.height };
+      }
+      return base;
+    });
+  }, []);
+
+  const exportSelectedNodesOnly = useCallback(() => {
+    const selected = nodes.filter((n) => n.selected);
+    if (!selected.length) return;
+    const nodeData = buildRichNodeData(selected);
+    const payload = { nodes: buildNodeWithStyle(selected), edges: [], nodeData };
+    saveAndCopy(JSON.stringify(payload, null, 2), 'shawndermind-selected-nodes.json');
+  }, [nodes, buildRichNodeData, buildNodeWithStyle, saveAndCopy]);
+
+  const exportSelectedWithConnections = useCallback(() => {
+    const selected = nodes.filter((n) => n.selected);
+    if (!selected.length) return;
+    const selectedIds = new Set(selected.map((n) => n.id));
+    const relevantEdges = edges.filter((e) => selectedIds.has(e.source) && selectedIds.has(e.target));
+    const nodeData = buildRichNodeData(selected);
+    const payload = {
+      nodes: buildNodeWithStyle(selected),
+      edges: relevantEdges.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle })),
+      nodeData,
+    };
+    saveAndCopy(JSON.stringify(payload, null, 2), 'shawndermind-selected-connected.json');
+  }, [nodes, edges, buildRichNodeData, buildNodeWithStyle, saveAndCopy]);
+
+  const exportAllNodesOnly = useCallback(() => {
+    const nodeData = buildRichNodeData(nodes);
+    const payload = { nodes: buildNodeWithStyle(nodes), edges: [], nodeData };
+    saveAndCopy(JSON.stringify(payload, null, 2), 'shawndermind-all-nodes.json');
+  }, [nodes, buildRichNodeData, buildNodeWithStyle, saveAndCopy]);
+
+  const exportAllWithConnections = useCallback(() => {
+    const nodeData = buildRichNodeData(nodes);
+    const payload = {
+      nodes: buildNodeWithStyle(nodes),
+      edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle })),
+      nodeData,
+    };
+    saveAndCopy(JSON.stringify(payload, null, 2), 'shawndermind-all-connected.json');
+  }, [nodes, edges, buildRichNodeData, buildNodeWithStyle, saveAndCopy]);
+
   const saveLayout = useCallback(() => {
     const snapshot = getFlowSnapshot();
     const vp = { x: 0, y: 0, zoom: 1 };
@@ -1026,6 +1078,10 @@ export function useFlowSession(): FlowSessionState {
     duplicateSelected,
     exportLayoutJSON,
     exportSelectedJSON,
+    exportSelectedNodesOnly,
+    exportSelectedWithConnections,
+    exportAllNodesOnly,
+    exportAllWithConnections,
     saveLayout,
     importLayout,
     saveNamedLayout: saveNamedLayoutFn,

@@ -56,4 +56,11 @@
 - [x] Sync DECISIONS.md: add ADR for useCanvasSession extraction and unified toolbar/context menu, ADR for Preprompt/PostPrompt prompt injection design
 - [ ] Evaluate ContextMenu.css: merge shared styles into CanvasCommon.css or keep as shared stylesheet
 - [ ] Consolidate duplicate flowLayout.ts (use @shawnderland/ui copy)
+- [x] Fix broken preset node types in ConceptLabShell.tsx (multiViewer → charViewer, editImage → charEdit)
+- [x] Remove dead code: StatusBar.tsx/css, NodeInspector.tsx/css (never imported)
+- [x] Remove dead .cl-viewer-* CSS from ConceptLabNodes.css (~65 lines)
+- [x] Wire GeminiStudioShell.tsx to named layout system (uses deprecated onSaveLayout)
+- [x] Update ARCHITECTURE.md: remove deleted concept-lab/nodes/ entries, add ideation/canvas/nodes/character/ and shared components
+- [ ] Evaluate loadPack.ts exports (unused)
 - [x] Health audit report generated (report_id: 20260306_080757)
+- [x] Health audit report generated (report_id: 20260306_161152)

@@ -3,9 +3,9 @@
 | Field | Value |
 |-------|-------|
 | Project root | `D:\dev\Shawnderland_OKDO` |
-| Generated at | 2026-03-06 08:07:57 |
+| Generated at | 2026-03-06 16:11:52 |
 | Includes | Snapshot + Health Audit + Comprehensive Repo Report + TASKS |
-| Health | **Yellow** (report_id: 20260306_080757) |
+| Health | **Yellow** (report_id: 20260306_161152) |
 
 ---
 
@@ -15,402 +15,343 @@
 
 | Field | Value |
 |-------|-------|
-| Generated at | 2026-03-06 08:07:57 |
-| Report ID | 20260306_080757 |
+| Generated | 2026-03-06 16:11:52 |
+| Report ID | 20260306_161152 |
 | Repo root | `D:\dev\Shawnderland_OKDO` |
-| Git branch | main |
-| Last commit | `b2ad2d6` — feat: add ConceptLab, Gemini Studio, home page redesign, and node resize (2026-03-05) |
-| Total commits | 4 |
-
----
+| Branch | main |
+| Last commit | `4ac2b70` (2026-03-06) |
+| Uncommitted | 6 modified files |
 
 ## Folder Tree (depth 4)
 
 ```
 /
-├── .cursor/rules/
-├── packages/
-│   └── ui/
-│       └── src/
-│           └── canvas/
+├── .cursor/rules/                    (governance.mdc, ui-propagation.mdc, canvas-conventions.mdc)
+├── packages/ui/src/
+│   ├── canvas/                       (BaseNode, PipelineEdge, flowLayout, index)
+│   ├── Input.tsx, Button.tsx, Select.tsx, Card.tsx, Textarea.tsx, PanelSection.tsx
+│   ├── index.ts, tokens.css, base.css, animations.css
 ├── src/
 │   ├── app/
+│   │   ├── api/                      (character-save/, open-folder/, send-to-photoshop/)
 │   │   ├── concept-lab/
-│   │   │   └── nodes/
+│   │   │   ├── ConceptLabShell.tsx, ConceptLabDock.tsx
+│   │   │   └── nodes/               (WeapBaseNode, WeapComponentsNode, ConceptLabNodes.css)
 │   │   ├── gemini-studio/
-│   │   │   └── nodes/
+│   │   │   ├── GeminiStudioShell.tsx, GeminiStudioDock.tsx
+│   │   │   └── nodes/               (ImageGenNode, VideoGenNode, PromptNode, ImageRefNode, OutputViewerNode)
 │   │   ├── ideation/
-│   │   │   ├── canvas/ (nodes/, compat/, hooks/, edges/)
-│   │   │   ├── layout/
-│   │   │   ├── stages/
-│   │   │   └── views/
+│   │   │   ├── canvas/
+│   │   │   │   ├── FlowCanvas.tsx, ToolDock.tsx, useFlowSession.ts, GlossaryOverlay.tsx
+│   │   │   │   ├── nodes/           (SeedNode, NormalizeNode, DivergeNode, CritiqueNode, ExpandNode, ConvergeNode, CommitNode, IterateNode, ResultNode, StartNode, GroupNode, PackedPipelineNode, CountNode, TextOutputNode, ImageOutputNode, VideoOutputNode, ExtractDataNode, EmotionNode, InfluenceNode, TextInfluenceNode, DocumentInfluenceNode, ImageInfluenceNode, LinkInfluenceNode, VideoInfluenceNode, PrepromptNode, PostPromptNode, ImageReferenceNode, CharacterNode, WeaponNode, TurnaroundNode, BaseNode, nodeRegistry)
+│   │   │   │   ├── nodes/character/ (CharIdentityNode, CharDescriptionNode, CharAttributesNode, ExtractAttributesNode, EnhanceDescriptionNode, GenerateCharImageNode, GenerateViewsNode, ReferenceCalloutNode, MainStageViewerNode, EditCharacterNode, CharHistoryNode, ResetCharacterNode, SendToPhotoshopNode, ShowXMLNode, QuickGenerateNode, ProjectSettingsNode)
+│   │   │   │   ├── edges/           (PipelineEdge)
+│   │   │   │   └── compat/          (withCompatCheck, CompatProvider)
+│   │   │   ├── layout/              (Shell, SettingsPanel, FooterNote, SaveDialog, OpenDialog, Modal, StageWorkspace)
+│   │   │   ├── stages/              (NormalizeStage, DivergeStage, CritiqueStage, ExpandStage, ConvergeStage, CommitStage, IterateStage, stages.css)
+│   │   │   └── views/               (EvaluationDashboardView, LineageGraphView)
 │   │   ├── tool-editor/
-│   │   │   └── nodes/
-│   │   └── ui-lab/
-│   │       └── components/
-│   ├── components/
-│   │   └── nodes/ui/
-│   ├── hooks/
+│   │   │   ├── ToolEditorShell.tsx, ToolEditorCanvas.tsx, PropertyPanel.tsx, EditorToolDock.tsx
+│   │   │   ├── SaveDialog.tsx, ExportDialog.tsx, ImportDialog.tsx
+│   │   │   └── nodes/               (GenericNode, FrameNode, WindowNode, ImageNode, TextBoxNode, ButtonNode, DropdownNode)
+│   │   ├── ui-lab/                   (UILabShell, components: DimensionPlanner, GeneratePanel, etc.)
+│   │   ├── globals.css, layout.tsx, page.tsx
+│   ├── components/                   (GlobalToolbar, Sidebar, HubCanvas, HomePage, Toast, CostWidget, CanvasContextMenu, ImageContextMenu)
+│   ├── hooks/                        (useCanvasSession.ts)
 │   └── lib/
 │       ├── ideation/
-│       │   ├── context/
-│       │   ├── engine/ (provider/, conceptlab/, prompts/, diverge/, expand/, critique/, converge/, commit/, culture/, lineage/, eval/, security/)
-│       │   └── state/
-│       ├── styles/
-│       ├── ui-lab/
-│       └── workspace/
+│       │   ├── context/              (SessionContext.tsx)
+│       │   ├── engine/               (orchestrator.ts, apiConfig.ts, generationLog.ts)
+│       │   │   ├── provider/         (geminiProvider.ts, mockProvider.ts, costTracker.ts, types.ts)
+│       │   │   ├── prompts/          (normalizePrompt, divergePrompt, critiquePrompt, expandPrompt, convergePrompt, commitPrompt, iteratePrompt, loadPack)
+│       │   │   ├── diverge/          (portfolio.ts)
+│       │   │   ├── critique/         (critiqueEngine.ts)
+│       │   │   ├── converge/         (convergeEngine.ts)
+│       │   │   ├── commit/           (commitEngine.ts)
+│       │   │   ├── culture/          (cultureGuard.ts)
+│       │   │   ├── eval/             (smoke.ts)
+│       │   │   ├── security/         (inputSanitizer.ts)
+│       │   │   ├── lineage/          (lineageGraph.ts)
+│       │   │   └── conceptlab/       (imageGenApi.ts, characterPrompts.ts, weaponPrompts.ts)
+│       │   └── state/                (sessionTypes.ts, sessionStore.ts, sessionSelectors.ts, presetStore.ts)
+│       ├── layoutStore.ts, registry.ts, cn.ts, tool-client.ts, types.ts
+│       ├── styles/                   (useStyleStore, styleStore)
+│       ├── ui-lab/                   (UILabContext, api, types)
+│       └── workspace/                (WorkspaceContext)
+├── Governance: PROJECT.md, SPEC.md, ARCHITECTURE.md, DECISIONS.md, TASKS.md, AGENT_RULES.md
+├── Reports: HEALTH_REPORT.md, MASTER_REPO_REPORT.md
+├── Config: .env.example, .env.local, next.config.ts, tsconfig.json, postcss.config.mjs, run.bat, package.json
 ```
 
----
+## Governance Documents
 
-## Document Status
+| Document | Present |
+|----------|---------|
+| PROJECT.md | Yes |
+| SPEC.md | Yes |
+| ARCHITECTURE.md | Yes |
+| DECISIONS.md | Yes |
+| TASKS.md | Yes |
+| README.md | No |
+| AGENT_RULES.md | Yes |
 
-| Document | Status |
-|----------|--------|
-| PROJECT.md | Present |
-| SPEC.md | Present |
-| ARCHITECTURE.md | Present |
-| DECISIONS.md | Present |
-| TASKS.md | Present |
-| README.md | **Missing** |
-| AGENT_RULES.md | Present |
-| HEALTH_REPORT.md | Present (prior) |
+## Dependencies
 
----
+**Root package.json** — `shawnderland-okdo@0.1.0`
 
-## Dependency Manifests
-
-| Manifest | Path | Notes |
-|----------|------|-------|
-| package.json | `/package.json` | Next.js 15, React 19, @xyflow/react 12, zod 4 |
-| package.json | `/packages/ui/package.json` | @shawnderland/ui local package |
-| package-lock.json | `/package-lock.json` | Present |
-| tsconfig.json | `/tsconfig.json` | Present |
-| postcss.config.mjs | `/postcss.config.mjs` | Tailwind v4 PostCSS |
-| next.config.ts | `/next.config.ts` | Next.js config |
-
-### Key Dependencies
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| next | ^15 | Framework (App Router) |
+| Package | Version | Role |
+|---------|---------|------|
+| next | ^15 | Framework |
 | react / react-dom | ^19 | UI library |
-| @xyflow/react | ^12.10.1 | Node-based canvas |
-| dagre | ^0.8.5 | Graph auto-layout |
+| @xyflow/react | ^12.10.1 | Node canvas |
+| dagre | ^0.8.5 | Graph layout |
 | zod | ^4.3.6 | Schema validation |
 | lucide-react | ^0.468 | Icons |
-| clsx | ^2 | Conditional class names |
-| tailwind-merge | ^3 | Tailwind class conflict resolution |
-| tailwindcss | ^4 | CSS framework (dev) |
-| typescript | ^5 | Type system (dev) |
-
----
+| tailwindcss | ^4 | Styling |
+| typescript | ^5 | Language |
 
 ## Entry Points
 
-| Entry | Path | Purpose |
-|-------|------|---------|
-| Run script | `run.bat` | Bootstrap: check Node, install deps, clear port, start dev |
-| npm dev | `npm run dev` | Next.js dev server |
-| npm build | `npm run build` | Production build |
-| npm start | `npm start` | Production server |
-| App entry | `src/app/page.tsx` | Root page |
-| App layout | `src/app/layout.tsx` | Root layout |
+| Entry | Path | Status |
+|-------|------|--------|
+| Run script | `run.bat` | Present, functional |
+| Dev server | `npm run dev` | Next.js dev |
+| Build | `npm run build` | Next.js build |
+| App entry | `src/app/page.tsx` | Hub home page |
 
----
-
-## Lines of Code by Language
+## Lines of Code
 
 | Extension | Files | LOC | Bytes |
 |-----------|-------|-----|-------|
-| .tsx | 132 | 20,585 | 733,249 |
-| .css | 64 | 11,965 | 234,215 |
-| .ts | 74 | 10,002 | 356,851 |
-| .json | 4 | 2,038 | 70,105 |
-| .md | 17 | 1,327 | 56,511 |
-| **Total** | **291** | **45,917** | **1,450,931** |
+| .tsx | 147 | 21,175 | 837,179 |
+| .css | 68 | 11,413 | 258,133 |
+| .ts | 78 | 9,711 | 390,105 |
+| .json | 1 | 20 | 537 |
+| .md | 9 | 20 | 1,757 |
+| **Total** | **303** | **42,339** | **1,487,711** |
 
----
+## Subsystems
 
-## Subsystem Hints
-
-| Subsystem | Path | Role |
-|-----------|------|------|
-| Hub Shell | `src/components/` | App shell, sidebar, workspace renderer, command palette |
-| ShawnderMind | `src/app/ideation/` | 8-stage AI ideation pipeline canvas |
-| AI ConceptLab | `src/app/concept-lab/` | Character/weapon design + turnaround views |
-| Gemini Studio | `src/app/gemini-studio/` | Image/video generation studio |
-| Tool Editor | `src/app/tool-editor/` | Visual tool designer with JSON export |
-| AI UI Lab | `src/app/ui-lab/` | Game UI generation workspace |
-| Engine | `src/lib/ideation/engine/` | Orchestrator, providers, prompts, eval |
-| Session | `src/lib/ideation/context/` | Session state provider |
-| Design System | `packages/ui/` | @shawnderland/ui shared components |
-| Shared Hooks | `src/hooks/` | useCanvasSession |
-| Shared Canvas | `src/components/` | GlobalToolbar, CanvasContextMenu, CanvasCommon |
-
----
+| System | Path | Role |
+|--------|------|------|
+| Hub Shell | src/components/ | App shell, sidebar, workspace |
+| ShawnderMind | src/app/ideation/ | 8-stage AI ideation pipeline |
+| AI ConceptLab | src/app/concept-lab/ | Character/weapon concept design |
+| Gemini Studio | src/app/gemini-studio/ | Image/video generation |
+| Tool Editor | src/app/tool-editor/ | Visual tool designer |
+| AI UI Lab | src/app/ui-lab/ | Game UI generation |
+| Engine | src/lib/ideation/engine/ | Orchestrator, providers, prompts |
+| Session | src/lib/ideation/context/ | State management |
+| Design System | packages/ui/ | Shared UI components |
+| Shared Hooks | src/hooks/ | useCanvasSession |
 
 ## Duplication Signals
 
-| Signal | Files | Notes |
-|--------|-------|-------|
-| Duplicate flowLayout.ts | `packages/ui/src/canvas/flowLayout.ts`, `src/app/ideation/canvas/flowLayout.ts` | Known; tracked in TASKS.md |
-| ContextMenu.css orphan | `src/app/ideation/canvas/ContextMenu.css` | ContextMenu.tsx deleted; CSS still present, imported by shared components |
-| Parallel state patterns | SessionContext (createContext), useToolEditorStore (syncExternalStore), useCanvasSession (hook) | Intentional per DECISIONS.md #007 |
+| Signal | Files |
+|--------|-------|
+| Duplicate flowLayout.ts | `packages/ui/src/canvas/flowLayout.ts` vs `src/app/ideation/canvas/flowLayout.ts` |
+| Orphaned ContextMenu.css | `src/app/ideation/canvas/ContextMenu.css` (component deleted) |
+| Dead viewer CSS | `src/app/concept-lab/nodes/ConceptLabNodes.css` .cl-viewer-* classes |
 
----
+## Config
 
-## Config Hints
-
-| Type | File/Variable | Notes |
-|------|---------------|-------|
-| Env file | `.env.local` | Not tracked; contains NEXT_PUBLIC_GEMINI_API_KEY |
-| Env template | `.env.example` | Documents all env vars |
-| Env vars | `NEXT_PUBLIC_GEMINI_API_KEY` | AI Studio API key |
-| Env vars | `NEXT_PUBLIC_VERTEX_PROJECT` | Vertex AI project (optional) |
-| Env vars | `NEXT_PUBLIC_VERTEX_LOCATION` | Vertex AI region (optional) |
-| Env vars | `NEXT_PUBLIC_VERTEX_API_KEY` | Vertex AI key (optional) |
-| Next.js config | `next.config.ts` | Proxy rewrites, security headers |
-| PostCSS | `postcss.config.mjs` | Tailwind v4 plugin |
-| TypeScript | `tsconfig.json` | Strict mode, path aliases |
-
----
+| Type | File | Notes |
+|------|------|-------|
+| Env vars | `.env.example` | NEXT_PUBLIC_GEMINI_API_KEY, NEXT_PUBLIC_VERTEX_* |
+| Next config | `next.config.ts` | Rewrites for sub-tools |
+| TypeScript | `tsconfig.json` | Strict, @/* aliases |
+| PostCSS | `postcss.config.mjs` | Tailwind v4 |
 
 ## Git Churn
 
-| Metric | Value |
-|--------|-------|
-| Branch | main |
-| Total commits | 4 |
-| Last commit | 2026-03-05 16:26:59 -0600 |
-| Last commit hash | b2ad2d6 |
-| Last commit message | feat: add ConceptLab, Gemini Studio, home page redesign, and node resize |
-| Uncommitted changes | 13 files modified (staged/unstaged) |
-
-### Commit History
-
-| Hash | Message |
-|------|---------|
-| b2ad2d6 | feat: add ConceptLab, Gemini Studio, home page redesign, and node resize |
-| 2b3e5c4 | feat: add Tool Editor, overhaul Ideation Canvas, establish RRGM governance |
-| 5da7b51 | feat: scaffold Shawnderland OKDO hub with five AI tool integrations |
-| c3d8510 | Initial commit |
-
-### Uncommitted Modified Files
-
-- src/app/ideation/canvas/FlowCanvas.tsx
-- src/app/ideation/canvas/ToolDock.css
-- src/app/ideation/canvas/ToolDock.tsx
-- src/app/ideation/canvas/nodes/BaseNode.css
-- src/app/ideation/canvas/nodes/BaseNode.tsx
-- src/app/ideation/canvas/nodes/ExtractDataNode.tsx
-- src/app/ideation/canvas/nodes/ImageOutputNode.tsx
-- src/app/ideation/canvas/nodes/NormalizeNode.tsx
-- src/app/ideation/canvas/nodes/SeedNode.tsx
-- src/app/ideation/canvas/nodes/VideoOutputNode.tsx
-- src/app/ideation/canvas/useFlowSession.ts
-- src/lib/ideation/engine/orchestrator.ts
-- src/lib/ideation/engine/provider/geminiProvider.ts
+| Hash | Date | Message |
+|------|------|---------|
+| 4ac2b70 | 2026-03-06 | feat: add named layout system, global cost widget, character generator nodes, and UX overhaul |
+| a8cf08c | 2026-03-06 | docs: sync governance docs with current implementation, add full scan report |
+| 4bd18a3 | 2026-03-06 | pre clean |
+| b2ad2d6 | 2026-03-05 | feat: add ConceptLab, Gemini Studio, home page redesign, and node resize |
+| 2b3e5c4 | 2026-03-05 | feat: add Tool Editor, overhaul Ideation Canvas, establish RRGM governance |
 
 ---
 
 ## Health Report
 
-# HEALTH REPORT — Shawnderland OKDO
+# Health Report — Shawnderland OKDO
 
 | Field | Value |
 |-------|-------|
-| Report ID | 20260306_080757 |
-| Date | 2026-03-06 |
+| Report ID | 20260306_161152 |
+| Date | 2026-03-06 16:11:52 |
 | Overall Health | **YELLOW** |
 | Primary Issue Type | Doc Lag |
+
+## Scoring
+
+### Red Triggers
+None.
+
+### Yellow Triggers
+1. **Doc drift**: ARCHITECTURE.md references deleted Concept Lab nodes (`CharIdentityNode.tsx`, `CharAttributesNode.tsx`, `MultiViewerNode.tsx`, `EditImageNode.tsx` under `concept-lab/nodes/`). 16 new character nodes under `ideation/canvas/nodes/character/` are undocumented. New shared components (`CostWidget`, `Toast`, `layoutStore`) not listed.
+2. **Broken preset node types**: `ConceptLabShell.tsx` character/weapon presets reference non-existent node types `multiViewer` and `editImage` (should be `charViewer` and `charEdit`).
+3. **Dead CSS**: ~65 lines of `.cl-viewer-*` styles in `ConceptLabNodes.css` from removed `MultiViewerNode`.
+4. **GeminiStudioShell missing named layout integration**: Still uses deprecated `onSaveLayout` prop; not wired to new named layout system.
+5. **6 uncommitted files**: Export dropdown and toolbar changes not yet committed.
+
+### Green Conditions Met
+- No secrets in source code
+- Entrypoint (`run.bat`, `npm run dev`) functional
+- No output-only dirs tracked in git
+- No text files over 100KB
+- Portability: Pass (deps declared, run command bootstraps)
+- No parallel systems detected (duplicates are tracked and documented)
 
 ---
 
 ## Top 3 Risks
 
-1. **Doc drift**: ARCHITECTURE.md references deleted `ContextMenu.tsx`; new shared components (`useCanvasSession`, `GlobalToolbar`, `CanvasContextMenu`, `PrepromptNode`, `PostPromptNode`) are not documented in any governance doc.
-2. **Large files**: 5 files exceed 800 LOC — `stages.css` (1,495), `SessionContext.tsx` (1,060), `orchestrator.ts` (1,039), `DimensionPlanner.tsx` (937), `useFlowSession.ts` (818). These are complexity hotspots.
-3. **Duplicate flowLayout.ts**: Two identical copies exist (`packages/ui/src/canvas/flowLayout.ts` and `src/app/ideation/canvas/flowLayout.ts`). Only the ideation copy is imported at runtime.
+1. **Broken ConceptLab presets**: Character and Weapon preset buttons silently fail because they reference old node types (`multiViewer`/`editImage`). Users clicking these presets will see blank fallback nodes.
+2. **ARCHITECTURE.md structural inaccuracy**: Documentation claims character nodes live in `concept-lab/nodes/` but they were moved to `ideation/canvas/nodes/character/`. New developers following the architecture doc will be misled.
+3. **Uncommitted feature work**: 6 files with the Export dropdown overhaul are modified but not committed, risking accidental loss.
 
 ## Top 3 Recommended Actions
 
-1. **Sync governance docs**: Update ARCHITECTURE.md, SPEC.md, PROJECT.md, and DECISIONS.md to reflect all uncommitted changes (PrepromptNode, PostPromptNode, useCanvasSession, GlobalToolbar, CanvasContextMenu, Gemini Studio tool).
-2. **Consolidate flowLayout.ts**: Delete `src/app/ideation/canvas/flowLayout.ts` and import from `@shawnderland/ui` (already tracked in TASKS.md).
-3. **Split large files**: Break up SessionContext.tsx and orchestrator.ts (already tracked in TASKS.md Later).
+1. **Fix preset node types** in `ConceptLabShell.tsx`: change `multiViewer` → `charViewer`, `editImage` → `charEdit`.
+2. **Update ARCHITECTURE.md**: Remove deleted `concept-lab/nodes/` entries, add `ideation/canvas/nodes/character/` section, add shared components section (CostWidget, Toast, layoutStore).
+3. **Commit outstanding changes**: Stage and commit the 6 modified files for the Export dropdown feature.
 
 ---
 
-## RED TRIGGERS
+## Findings
 
-| Check | Status | Evidence |
-|-------|--------|----------|
-| Secrets in source | **PASS** | No hardcoded API keys, tokens, or credentials found in .ts/.tsx/.js/.jsx files. `.env.local` is gitignored and not tracked. |
-| Run entrypoint | **PASS** | `run.bat` exists and is documented in ARCHITECTURE.md. `npm run dev`/`build`/`start` scripts present. |
-| Parallel systems | **PASS** | State management uses three intentionally distinct patterns (Context, syncExternalStore, hook) per DECISIONS.md #007. No duplicate routers, persistence layers, or engines. |
-| Output dirs tracked in git | **PASS** | `git ls-files` returns no entries under `.repo_snapshot/`, `output/`, `dist/`, `build/`, or `.next/`. |
-
----
-
-## YELLOW TRIGGERS
-
-| Check | Status | Evidence |
-|-------|--------|----------|
-| Doc drift | **TRIGGERED** | ARCHITECTURE.md references deleted `ContextMenu.tsx`. New components (`useCanvasSession`, `GlobalToolbar`, `CanvasContextMenu`, `PrepromptNode`, `PostPromptNode`, Gemini Studio) undocumented. See Doc Drift section. |
-| README accuracy | **NOTE** | No README.md exists; PROJECT.md serves as the primary documentation. PROJECT.md omits Gemini Studio tool and recent unification features. |
-| Large files (>100 KB) | **PASS** | No text-like files exceed 100 KB. Largest is `package-lock.json` at 68 KB. |
-| Output dirs not in .gitignore | **PASS** | `.repo_snapshot/`, `dist/`, `.next/`, `node_modules/` all covered in `.gitignore`. |
-| Portability | **PASS** | All dependencies declared in `package.json`. `run.bat` bootstraps install and dev server. `.env.example` documents required vars. |
-| Sustained growth >15% | **N/A** | No prior snapshot JSON exists to compare against. |
-
----
-
-## Governance
+### 1. Governance
 
 | Document | Status | Notes |
 |----------|--------|-------|
-| PROJECT.md | Present | Missing Gemini Studio tool, Preprompt/PostPrompt nodes, unified canvas features |
-| SPEC.md | Present | Missing Gemini Studio section, Preprompt/PostPrompt, shared useCanvasSession/GlobalToolbar/CanvasContextMenu |
-| ARCHITECTURE.md | Present | References deleted ContextMenu.tsx; missing useCanvasSession, GlobalToolbar, CanvasContextMenu, Preprompt/PostPromptNode |
-| DECISIONS.md | Present | Missing ADRs for unified canvas session, Preprompt/PostPrompt design |
-| TASKS.md | Present | Current |
-| README.md | **Missing** | PROJECT.md used instead |
-| AGENT_RULES.md | Present | Current |
+| PROJECT.md | Present | Accurate high-level description |
+| SPEC.md | Present | "Node inspector" and "status bar" listed but not wired |
+| ARCHITECTURE.md | Present | **Drift** — deleted nodes listed, new nodes missing |
+| DECISIONS.md | Present | Up to date |
+| TASKS.md | Present | Active items present |
+| README.md | **Missing** | No README.md exists |
+| AGENT_RULES.md | Present | Authoritative governance contract |
 
----
+### 2. Drift & Bloat
 
-## Doc Drift
+**Doc Drift Items:**
 
-| Doc | Issue | Evidence |
-|-----|-------|----------|
-| ARCHITECTURE.md | References deleted file | Line 59: `ContextMenu.tsx/.css Right-click add/group/expand menu` — file `src/app/ideation/canvas/ContextMenu.tsx` was deleted and replaced by `src/components/CanvasContextMenu.tsx` |
-| ARCHITECTURE.md | Missing new shared components | `src/hooks/useCanvasSession.ts`, `src/components/GlobalToolbar.tsx`, `src/components/CanvasContextMenu.tsx`, `src/components/CanvasCommon.css` not listed in project structure |
-| ARCHITECTURE.md | Missing new node types | `PrepromptNode.tsx`, `PostPromptNode.tsx` not listed in the ideation/canvas/nodes section |
-| ARCHITECTURE.md | Missing Gemini Studio | No `gemini-studio/` section in project structure |
-| ARCHITECTURE.md | Missing Concept Lab standalone | `concept-lab/` directory not listed in project structure |
-| SPEC.md | Missing Gemini Studio | No Gemini Studio section at all |
-| SPEC.md | Missing Preprompt/PostPrompt | Not documented in ShawnderMind influence/modifier nodes |
-| SPEC.md | Missing unified canvas features | `useCanvasSession`, `GlobalToolbar`, `CanvasContextMenu` not mentioned |
-| PROJECT.md | Missing Gemini Studio | Not listed in Tools table or features |
-| PROJECT.md | Missing Preprompt/PostPrompt | Not mentioned in ShawnderMind Features |
-| PROJECT.md | Missing unified canvas | No mention of shared toolbar, context menu, or canvas session hook |
-| DECISIONS.md | Missing unification ADR | No decision recorded for extracting `useCanvasSession` or unifying toolbar/context menu |
-| DECISIONS.md | Missing Preprompt/PostPrompt ADR | No decision for prompt injection node design |
+| # | Document | Issue | Evidence |
+|---|----------|-------|----------|
+| 1 | ARCHITECTURE.md | Lists `concept-lab/nodes/CharIdentityNode.tsx` | File deleted; lives at `ideation/canvas/nodes/character/` |
+| 2 | ARCHITECTURE.md | Lists `concept-lab/nodes/CharAttributesNode.tsx` | File deleted; lives at `ideation/canvas/nodes/character/` |
+| 3 | ARCHITECTURE.md | Lists `concept-lab/nodes/MultiViewerNode.tsx` | File deleted; replaced by `MainStageViewerNode` |
+| 4 | ARCHITECTURE.md | Lists `concept-lab/nodes/EditImageNode.tsx` | File deleted; replaced by `EditCharacterNode` |
+| 5 | ARCHITECTURE.md | Missing `ideation/canvas/nodes/character/` | 16 new character generator nodes not documented |
+| 6 | ARCHITECTURE.md | Missing shared components | `CostWidget`, `Toast`, `layoutStore` not listed |
+| 7 | SPEC.md | Lists "Node inspector" as canvas UI | `NodeInspector.tsx` exists but is never imported |
+| 8 | SPEC.md | Lists "status bar" as canvas UI | `StatusBar.tsx` exists but is never imported |
 
----
+**Code Bloat:**
 
-## Drift / Bloat
+| Item | Path | Size |
+|------|------|------|
+| stages.css | `src/app/ideation/stages/stages.css` | 1,495 LOC |
+| orchestrator.ts | `src/lib/ideation/engine/orchestrator.ts` | 1,106 LOC |
+| useFlowSession.ts | `src/app/ideation/canvas/useFlowSession.ts` | 1,094 LOC |
+| SessionContext.tsx | `src/lib/ideation/context/SessionContext.tsx` | 1,083 LOC |
+| FlowCanvas.tsx | `src/app/ideation/canvas/FlowCanvas.tsx` | 1,029 LOC |
 
-| Item | Type | Evidence |
-|------|------|----------|
-| Duplicate flowLayout.ts | Duplication | `packages/ui/src/canvas/flowLayout.ts` (canonical) and `src/app/ideation/canvas/flowLayout.ts` (duplicate). Tracked in TASKS.md Next. |
-| Orphaned ContextMenu.css | Dead file | `src/app/ideation/canvas/ContextMenu.css` exists but `ContextMenu.tsx` was deleted. CSS is imported by `CanvasContextMenu.tsx` and `ImageContextMenu.tsx` for shared styles — may be intentional reuse. |
+### 3. Cleanup Candidates
 
----
+| # | Item | Action |
+|---|------|--------|
+| 1 | `src/app/ideation/canvas/StatusBar.tsx` + `.css` | Remove (never imported) |
+| 2 | `src/app/ideation/canvas/NodeInspector.tsx` + `.css` | Remove (never imported) |
+| 3 | Dead `.cl-viewer-*` CSS in `ConceptLabNodes.css` | Remove ~65 lines |
+| 4 | `src/lib/ideation/engine/prompts/loadPack.ts` | Evaluate — exports unused |
+| 5 | Orphaned `ContextMenu.css` | Evaluate — merge or remove |
+| 6 | Broken preset types in `ConceptLabShell.tsx` | Fix `multiViewer` → `charViewer`, `editImage` → `charEdit` |
+| 7 | `GeminiStudioShell.tsx` deprecated props | Wire to named layout system |
 
-## Cleanup Candidates
+### 4. Growth & Trajectory
 
-| # | File / Item | Reason | Severity |
-|---|-------------|--------|----------|
-| 1 | `src/app/ideation/canvas/flowLayout.ts` | Duplicate of `packages/ui/src/canvas/flowLayout.ts` | Low |
-| 2 | `src/app/ideation/canvas/ContextMenu.css` | Original component deleted; CSS may be shared — verify if styles should be merged into `CanvasCommon.css` or `CanvasContextMenu` styles | Low |
-| 3 | 13 uncommitted modified files | Large batch of changes not yet committed | Medium |
+**Since last audit (20260306_080757):**
 
----
+| Metric | Previous | Current | Delta | % Change |
+|--------|----------|---------|-------|----------|
+| Files | 291 | 303 | +12 | +4.1% |
+| LOC (src+packages) | 45,917 | 42,339 | -3,578* | -7.8% |
+| Bytes | 1,450,931 | 1,487,711 | +36,780 | +2.5% |
+| Commits | 4 | 7 | +3 | — |
 
-## Growth & Trajectory
+*LOC decrease due to revised counting scope (excludes root-level governance docs and package-lock.json from src/packages count).
 
-### Top 10 Biggest Files by LOC
+**Top files by growth (estimated from commit messages):**
+- `useFlowSession.ts`: +276 LOC (named layouts, export variants, UX overhaul)
+- `FlowCanvas.tsx`: +232 LOC (lineage tracking, glossary, auto-connect)
+- `orchestrator.ts`: +67 LOC (count controls, multimodal, data chains)
+- `GlobalToolbar.tsx`: Layout/Export dropdowns added
+- 16 new character node files added
 
-| # | File | LOC | Bytes |
-|---|------|-----|-------|
-| 1 | package-lock.json | 1,961 | 68,142 |
-| 2 | src/app/ideation/stages/stages.css | 1,495 | 27,041 |
-| 3 | src/lib/ideation/context/SessionContext.tsx | 1,060 | 39,818 |
-| 4 | src/lib/ideation/engine/orchestrator.ts | 1,039 | 34,977 |
-| 5 | src/app/ui-lab/components/DimensionPlanner.tsx | 937 | 29,435 |
-| 6 | src/app/ideation/canvas/useFlowSession.ts | 818 | 29,045 |
-| 7 | src/app/ideation/canvas/FlowCanvas.tsx | 797 | 31,924 |
-| 8 | src/app/ideation/canvas/ToolDock.tsx | 721 | 25,576 |
-| 9 | src/hooks/useCanvasSession.ts | 605 | 23,478 |
-| 10 | src/app/tool-editor/useToolEditorStore.ts | 580 | 18,173 |
+**Growth rate**: +2.5% bytes in ~8 hours. Not sustained enough to trigger yellow growth warning.
 
-### Prior Snapshot Comparison
+### 5. Prompt & Template Surface
 
-No prior snapshot JSON exists. This is the baseline.
+Top template literals by size:
 
-### Git Churn
+| # | File | Description |
+|---|------|-------------|
+| 1 | `characterPrompts.ts:128` | Image format spec for character generation (~600 chars) |
+| 2 | `characterPrompts.ts:252` | Data extraction prompt for character attributes (~500 chars) |
+| 3 | `characterPrompts.ts:155` | Identity lock instructions for consistency (~400 chars) |
+| 4 | `loadPack.ts:5` | Normalize stage system prompt (~300 chars) |
+| 5 | `loadPack.ts:13` | Diverge stage system prompt (~350 chars) |
+| 6 | `loadPack.ts:23` | Critique stage system prompt (~250 chars) |
+| 7 | `loadPack.ts:28` | Mutation engine system prompt (~300 chars) |
+| 8 | `loadPack.ts:35` | Expand stage system prompt (~300 chars) |
+| 9 | `weaponPrompts.ts:129` | Weapon image analysis prompt (~400 chars) |
+| 10 | `orchestrator.ts:53` | Seed summary JSON schema prompt (~200 chars) |
 
-4 total commits. 13 files currently modified (uncommitted). All modifications are in `src/app/ideation/` and `src/lib/ideation/engine/` — the ShawnderMind subsystem.
+No near-duplicate prompts detected (all serve distinct pipeline stages).
 
----
+### 6. Secrets Scan
 
-## Prompt & Template Surface
+**Status: Clean**
 
-### Top 10 Largest Multi-line String Literals
+All API_KEY/TOKEN references are environment variable name references, not hardcoded values. `.env` and `.env.local` are properly gitignored.
 
-| # | File | Length (chars) | Position |
-|---|------|----------------|----------|
-| 1 | src/app/ideation/canvas/FlowCanvas.tsx | 25,546 | 11 |
-| 2 | src/lib/ideation/engine/orchestrator.ts | 24,648 | 9,208 |
-| 3 | src/app/concept-lab/ConceptLabShell.tsx | 9,505 | 11 |
-| 4 | src/lib/ideation/engine/provider/mockProvider.ts | 9,214 | 441 |
-| 5 | src/app/concept-lab/nodes/WeapBaseNode.tsx | 9,210 | 11 |
-| 6 | src/app/gemini-studio/GeminiStudioShell.tsx | 8,534 | 11 |
-| 7 | src/app/concept-lab/nodes/CharIdentityNode.tsx | 8,374 | 11 |
-| 8 | src/app/ideation/canvas/ToolDock.tsx | 7,819 | 11 |
-| 9 | src/app/gemini-studio/nodes/ImageGenNode.tsx | 7,407 | 11 |
-| 10 | src/lib/ideation/engine/generationLog.ts | 5,633 | 6,572 |
+### 7. Portability
 
-Note: Position 11 entries are typically JSX template literals (full component JSX). The orchestrator.ts entry at position 9,208 contains actual AI prompt template strings.
+**Status: Pass**
 
-### Near-Duplicate Prompts
-
-Not assessed — insufficient tooling for similarity comparison in this environment.
-
-### Template Governance
-
-No `src/templates.py` exists. Prompt templates are distributed across `src/lib/ideation/engine/` subdirectories.
-
----
-
-## Health Scoring
-
-| Category | Result |
-|----------|--------|
-| RED triggers | 0 fired |
-| YELLOW triggers | 1 fired (Doc drift) |
-| Overall | **YELLOW** |
-| Primary issue type | **Doc Lag** |
+- `package.json` declares all runtime and dev dependencies
+- `run.bat` checks for Node.js, runs `npm install`, starts dev server
+- `.env.example` documents required environment variables
+- No manual steps required beyond copying `.env.example` → `.env.local`
 
 ---
 
 ## Proposed Cleanup Plan
 
-1. **[Priority: High]** Sync all governance docs (PROJECT.md, SPEC.md, ARCHITECTURE.md, DECISIONS.md) with current implementation state — add Gemini Studio, PrepromptNode, PostPromptNode, useCanvasSession, GlobalToolbar, CanvasContextMenu; remove reference to deleted ContextMenu.tsx.
-2. **[Priority: Medium]** Commit the 13 modified files with a descriptive commit message.
-3. **[Priority: Low]** Consolidate duplicate `flowLayout.ts` — import from `@shawnderland/ui` everywhere.
-4. **[Priority: Low]** Evaluate whether `ContextMenu.css` should be merged into `CanvasCommon.css` or left as a shared stylesheet.
-5. **[Priority: Low]** Split `SessionContext.tsx` (1,060 LOC) and `orchestrator.ts` (1,039 LOC) into smaller modules.
+### Priority 1 — Functional Fixes
+1. Fix broken preset node types in `ConceptLabShell.tsx`
+2. Wire `GeminiStudioShell.tsx` to named layout system
+3. Commit 6 uncommitted files
 
----
+### Priority 2 — Dead Code Removal
+4. Delete `StatusBar.tsx` + `StatusBar.css` (dead code)
+5. Delete `NodeInspector.tsx` + `NodeInspector.css` (dead code)
+6. Remove `.cl-viewer-*` CSS from `ConceptLabNodes.css`
+7. Evaluate `loadPack.ts` for removal
 
-## Metrics
+### Priority 3 — Documentation
+8. Update ARCHITECTURE.md with current file structure
+9. Remove "Node inspector" and "status bar" claims from SPEC.md or wire them up
+10. Create README.md
 
-| Metric | Value |
-|--------|-------|
-| Total files (text-like) | 291 |
-| Total LOC | 45,917 |
-| Total bytes | 1,450,931 |
-| TypeScript files (.ts/.tsx) | 206 |
-| CSS files | 64 |
-| Test files | 0 |
-| Build status | Clean (tsc --noEmit passes) |
-| Lint status | Clean |
-| TODO/FIXME/HACK comments | 0 |
-| Secrets status | Clean |
-| Portability status | Pass |
-| Entrypoint status | Pass |
+### Priority 4 — Technical Debt
+11. Consolidate duplicate `flowLayout.ts`
+12. Split files over 1000 LOC (SessionContext, orchestrator, useFlowSession, FlowCanvas)
+13. Evaluate orphaned `ContextMenu.css`
 
 ---
 
@@ -468,13 +409,20 @@ No `src/templates.py` exists. Prompt templates are distributed across `src/lib/i
 
 ## Health Audit Cleanup
 
-- [ ] Sync ARCHITECTURE.md: remove deleted ContextMenu.tsx reference, add useCanvasSession, GlobalToolbar, CanvasContextMenu, PrepromptNode, PostPromptNode, Gemini Studio, Concept Lab standalone structure
-- [ ] Sync SPEC.md: add Gemini Studio section, Preprompt/PostPrompt nodes, unified canvas features (useCanvasSession, GlobalToolbar, CanvasContextMenu)
-- [ ] Sync PROJECT.md: add Gemini Studio tool, Preprompt/PostPrompt features, unified canvas features
-- [ ] Sync DECISIONS.md: add ADR for useCanvasSession extraction and unified toolbar/context menu, ADR for Preprompt/PostPrompt prompt injection design
+- [x] Sync ARCHITECTURE.md: remove deleted ContextMenu.tsx reference, add useCanvasSession, GlobalToolbar, CanvasContextMenu, PrepromptNode, PostPromptNode, Gemini Studio, Concept Lab standalone structure
+- [x] Sync SPEC.md: add Gemini Studio section, Preprompt/PostPrompt nodes, unified canvas features (useCanvasSession, GlobalToolbar, CanvasContextMenu)
+- [x] Sync PROJECT.md: add Gemini Studio tool, Preprompt/PostPrompt features, unified canvas features
+- [x] Sync DECISIONS.md: add ADR for useCanvasSession extraction and unified toolbar/context menu, ADR for Preprompt/PostPrompt prompt injection design
 - [ ] Evaluate ContextMenu.css: merge shared styles into CanvasCommon.css or keep as shared stylesheet
 - [ ] Consolidate duplicate flowLayout.ts (use @shawnderland/ui copy)
+- [ ] Fix broken preset node types in ConceptLabShell.tsx (multiViewer → charViewer, editImage → charEdit)
+- [ ] Remove dead code: StatusBar.tsx/css, NodeInspector.tsx/css (never imported)
+- [ ] Remove dead .cl-viewer-* CSS from ConceptLabNodes.css (~65 lines)
+- [ ] Wire GeminiStudioShell.tsx to named layout system (uses deprecated onSaveLayout)
+- [ ] Update ARCHITECTURE.md: remove deleted concept-lab/nodes/ entries, add ideation/canvas/nodes/character/ and shared components
+- [ ] Evaluate loadPack.ts exports (unused)
 - [x] Health audit report generated (report_id: 20260306_080757)
+- [x] Health audit report generated (report_id: 20260306_161152)
 
 ---
 
@@ -482,416 +430,345 @@ No `src/templates.py` exists. Prompt templates are distributed across `src/lib/i
 
 # Comprehensive Repo Report — Shawnderland OKDO
 
----
-
 ## 1. Metadata
 
 | Field | Value |
 |-------|-------|
-| Timestamp | 2026-03-06 08:07:57 |
+| Timestamp | 2026-03-06 16:11:52 |
+| Report ID | 20260306_161152 |
 | Repo root | `D:\dev\Shawnderland_OKDO` |
 | Git branch | main |
-| Last commit | `b2ad2d6` (2026-03-05) |
-| Uncommitted changes | 13 files modified |
-| Scan scope | All text-like files, excluding `node_modules/`, `.next/`, `.git/`, `dist/`, `build/` |
-| Report ID | 20260306_080757 |
-
----
+| Last commit | `4ac2b70` — 2026-03-06 |
+| Uncommitted changes | 6 modified files |
+| Scan scope | Full repository (src/, packages/, root config) |
 
 ## 2. Executive Summary
 
-1. **Shawnderland OKDO is a Next.js 15 hub application** that unifies six AI creative tools under a single interface with sidebar navigation, workspace keep-alive, and command palette. *(Evidence: `src/app/layout.tsx:6-8`, `src/components/ClientShell.tsx`, `src/lib/registry.ts`)*
-
-2. **The codebase contains 45,917 lines of code** across 291 text-like files (132 .tsx, 74 .ts, 64 .css), with a total size of ~1.4 MB. *(Evidence: LOC scan)*
-
-3. **ShawnderMind is the largest subsystem** (~15,000+ LOC across `src/app/ideation/` and `src/lib/ideation/`), implementing an 8-stage AI ideation pipeline with 56 node files, a full orchestrator, session persistence, and Gemini provider integration. *(Evidence: `src/app/ideation/canvas/nodes/` — 56 files)*
-
-4. **Four canvas-based tools share `@xyflow/react`**: ShawnderMind, AI ConceptLab, Gemini Studio, and Tool Editor. A shared `useCanvasSession` hook and unified `GlobalToolbar`/`CanvasContextMenu` components provide consistent canvas behavior. *(Evidence: `src/hooks/useCanvasSession.ts`, `src/components/GlobalToolbar.tsx`, `src/components/CanvasContextMenu.tsx`)*
-
-5. **All Google AI API calls route through a centralized dual-backend config** (`apiConfig.ts`) supporting AI Studio and Vertex AI, with automatic backend selection based on environment variables. *(Evidence: `src/lib/ideation/engine/apiConfig.ts:26-53`)*
-
-6. **Governance is maintained via 6 markdown documents** (PROJECT, SPEC, ARCHITECTURE, DECISIONS, TASKS, AGENT_RULES) following a Repo-Resident Governance Model (RRGM). *(Evidence: `AGENT_RULES.md:10-11`)*
-
-7. **Health status is YELLOW** due to documentation drift: ARCHITECTURE.md references a deleted file (`ContextMenu.tsx`), and several new components added during the latest development session are not yet reflected in governance docs. *(Evidence: HEALTH_REPORT.md)*
-
-8. **Five files exceed 800 LOC**, presenting complexity hotspots: `stages.css` (1,495), `SessionContext.tsx` (1,060), `orchestrator.ts` (1,039), `DimensionPlanner.tsx` (937), `useFlowSession.ts` (818). *(Evidence: file size scan)*
-
-9. **Zero test files exist**. Testing is currently manual only. *(Evidence: file scan — no `*.test.*`, `*.spec.*`, or `__tests__/` directories found)*
-
-10. **The project has 4 total git commits** and 13 uncommitted modified files, indicating active development with infrequent commits. *(Evidence: `git log`, `git status`)*
-
-11. **No hardcoded secrets** were found in source code. API keys are managed via `.env.local` (gitignored) with a documented `.env.example`. *(Evidence: secrets scan, `.gitignore`)*
-
----
+- **Shawnderland OKDO** is a Next.js 15 hub application that unifies six AI-powered creative tools under a single interface with shared navigation, theming, and canvas infrastructure.
+- The codebase is ~42,300 LOC across 303 files (TypeScript/TSX dominant), with a monorepo-lite structure (`packages/ui/` for shared components).
+- All tools share a React Flow-based canvas with unified toolbar, context menu, layout persistence, and API cost tracking.
+- The largest subsystem is **ShawnderMind**, an 8-stage AI ideation pipeline (~5,000 LOC across canvas, stages, engine, and session).
+- A **character generator** node system (16 nodes) was recently added, available across ShawnderMind and ConceptLab canvases.
+- The project uses Google's Gemini API exclusively (AI Studio or Vertex AI), supporting text, image generation (Imagen 4), video generation (Veo 2), and multimodal inputs.
+- Health status is **YELLOW** due to documentation drift (ARCHITECTURE.md references deleted files) and broken ConceptLab presets.
+- No hardcoded secrets found; environment variables are properly managed via `.env.local` (gitignored) with `.env.example` template.
+- The project has no test suite and several files exceeding 1,000 LOC that are candidates for splitting.
+- Active development is rapid — 7 commits over 2 days, with 3 major feature additions in the latest commit.
+- A `run.bat` launcher makes the project runnable with a single click on Windows, checking Node.js, installing deps, and opening the browser.
 
 ## 3. What This Repo Is
 
-| Attribute | Value | Evidence |
-|-----------|-------|----------|
-| Type | Monorepo hub application | `package.json`, `packages/ui/`, `src/app/` |
-| Primary language | TypeScript (React) | 206 .ts/.tsx files |
-| Framework | Next.js 15 (App Router) | `package.json:15`, `src/app/layout.tsx` |
-| UI library | React 19 | `package.json:17` |
-| Canvas library | @xyflow/react 12 | `package.json:12` |
-| Styling | Tailwind CSS v4 + CSS custom properties | `postcss.config.mjs`, 64 CSS files |
-| Validation | Zod 4 | `package.json:20` |
-| Runtime | Node.js (dev server via `npm run dev`) | `run.bat`, `package.json:6` |
-| OS target | Windows (run.bat), cross-platform (npm scripts) | `run.bat` |
-
----
+| Aspect | Details | Evidence |
+|--------|---------|----------|
+| **Type** | Web application (monorepo-lite) | `package.json` at root + `packages/ui/package.json` |
+| **Languages** | TypeScript 5, CSS (Tailwind v4), JSON | `tsconfig.json`: `"strict": true`; 147 .tsx + 78 .ts + 68 .css files |
+| **Framework** | Next.js 15 (App Router), React 19 | `package.json`: `"next": "^15"`, `"react": "^19"` |
+| **Runtime** | Node.js (browser-first SPA with API routes) | `run.bat` checks Node; `src/app/api/` routes |
+| **Canvas Library** | @xyflow/react 12 (React Flow) | `package.json`: `"@xyflow/react": "^12.10.1"` |
+| **AI Backend** | Google Gemini (AI Studio + Vertex AI) | `src/lib/ideation/engine/apiConfig.ts`, `.env.example` |
+| **Styling** | Tailwind CSS v4 + custom CSS modules | `postcss.config.mjs`, `src/app/globals.css` |
+| **Graph Layout** | Dagre | `package.json`: `"dagre": "^0.8.5"` |
+| **Schema Validation** | Zod 4 | `package.json`: `"zod": "^4.3.6"` |
 
 ## 4. How to Run
 
 ### Prerequisites
-
-- Node.js 18+ installed and in PATH
-- Git (for cloning)
+- **Node.js** must be installed and available in PATH
+- **OS**: Windows (run.bat provided); macOS/Linux can use `npm run dev` directly
 
 ### Quick Start (Windows)
-
 ```bat
-git clone <repo-url>
-cd Shawnderland_OKDO
-copy .env.example .env.local
-:: Edit .env.local — add NEXT_PUBLIC_GEMINI_API_KEY from https://aistudio.google.com/apikey
 run.bat
 ```
+This script:
+1. Verifies Node.js is installed
+2. Runs `npm install` if `node_modules/` is missing
+3. Kills any process on port 3000
+4. Starts `npm run dev` (Next.js dev server)
+5. Polls until `http://localhost:3000` responds
+6. Opens the browser
 
-*(Evidence: `run.bat:1-50` — checks Node.js, runs `npm install`, clears port 3000, starts dev server, opens browser)*
+Evidence: `run.bat` lines 1-51
 
-### Quick Start (Cross-platform)
-
+### Quick Start (Any OS)
 ```bash
-npm install
 cp .env.example .env.local
-# Edit .env.local with your API key
+# Edit .env.local to add NEXT_PUBLIC_GEMINI_API_KEY
+npm install
 npm run dev
 # Open http://localhost:3000
 ```
 
-*(Evidence: `package.json:5-9` — scripts: dev, build, start, lint)*
+Evidence: `.env.example`, `package.json` scripts section
 
 ### Environment Variables
-
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `NEXT_PUBLIC_GEMINI_API_KEY` | Yes (AI Studio) | Google AI Studio API key |
-| `NEXT_PUBLIC_VERTEX_PROJECT` | No (Vertex AI) | GCP project ID |
-| `NEXT_PUBLIC_VERTEX_LOCATION` | No (Vertex AI) | GCP region |
-| `NEXT_PUBLIC_VERTEX_API_KEY` | No (Vertex AI) | Vertex AI API key |
+| `NEXT_PUBLIC_GEMINI_API_KEY` | Yes | Google AI Studio API key |
+| `NEXT_PUBLIC_VERTEX_PROJECT` | No | GCP project ID for Vertex AI |
+| `NEXT_PUBLIC_VERTEX_LOCATION` | No | Vertex AI region |
+| `NEXT_PUBLIC_VERTEX_API_KEY` | No | Vertex AI credentials |
 
-*(Evidence: `.env.example`, `src/lib/ideation/engine/apiConfig.ts:5-12`)*
-
----
+Evidence: `.env.example` lines 1-16
 
 ## 5. Feature Inventory
 
-### Hub Features
+### A. Hub & Navigation
 
-| Feature | Module/Files | Evidence |
-|---------|--------------|----------|
-| Sidebar navigation | `src/components/Sidebar.tsx` | Tool list with icons, collapse toggle |
-| Command palette (Ctrl+K) | `src/components/CommandPalette.tsx` | `ClientShell.tsx:18-28` |
-| Workspace keep-alive | `src/components/WorkspaceRenderer.tsx`, `src/lib/workspace/WorkspaceContext.tsx` | Visited panels stay mounted (`display:none` when inactive) — `WorkspaceRenderer.tsx:133-134` |
-| Home page | `src/components/HomePage.tsx`, `src/components/HubCanvas.tsx` | Node-canvas home screen |
-| Tool registry | `src/lib/registry.ts` | 6 tools registered with metadata |
-| Proxy routing | `next.config.ts:10-28` | Rewrites to tool backends |
+| Feature | Module/File | Evidence |
+|---------|-------------|----------|
+| Tool registry | `src/lib/registry.ts` | 6 tools defined: ShawnderMind, ConceptLab, Gemini Studio, UI Lab, Sprite Lab, Walter |
+| Sidebar navigation | `src/components/Sidebar.tsx` | Renders `TOOLS` from registry with icons |
+| Client shell | `src/components/ClientShell.tsx` | Wraps app with Sidebar + content area |
+| Hub canvas | `src/components/HubCanvas.tsx` | Overview canvas for tool connections |
+| Home page | `src/components/HomePage.tsx` | Landing page component |
+| Workspace context | `src/lib/workspace/WorkspaceContext.tsx` | Shared workspace state provider |
 
-### ShawnderMind Features
+### B. ShawnderMind (Ideation Pipeline)
 
-| Feature | Module/Files | Evidence |
-|---------|--------------|----------|
-| 8-stage pipeline | `src/lib/ideation/engine/stages.ts:1-10` | Seed → Normalize → Diverge → Critique/Salvage → Expand → Converge → Commit → Iterate |
-| Pipeline orchestrator | `src/lib/ideation/engine/orchestrator.ts` | 1,039 LOC — prompt assembly, stage sequencing, influence merging |
-| Interactive + Automated modes | `src/app/ideation/canvas/nodes/StartNode.tsx` | Mode buttons on StartNode |
-| PackedPipelineNode | `src/app/ideation/canvas/nodes/PackedPipelineNode.tsx` | Collapsed full-pipeline view |
-| Group/Pack nodes | `src/app/ideation/canvas/nodes/GroupNode.tsx` | Dynamic output handles, expand/collapse |
-| Thinking Tiers | `src/lib/ideation/engine/provider/geminiProvider.ts:12-26` | Quick (flash-lite), Standard (flash), Deep (flash-thinking-exp) |
-| Influence nodes (7 types) | `src/app/ideation/canvas/nodes/{Text,Document,Image,Link,Video}InfluenceNode.tsx`, `EmotionNode.tsx`, `InfluenceNode.tsx` | Free-text, document, image, link, video, emotion, persona |
-| Preprompt/PostPrompt nodes | `src/app/ideation/canvas/nodes/PrepromptNode.tsx`, `PostPromptNode.tsx` | Prompt injection before/after content |
-| Node compatibility validation | `src/app/ideation/canvas/compat/withCompatCheck.tsx`, `src/lib/ideation/engine/nodeCompatibility.ts` | HOC-based error banners |
-| Session persistence | `src/lib/ideation/state/sessionStore.ts`, `src/app/ideation/canvas/useFlowSession.ts` | Named sessions in localStorage |
-| ToolDock with search | `src/app/ideation/canvas/ToolDock.tsx` | Categorized node templates with filter |
-| Output nodes | `TextOutputNode.tsx`, `ImageOutputNode.tsx`, `VideoOutputNode.tsx` | Text, image, and video display |
-| Extract Data node | `ExtractDataNode.tsx` | Data extraction utility |
-| Result node | `ResultNode.tsx` | Final result display (14,640 bytes — largest node) |
+| Feature | Module/File | Evidence |
+|---------|-------------|----------|
+| 8-stage pipeline | `src/lib/ideation/engine/orchestrator.ts` | Seed → Normalize → Diverge → Critique → Expand → Converge → Commit → Iterate |
+| Flow canvas | `src/app/ideation/canvas/FlowCanvas.tsx` | React Flow canvas with drag-drop nodes |
+| Session persistence | `src/lib/ideation/context/SessionContext.tsx` | Context provider with localStorage persistence |
+| Tool dock | `src/app/ideation/canvas/ToolDock.tsx` | Node palette with categories and search |
+| Node types (26+) | `src/app/ideation/canvas/nodes/nodeRegistry.ts` | Pipeline, output, input, influence, utility nodes |
+| Result display | `src/app/ideation/canvas/nodes/ResultNode.tsx` | Categorized results with TLDR, lineage, critique inline |
+| Lineage tracking | `src/lib/ideation/engine/lineage/lineageGraph.ts` | Event-sourced graph for idea ancestry |
+| Glossary overlay | `src/app/ideation/canvas/GlossaryOverlay.tsx` | Movable terminology reference |
+| Multimodal seed | `src/app/ideation/canvas/nodes/SeedNode.tsx` | Image/video/document input alongside text |
+| Count controls | `src/app/ideation/canvas/nodes/CountNode.tsx` | Inline result count settings per stage |
+| Named layouts | `src/lib/layoutStore.ts` | Save, load, set default layouts |
+| Evaluation dashboard | `src/app/ideation/views/EvaluationDashboardView.tsx` | Scoring and ranking visualization |
 
-### AI ConceptLab Features
+### C. AI ConceptLab
 
-| Feature | Module/Files | Evidence |
-|---------|--------------|----------|
-| Character design node | `src/app/concept-lab/nodes/CharIdentityNode.tsx`, `CharAttributesNode.tsx` | Identity + 14 attribute categories |
-| Weapon design node | `src/app/concept-lab/nodes/WeapBaseNode.tsx`, `WeapComponentsNode.tsx` | 8 component fields |
-| Multi-viewer node | `src/app/concept-lab/nodes/MultiViewerNode.tsx` | Multi-view turnaround sheets |
-| Image editing node | `src/app/concept-lab/nodes/EditImageNode.tsx` | Image editing capabilities |
-| ConceptLab shell | `src/app/concept-lab/ConceptLabShell.tsx` | Canvas wrapper with dock |
-| Character prompts | `src/lib/ideation/engine/conceptlab/characterPrompts.ts` | Attribute definitions + prompt builders |
-| Weapon prompts | `src/lib/ideation/engine/conceptlab/weaponPrompts.ts` | Component definitions + prompt builders |
-| Image generation API | `src/lib/ideation/engine/conceptlab/imageGenApi.ts` | Imagen 4 + Gemini helpers |
+| Feature | Module/File | Evidence |
+|---------|-------------|----------|
+| Canvas shell | `src/app/concept-lab/ConceptLabShell.tsx` | React Flow canvas with character/weapon nodes |
+| Weapon nodes | `src/app/concept-lab/nodes/WeapBaseNode.tsx`, `WeapComponentsNode.tsx` | Weapon design pipeline |
+| Character generator (16 nodes) | `src/app/ideation/canvas/nodes/character/` | Full character creation pipeline |
+| Turnaround views | `src/app/ideation/canvas/nodes/TurnaroundNode.tsx` | Multi-view character rendering |
 
-### Gemini Studio Features
+### D. Character Generator (shared)
 
-| Feature | Module/Files | Evidence |
-|---------|--------------|----------|
-| Image generation node | `src/app/gemini-studio/nodes/ImageGenNode.tsx` | Multi-model image generation |
-| Video generation node | `src/app/gemini-studio/nodes/VideoGenNode.tsx` | Veo-based video generation |
+| Feature | Node | Evidence |
+|---------|------|----------|
+| Identity setup | `CharIdentityNode.tsx` | Age, race, gender, build presets |
+| Description | `CharDescriptionNode.tsx` | Freeform text description |
+| Attributes | `CharAttributesNode.tsx` | Structured character attributes |
+| Image extraction | `ExtractAttributesNode.tsx` | AI extracts attributes from reference images |
+| Description enhancement | `EnhanceDescriptionNode.tsx` | AI enhances connected description node |
+| Image generation | `GenerateCharImageNode.tsx` | Generates character image from collected data |
+| Multi-view generation | `GenerateViewsNode.tsx` | Front/back/side views |
+| Reference callout | `ReferenceCalloutNode.tsx` | Reference image with annotation prompt |
+| Main stage viewer | `MainStageViewerNode.tsx` | Large image viewer with zoom |
+| Edit character | `EditCharacterNode.tsx` | Text-based image modifications |
+| History | `CharHistoryNode.tsx` | Version history of edits |
+| Reset | `ResetCharacterNode.tsx` | Resets all character data |
+| Send to Photoshop | `SendToPhotoshopNode.tsx` | API route integration |
+| Show XML | `ShowXMLNode.tsx` | Full character data display |
+| Quick generate | `QuickGenerateNode.tsx` | AI auto-fills and generates |
+| Project settings | `ProjectSettingsNode.tsx` | Save folder configuration |
+
+### E. Gemini Studio
+
+| Feature | Module/File | Evidence |
+|---------|-------------|----------|
+| Canvas shell | `src/app/gemini-studio/GeminiStudioShell.tsx` | React Flow canvas |
 | Prompt node | `src/app/gemini-studio/nodes/PromptNode.tsx` | Text prompt input |
-| Image reference node | `src/app/gemini-studio/nodes/ImageRefNode.tsx` | Image reference input |
-| Output viewer node | `src/app/gemini-studio/nodes/OutputViewerNode.tsx` | Result display |
-| Studio shell | `src/app/gemini-studio/GeminiStudioShell.tsx` | Canvas with unified toolbar |
-| Studio dock | `src/app/gemini-studio/GeminiStudioDock.tsx` | Node template panel |
+| Image generation | `src/app/gemini-studio/nodes/ImageGenNode.tsx` | Imagen 4 integration |
+| Video generation | `src/app/gemini-studio/nodes/VideoGenNode.tsx` | Veo 2 integration |
+| Image reference | `src/app/gemini-studio/nodes/ImageRefNode.tsx` | Reference image for generation |
+| Output viewer | `src/app/gemini-studio/nodes/OutputViewerNode.tsx` | Result display |
 
-### Tool Editor Features
+### F. Tool Editor
 
-| Feature | Module/Files | Evidence |
-|---------|--------------|----------|
-| 6 element types | `src/app/tool-editor/nodes/{GenericNode,WindowNode,FrameNode,ButtonNode,TextBoxNode,DropdownNode}.tsx` | Node components |
-| Property panel | `src/app/tool-editor/PropertyPanel.tsx` | Edit selected element |
-| Export dialog | `src/app/tool-editor/ExportDialog.tsx` | Export All / Export Selected |
-| Save/Import | `src/app/tool-editor/SaveDialog.tsx`, `ImportDialog.tsx` | localStorage + file upload |
-| Undo/Redo store | `src/app/tool-editor/useToolEditorStore.ts` | Singleton external store (580 LOC) |
-| Grid snapping | `src/app/tool-editor/ToolEditorCanvas.tsx` | Configurable 5px–100px |
+| Feature | Module/File | Evidence |
+|---------|-------------|----------|
+| Canvas shell | `src/app/tool-editor/ToolEditorShell.tsx` | Visual tool designer |
+| Generic/Frame/Window nodes | `src/app/tool-editor/nodes/` | UI element primitives |
+| Property panel | `src/app/tool-editor/PropertyPanel.tsx` | Node property editor |
+| Save/Export/Import | `src/app/tool-editor/SaveDialog.tsx`, `ExportDialog.tsx`, `ImportDialog.tsx` | File management |
 
-### AI UI Lab Features
+### G. AI UI Lab
 
-| Feature | Module/Files | Evidence |
-|---------|--------------|----------|
-| Generate panel | `src/app/ui-lab/components/GeneratePanel.tsx` | UI asset generation |
-| Extract spec/style | `src/app/ui-lab/components/ExtractSpecPanel.tsx`, `ExtractStylePanel.tsx` | Style extraction from images |
-| Remove UI panel | `src/app/ui-lab/components/RemoveUIPanel.tsx` | Overlay removal |
-| Dimension planner | `src/app/ui-lab/components/DimensionPlanner.tsx` | Layout planning (937 LOC) |
+| Feature | Module/File | Evidence |
+|---------|-------------|----------|
+| Shell | `src/app/ui-lab/UILabShell.tsx` | Game UI generation workspace |
+| Dimension planner | `src/app/ui-lab/components/DimensionPlanner.tsx` | Layout dimension planning |
+| Generate panel | `src/app/ui-lab/components/GeneratePanel.tsx` | AI generation controls |
+| Style extraction | `src/app/ui-lab/components/ExtractStylePanel.tsx` | Extract styles from images |
 
-### Shared Canvas Features
+### H. Shared Infrastructure
 
-| Feature | Module/Files | Evidence |
-|---------|--------------|----------|
-| Canvas session hook | `src/hooks/useCanvasSession.ts` | Undo/redo, edge-cutting, grouping, clipboard, pin, export/save/import |
-| Global toolbar | `src/components/GlobalToolbar.tsx` | Unified top bar across all canvas apps |
-| Canvas context menu | `src/components/CanvasContextMenu.tsx` | Unified right-click menu |
-| Design system | `packages/ui/src/` | BaseNode, PipelineEdge, Button, Card, Input, Select, Textarea |
-
----
+| Feature | Module/File | Evidence |
+|---------|-------------|----------|
+| Global toolbar | `src/components/GlobalToolbar.tsx` | Unified toolbar with Layout + Export dropdowns |
+| Canvas context menu | `src/components/CanvasContextMenu.tsx` | Right-click menu with copy/paste/delete/pin |
+| Cost widget | `src/components/CostWidget.tsx` | Cumulative API cost tracker (all apps) |
+| Toast notifications | `src/components/Toast.tsx` | Global notification system |
+| Layout store | `src/lib/layoutStore.ts` | Named layout persistence |
+| Cost tracker | `src/lib/ideation/engine/provider/costTracker.ts` | Per-app API cost tracking |
+| Canvas session hook | `src/hooks/useCanvasSession.ts` | Shared canvas state management |
 
 ## 6. Architecture Overview
 
 ### Component Diagram
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│                    Next.js App Router                       │
-│  ┌──────────┐  ┌────────────────┐  ┌───────────────────┐  │
-│  │ layout   │  │  ClientShell   │  │  WorkspaceRenderer │  │
-│  │ (root)   │──│  (sidebar,     │──│  (keep-alive       │  │
-│  │          │  │   palette)     │  │   route resolver)  │  │
-│  └──────────┘  └────────────────┘  └─────────┬─────────┘  │
-│                                               │            │
-│  ┌────────────────────────────────────────────┼─────────┐  │
-│  │                 Tool Shells                │         │  │
-│  │  ┌──────────┐ ┌────────────┐ ┌───────────┐│         │  │
-│  │  │Shawnder- │ │ Concept    │ │ Gemini    ││ ...     │  │
-│  │  │Mind      │ │ Lab        │ │ Studio    ││         │  │
-│  │  │(Session- │ │(useCanvas- │ │(useCanvas-││         │  │
-│  │  │ Provider)│ │ Session)   │ │ Session)  ││         │  │
-│  │  └────┬─────┘ └─────┬──────┘ └─────┬─────┘│         │  │
-│  │       │              │              │      │         │  │
-│  │  ┌────┴──────────────┴──────────────┴──────┤         │  │
-│  │  │          @xyflow/react Canvas            │         │  │
-│  │  │  ┌──────────────────────────────────┐   │         │  │
-│  │  │  │  GlobalToolbar + CanvasContextMenu│   │         │  │
-│  │  │  └──────────────────────────────────┘   │         │  │
-│  │  └─────────────────────────────────────────┘         │  │
-│  │                                                      │  │
-│  │  ┌────────────┐  ┌─────────────┐                     │  │
-│  │  │ Tool Editor│  │  AI UI Lab  │                     │  │
-│  │  │ (Zustand   │  │  (UILab-    │                     │  │
-│  │  │  Store)    │  │   Provider) │                     │  │
-│  │  └────────────┘  └─────────────┘                     │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                                                            │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │                  Engine Layer                        │  │
-│  │  apiConfig.ts ─── geminiProvider.ts ─── orchestrator │  │
-│  │                                          .ts         │  │
-│  │  stages.ts, schemas.ts, prompts/, diverge/, expand/, │  │
-│  │  critique/, converge/, commit/, culture/, security/  │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                                                            │
-│  ┌────────────────────────┐  ┌─────────────────────────┐  │
-│  │  @shawnderland/ui      │  │  next.config.ts         │  │
-│  │  (BaseNode, Pipeline-  │  │  (proxy rewrites to     │  │
-│  │   Edge, tokens, etc.)  │  │   tool backends)        │  │
-│  └────────────────────────┘  └─────────────────────────┘  │
-└────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                    Next.js App Shell                     │
+│  layout.tsx → ClientShell → Sidebar + Content           │
+├──────┬──────┬──────┬──────┬──────┬──────────────────────┤
+│ Shaw-│ Con- │ Gem- │ Tool │ UI   │ API Routes           │
+│ nder │ cept │ ini  │ Edit │ Lab  │ (character-save,     │
+│ Mind │ Lab  │ Stud │ or   │      │  open-folder,        │
+│      │      │ io   │      │      │  send-to-photoshop)  │
+├──────┴──────┴──────┴──────┴──────┴──────────────────────┤
+│              Shared Components Layer                     │
+│  GlobalToolbar │ CanvasContextMenu │ CostWidget │ Toast  │
+├─────────────────────────────────────────────────────────┤
+│              Shared Hooks Layer                          │
+│  useCanvasSession │ layoutStore │ costTracker            │
+├─────────────────────────────────────────────────────────┤
+│              Engine Layer (ShawnderMind)                  │
+│  Orchestrator │ Gemini Provider │ Prompts │ Lineage      │
+├─────────────────────────────────────────────────────────┤
+│              UI Package (@shawnderland/ui)               │
+│  BaseNode │ PipelineEdge │ Dagre Layout │ Design Tokens  │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ### Data Flow
 
-1. **User navigates** via sidebar or command palette → `WorkspaceContext` updates `activePath`
-2. **WorkspaceRenderer** resolves route, lazily mounts tool shell, keeps inactive panels alive
-3. **Canvas tools** use `@xyflow/react` with `useCanvasSession` (or `useFlowSession` / Zustand store) for state
-4. **AI interactions** flow through: Node UI → Session/Context → Orchestrator → Gemini Provider → `apiConfig.ts` → Google AI API
-5. **Results** flow back through provider → orchestrator → session state → node UI re-render
+1. **User Interaction** → React Flow canvas captures node/edge changes
+2. **Node Execution** → Node-specific handlers call orchestrator or direct API
+3. **Orchestrator** → Assembles prompts from node data, influence nodes, preprompt/postprompt
+4. **Gemini Provider** → Sends to Google AI Studio or Vertex AI
+5. **Cost Tracker** → Records token usage and cost per application
+6. **Results** → Flow back to session state → render in ResultNode or output nodes
+7. **Persistence** → Session state saved to localStorage, layouts saved via layoutStore
 
 ### Key Abstractions
 
-| Abstraction | Purpose | Location |
-|-------------|---------|----------|
-| `ToolRegistryEntry` | Tool metadata (name, icon, routes, features) | `src/lib/registry.ts` |
-| `useCanvasSession` | Shared canvas state management | `src/hooks/useCanvasSession.ts` |
-| `useFlowSession` | ShawnderMind-specific canvas state | `src/app/ideation/canvas/useFlowSession.ts` |
-| `SessionContext` | ShawnderMind session + pipeline execution | `src/lib/ideation/context/SessionContext.tsx` |
-| `Provider` interface | Abstraction over AI model backends | `src/lib/ideation/engine/provider/types.ts` |
-| `withCompatCheck` | HOC for node connection validation | `src/app/ideation/canvas/compat/withCompatCheck.tsx` |
-| `GlobalToolbar` | Shared top toolbar component | `src/components/GlobalToolbar.tsx` |
-| `CanvasContextMenu` | Shared right-click context menu | `src/components/CanvasContextMenu.tsx` |
-
----
+- **Session Context** (`SessionContext.tsx`): Provides pipeline state, node data, and event dispatch for ShawnderMind
+- **Canvas Session** (`useCanvasSession.ts`): Provides node/edge state, undo/redo, export, and layout management for non-ShawnderMind tools
+- **Node Registry** (`nodeRegistry.ts`): Central catalog of all node types with metadata, connection rules, and default styles
+- **Provider Pattern** (`geminiProvider.ts`, `mockProvider.ts`): Abstracted LLM interface supporting multimodal inputs
+- **Layout Store** (`layoutStore.ts`): Named layout persistence with default layout support per application
 
 ## 7. Module Deep Dive
 
-### 7.1 Hub Shell (`src/components/`)
+### 7.1 ShawnderMind Canvas (`src/app/ideation/canvas/`)
 
-**Purpose**: Application chrome — sidebar, workspace renderer, command palette, home page.
-
-**Key Files**:
-- `ClientShell.tsx` (45 LOC) — Root client component wrapping WorkspaceProvider, Sidebar, CommandPalette
-- `WorkspaceRenderer.tsx` (143 LOC) — Route resolver with keep-alive pattern
-- `Sidebar.tsx` — Navigation with tool list and collapse
-- `CommandPalette.tsx` — Ctrl+K fuzzy search across tools
-- `HubCanvas.tsx` / `ToolNode.tsx` — Home screen ReactFlow canvas
-- `GlobalToolbar.tsx` (114 LOC) — Shared toolbar for all canvas apps
-- `CanvasContextMenu.tsx` (283 LOC) — Shared context menu for all canvas apps
-
-**Interactions**: ClientShell wraps all content. WorkspaceRenderer lazily imports tool shells via `next/dynamic`. All tools render inside the workspace panel system.
-
-### 7.2 ShawnderMind — Ideation Canvas (`src/app/ideation/`)
-
-**Purpose**: 8-stage AI ideation pipeline with interactive node-based canvas.
+**Purpose**: Interactive node-based canvas for the 8-stage ideation pipeline.
 
 **Key Files**:
-- `canvas/FlowCanvas.tsx` (797 LOC) — Main ReactFlow canvas with 28 node types registered
-- `canvas/useFlowSession.ts` (818 LOC) — Flow state: nodes, edges, groups, undo/redo, sessions
-- `canvas/ToolDock.tsx` (721 LOC) — Left panel with categorized node templates and search
-- `canvas/nodes/nodeRegistry.ts` (16,988 bytes) — Node type definitions, metadata, validation rules
-- `canvas/nodes/` — 56 node component files
-- `layout/Shell.tsx` — Ideation shell layout wrapper
-- `stages/` — Stage-specific UI components
+- `FlowCanvas.tsx` (1,029 LOC) — Main canvas component, handles node/edge rendering, auto-connect, lineage highlighting, glossary overlay
+- `useFlowSession.ts` (1,094 LOC) — Session management hook: stage execution, node creation, result display, layout persistence, export
+- `ToolDock.tsx` (744 LOC) — Categorized node palette with search, details, presets
+- `nodes/nodeRegistry.ts` (357 LOC) — Node type catalog with metadata and connection validation
 
-**Interactions**: SessionProvider wraps IdeationShell. FlowCanvas uses useFlowSession for state and renders all node types. Orchestrator processes pipeline stages via the Gemini provider.
+**Interactions**: FlowCanvas uses useFlowSession for state, which calls the orchestrator for pipeline execution. Results are rendered as ResultNode children positioned beneath their parent.
 
-### 7.3 AI Engine (`src/lib/ideation/engine/`)
+### 7.2 Ideation Engine (`src/lib/ideation/engine/`)
 
-**Purpose**: Pipeline orchestration, AI provider abstraction, prompt engineering, evaluation.
+**Purpose**: Core AI pipeline logic — prompt assembly, LLM calls, result processing.
 
 **Key Files**:
-- `orchestrator.ts` (1,039 LOC) — Stage sequencing, prompt assembly, influence merging, preprompt/postprompt injection
-- `apiConfig.ts` (113 LOC) — Dual-backend URL builder (AI Studio / Vertex AI)
-- `provider/geminiProvider.ts` (~170 LOC) — Gemini API client with tier-based model selection
-- `provider/mockProvider.ts` (494 LOC) — Mock provider for testing
-- `stages.ts` (43 LOC) — Stage ID definitions and ordering
-- `schemas.ts` — Zod schemas for structured LLM outputs
-- `conceptlab/` — Character/weapon prompt builders and image generation API
-- `prompts/`, `diverge/`, `expand/`, `critique/`, `converge/`, `commit/` — Stage-specific prompt logic
-- `culture/` — Cross-cultural prompt instructions
-- `security/` — Input sanitization and prompt guards
-- `eval/` — Smoke tests and evaluation metrics
+- `orchestrator.ts` (1,106 LOC) — Pipeline stage orchestration, prompt assembly from node chains, multimodal input handling
+- `provider/geminiProvider.ts` — Gemini API integration with multimodal support (text, image, video)
+- `provider/costTracker.ts` — Token/cost tracking with per-application breakdown
+- `prompts/` — Stage-specific prompt builders (normalize, diverge, critique, expand, converge, commit, iterate)
+- `conceptlab/characterPrompts.ts` — Character generation prompt templates
+- `lineage/lineageGraph.ts` — Event-sourced idea ancestry tracking
 
-**Interactions**: Orchestrator consumes Provider interface and Stage definitions. SessionContext calls orchestrator for pipeline execution. apiConfig.ts is imported by all AI-calling code.
+**Interactions**: Orchestrator receives stage execution requests from useFlowSession, assembles prompts from connected node data (including influence, preprompt, postprompt), calls geminiProvider, processes Zod-validated results, and returns structured output.
 
-### 7.4 Session Management (`src/lib/ideation/context/`, `src/lib/ideation/state/`)
+### 7.3 Session Management (`src/lib/ideation/context/`)
 
-**Purpose**: Session state provider for ShawnderMind — settings, pipeline state, execution coordination.
+**Purpose**: Centralized state management for the ShawnderMind pipeline.
 
 **Key Files**:
-- `context/SessionContext.tsx` (1,060 LOC) — React Context with full pipeline execution logic
-- `state/sessionTypes.ts` — Session, ThinkingTier, SessionSettings types
-- `state/sessionStore.ts` — localStorage persistence
-- `state/sessionSelectors.ts` — Data selectors
+- `SessionContext.tsx` (1,083 LOC) — React context provider with session creation, event dispatch, flow state management, localStorage persistence
 
-**Interactions**: SessionProvider wraps IdeationShell. Consumed by FlowCanvas, StartNode, and other pipeline nodes. Calls orchestrator for stage execution.
+**Interactions**: Provides session state to FlowCanvas and pipeline stages. Manages flow state (nodes/edges) independently from stage outputs. Supports save/load of full sessions.
 
-### 7.5 AI ConceptLab (`src/app/concept-lab/`)
+### 7.4 AI ConceptLab (`src/app/concept-lab/`)
 
-**Purpose**: Character and weapon design with AI image generation.
+**Purpose**: Character and weapon concept design canvas.
 
 **Key Files**:
-- `ConceptLabShell.tsx` (495 LOC) — Canvas shell with useCanvasSession integration
-- `ConceptLabDock.tsx` — Node template dock
-- `nodes/CharIdentityNode.tsx` (8,374 bytes) — Character identity fields
-- `nodes/CharAttributesNode.tsx` — Character attribute panel
-- `nodes/WeapBaseNode.tsx` (9,210 bytes) — Weapon base design
-- `nodes/WeapComponentsNode.tsx` — Weapon component fields
-- `nodes/MultiViewerNode.tsx` — Multi-view turnaround
-- `nodes/EditImageNode.tsx` — Image editing
+- `ConceptLabShell.tsx` (556 LOC) — Canvas shell registering character generator + weapon + UI node types
+- `nodes/WeapBaseNode.tsx`, `WeapComponentsNode.tsx` — Weapon design nodes
+- `ConceptLabDock.tsx` — Node palette
 
-**Interactions**: Uses useCanvasSession for canvas state. Calls imageGenApi.ts for Imagen 4 / Gemini generation. Character/weapon prompts built via characterPrompts.ts and weaponPrompts.ts.
+**Interactions**: Uses useCanvasSession for state management. Registers character nodes from `ideation/canvas/nodes/character/` (shared with ShawnderMind). Uses GlobalToolbar for Layout/Export dropdowns.
+
+### 7.5 Character Generator (`src/app/ideation/canvas/nodes/character/`)
+
+**Purpose**: Full character creation pipeline — identity, description, attributes, generation, multi-view, editing, history.
+
+**Key Files**: 16 node components + `index.ts` barrel export + `CharacterNodes.css`
+
+**Interactions**: Available in both ShawnderMind and ConceptLab. Uses Gemini API for image generation (Imagen 4) and text analysis. API routes (`character-save`, `open-folder`, `send-to-photoshop`) handle filesystem operations.
 
 ### 7.6 Gemini Studio (`src/app/gemini-studio/`)
 
-**Purpose**: Consumer-friendly AI media generation with multiple Google AI models.
+**Purpose**: Direct image and video generation with prompt/reference inputs.
 
 **Key Files**:
-- `GeminiStudioShell.tsx` (479 LOC) — Canvas shell with useCanvasSession
-- `GeminiStudioDock.tsx` — Node template dock
-- `nodes/ImageGenNode.tsx` (7,407 bytes) — Multi-model image generation
-- `nodes/VideoGenNode.tsx` — Veo-based video generation
-- `nodes/PromptNode.tsx` — Text prompt input
-- `nodes/ImageRefNode.tsx` — Image reference input
+- `GeminiStudioShell.tsx` — Canvas shell with Gemini-specific nodes
+- `nodes/ImageGenNode.tsx`, `VideoGenNode.tsx` — Generation nodes using Imagen 4 / Veo 2
+- `nodes/PromptNode.tsx`, `ImageRefNode.tsx` — Input nodes
 - `nodes/OutputViewerNode.tsx` — Result display
 
-**Interactions**: Uses useCanvasSession. Calls apiConfig.ts for model URLs. Supports Imagen 4, Gemini 3 Pro, Gemini Flash Image, and Veo models.
+**Interactions**: Uses useCanvasSession. Partially wired to GlobalToolbar (missing named layout integration).
 
 ### 7.7 Tool Editor (`src/app/tool-editor/`)
 
-**Purpose**: Visual meta-tool for designing other tools with exportable AI-readable specs.
+**Purpose**: Visual UI tool designer with element primitives and JSON export.
 
 **Key Files**:
-- `ToolEditorShell.tsx` — Shell with GlobalToolbar
-- `ToolEditorCanvas.tsx` — ReactFlow canvas with grid snapping and edge-cutting
-- `useToolEditorStore.ts` (580 LOC) — Singleton Zustand-style store
-- `EditorToolDock.tsx` — Draggable element templates
-- `PropertyPanel.tsx` — Element property editor
-- `ExportDialog.tsx`, `SaveDialog.tsx`, `ImportDialog.tsx` — Dialogs
-- `nodes/` — 7 element type components
+- `ToolEditorShell.tsx`, `ToolEditorCanvas.tsx` — Canvas with custom drag/resize
+- `PropertyPanel.tsx` — Property editor for selected elements
+- `nodes/` — GenericNode, FrameNode, WindowNode, ImageNode, ButtonNode, TextBoxNode, DropdownNode
+- `useToolEditorStore.ts` (580 LOC) — Zustand-like state management
 
-**Interactions**: Uses its own singleton store (not useCanvasSession) per DECISIONS.md #007. GlobalToolbar maps to store actions. CanvasContextMenu integrated for right-click.
+**Interactions**: Self-contained; uses its own state management and export dialogs rather than shared hooks.
 
 ### 7.8 AI UI Lab (`src/app/ui-lab/`)
 
-**Purpose**: Game UI generation, style extraction, layout planning.
+**Purpose**: Game UI generation workspace with dimension planning and style extraction.
 
 **Key Files**:
-- `UILabShell.tsx` — Shell with tabbed panels
-- `components/GeneratePanel.tsx` — UI asset generation
-- `components/DimensionPlanner.tsx` (937 LOC) — Layout planning tool
-- `components/ExtractSpecPanel.tsx`, `ExtractStylePanel.tsx` — Style extraction
-- `components/RemoveUIPanel.tsx` — UI overlay removal
+- `UILabShell.tsx` — Main shell
+- `components/DimensionPlanner.tsx` (937 LOC) — Largest component; layout dimension planning
+- `components/GeneratePanel.tsx`, `ExtractStylePanel.tsx`, `RefSlotsPanel.tsx`, `RemoveUIPanel.tsx`
 
-**Interactions**: Wrapped in UILabProvider (React Context). Uses lib/ui-lab/api.ts for backend calls.
+**Interactions**: Uses UILabContext from `src/lib/ui-lab/`.
 
-### 7.9 Design System (`packages/ui/`)
+### 7.9 Shared Components (`src/components/`)
 
-**Purpose**: Shared UI components under `@shawnderland/ui` namespace.
+**Purpose**: Cross-application UI components.
 
 **Key Files**:
-- `src/Button.tsx`, `Card.tsx`, `Input.tsx`, `Select.tsx`, `Textarea.tsx`, `PanelSection.tsx` — UI primitives
-- `src/canvas/BaseNode.tsx` — Shared base node component
-- `src/canvas/PipelineEdge.tsx` — Custom edge rendering
-- `src/canvas/flowLayout.ts` — Dagre auto-layout helper
-- `src/tokens.css`, `base.css`, `animations.css` — Design tokens and base styles
+- `GlobalToolbar.tsx` — Layout dropdown (save/load/default/delete) + Export dropdown (4 variants)
+- `CanvasContextMenu.tsx` — Right-click menu with copy/paste/delete/pin/edge-cutting
+- `CostWidget.tsx` — Bottom-right API cost display with per-app breakdown
+- `Toast.tsx` — Global toast notification system
+- `Sidebar.tsx` — Navigation sidebar driven by tool registry
 
-**Interactions**: Consumed by all app modules via tsconfig path alias `@shawnderland/ui`. Transpiled by Next.js via `transpilePackages` in `next.config.ts`.
+### 7.10 Design System (`packages/ui/`)
 
-### 7.10 Shared Hooks (`src/hooks/`)
-
-**Purpose**: Cross-cutting React hooks shared by multiple canvas applications.
+**Purpose**: Shared UI primitives and canvas components.
 
 **Key Files**:
-- `useCanvasSession.ts` (605 LOC) — Provides undo/redo, edge-cutting, node grouping, clipboard, pin/freeze, export/save/import, keyboard shortcuts
-
-**Interactions**: Consumed by Gemini Studio and Concept Lab shells. ShawnderMind uses its own useFlowSession (which implements similar features). Tool Editor uses its Zustand store.
-
----
+- `src/index.ts` — Exports: Button, Input, Textarea, Select, Card, PanelSection, BaseNode, PipelineEdge, applyDagreLayout
+- `src/canvas/BaseNode.tsx` — Base node component with handles and status
+- `src/canvas/flowLayout.ts` — Dagre-based auto-layout (NOTE: duplicated in `src/app/ideation/canvas/`)
+- `src/tokens.css`, `base.css`, `animations.css` — Design tokens
 
 ## 8. External Dependencies & Integrations
 
@@ -899,143 +776,133 @@ npm run dev
 
 | Package | Version | Purpose | Evidence |
 |---------|---------|---------|----------|
-| next | ^15 | App Router framework | `package.json:15` |
-| react / react-dom | ^19 | UI library | `package.json:17-18` |
-| @xyflow/react | ^12.10.1 | Node-based canvas library | `package.json:12` |
-| dagre | ^0.8.5 | Graph auto-layout | `package.json:14` |
-| lucide-react | ^0.468 | Icon library | `package.json:15` |
-| zod | ^4.3.6 | Runtime schema validation | `package.json:20` |
-| clsx | ^2 | Conditional CSS class names | `package.json:13` |
-| tailwind-merge | ^3 | Tailwind class conflict resolution | `package.json:19` |
+| next | ^15 | Framework | `package.json` |
+| react / react-dom | ^19 | UI library | `package.json` |
+| @xyflow/react | ^12.10.1 | Node canvas | `package.json` |
+| dagre | ^0.8.5 | Graph auto-layout | `package.json` |
+| zod | ^4.3.6 | Schema validation for LLM output | `package.json` |
+| lucide-react | ^0.468 | Icon library | `package.json` |
+| clsx | ^2 | CSS class merging | `package.json` |
+| tailwind-merge | ^3 | Tailwind class deduplication | `package.json` |
 
 ### Dev Dependencies
 
 | Package | Version | Purpose | Evidence |
 |---------|---------|---------|----------|
-| tailwindcss | ^4 | CSS framework | `package.json:29` |
-| @tailwindcss/postcss | ^4 | PostCSS plugin | `package.json:23` |
-| postcss | ^8 | CSS processing | `package.json:28` |
-| typescript | ^5 | Type system | `package.json:30` |
-| @types/dagre | ^0.7.54 | Dagre type definitions | `package.json:24` |
-| @types/node | ^22 | Node.js type definitions | `package.json:25` |
-| @types/react | ^19 | React type definitions | `package.json:26` |
-| @types/react-dom | ^19 | React DOM type definitions | `package.json:27` |
+| tailwindcss | ^4 | CSS framework | `package.json` devDeps |
+| typescript | ^5 | Type checking | `package.json` devDeps |
+| @tailwindcss/postcss | ^4 | PostCSS plugin | `package.json` devDeps |
+| @types/* | Various | Type definitions | `package.json` devDeps |
 
-### External API Integrations
+### External Services
 
-| Service | Models | Purpose | Evidence |
-|---------|--------|---------|----------|
-| Google AI Studio | Gemini 2.0 Flash, Flash Lite, Flash Thinking Exp | Text generation, ideation pipeline | `geminiProvider.ts:12-26` |
-| Google AI Studio | Imagen 4 (imagen-4.0-generate-001) | Image generation | `imageGenApi.ts` |
-| Google AI Studio | Gemini 3 Pro Image Preview | High-fidelity reference-based images | `modelCatalog.ts` |
-| Google AI Studio | Gemini 2.0 Flash Preview Image | Fast iteration images | `modelCatalog.ts` |
-| Google Vertex AI | Same models via regional endpoints | Enterprise/regional deployments | `apiConfig.ts:77-81` |
-
----
+| Service | Usage | Evidence |
+|---------|-------|----------|
+| Google AI Studio | Text generation, multimodal analysis | `apiConfig.ts`, `.env.example` |
+| Google Imagen 4 | Image generation | `geminiProvider.ts`, `imageGenApi.ts` |
+| Google Veo 2 | Video generation | `geminiProvider.ts` |
+| Google Vertex AI | Alternative backend (optional) | `apiConfig.ts`, `.env.example` |
+| Adobe Photoshop | Send images via localhost API | `src/app/api/send-to-photoshop/route.ts` |
 
 ## 9. Configuration Surface
 
 ### File Types
 
-| Type | File | Purpose |
-|------|------|---------|
-| Next.js config | `next.config.ts` | Proxy rewrites, transpile packages |
-| TypeScript | `tsconfig.json` | Strict mode, path aliases (@/, @shawnderland/ui) |
-| PostCSS | `postcss.config.mjs` | Tailwind v4 plugin |
-| Environment | `.env.local` | Runtime secrets (gitignored) |
-| Environment template | `.env.example` | Variable documentation |
-| Git | `.gitignore`, `.gitattributes` | Ignore patterns, line ending rules |
+| Type | Files |
+|------|-------|
+| Environment | `.env.local` (gitignored), `.env.example` (template) |
+| Next.js | `next.config.ts` |
+| TypeScript | `tsconfig.json` |
+| PostCSS | `postcss.config.mjs` |
+| Package | `package.json`, `packages/ui/package.json` |
 
 ### Environment Variable Names
 
-| Variable | Required | Scope |
-|----------|----------|-------|
-| `NEXT_PUBLIC_GEMINI_API_KEY` | Yes (AI Studio) | Client-side, all AI calls |
-| `NEXT_PUBLIC_VERTEX_PROJECT` | No (Vertex AI) | Client-side, Vertex endpoints |
-| `NEXT_PUBLIC_VERTEX_LOCATION` | No (Vertex AI) | Client-side, Vertex endpoints |
-| `NEXT_PUBLIC_VERTEX_API_KEY` | No (Vertex AI) | Client-side, Vertex endpoints |
-| `SPRITE_LAB_URL` | No | Server-side, proxy rewrite override |
-| `SHAWNDERMIND_URL` | No | Server-side, proxy rewrite override |
-| `UI_LAB_URL` | No | Server-side, proxy rewrite override |
-| `CONCEPT_LAB_URL` | No | Server-side, proxy rewrite override |
+| Variable | Required | Client-Side |
+|----------|----------|-------------|
+| `NEXT_PUBLIC_GEMINI_API_KEY` | Yes | Yes |
+| `NEXT_PUBLIC_VERTEX_PROJECT` | No | Yes |
+| `NEXT_PUBLIC_VERTEX_LOCATION` | No | Yes |
+| `NEXT_PUBLIC_VERTEX_API_KEY` | No | Yes |
 
----
+### Next.js Config Rewrites
+
+| Source Pattern | Destination |
+|----------------|-------------|
+| `/api/tools/sprite-lab/:path*` | `${SPRITE_LAB_URL}/api/:path*` |
+| `/api/tools/ideation/:path*` | `${SHAWNDERMIND_URL}/api/:path*` |
+| `/api/tools/ui-lab/:path*` | `${UI_LAB_URL}/api/:path*` |
+| `/api/tools/concept-lab/:path*` | `${CONCEPT_LAB_URL}/api/:path*` |
 
 ## 10. Risks / Complexity Hotspots
 
-### Large Modules
+### Large Modules (>1000 LOC)
 
 | File | LOC | Risk |
 |------|-----|------|
-| `stages.css` | 1,495 | CSS maintenance burden — single file for all stage styling |
-| `SessionContext.tsx` | 1,060 | God-context pattern — session state + pipeline execution + UI coordination |
-| `orchestrator.ts` | 1,039 | Complex prompt assembly — many code paths for different stage types |
-| `DimensionPlanner.tsx` | 937 | Large single component — layout planning logic |
-| `useFlowSession.ts` | 818 | Complex state management — overlaps with useCanvasSession |
+| `stages.css` | 1,495 | Large CSS file; may have unused rules |
+| `orchestrator.ts` | 1,106 | Core pipeline logic; complex branching |
+| `useFlowSession.ts` | 1,094 | Session hook with many responsibilities |
+| `SessionContext.tsx` | 1,083 | Monolithic context provider |
+| `FlowCanvas.tsx` | 1,029 | Large component with many features |
 
 ### Duplication
 
-| Signal | Files | Impact |
-|--------|-------|--------|
-| `flowLayout.ts` duplicate | `packages/ui/src/canvas/flowLayout.ts` ↔ `src/app/ideation/canvas/flowLayout.ts` | Maintenance risk — changes must be made in both |
-| `useFlowSession` vs `useCanvasSession` | `src/app/ideation/canvas/useFlowSession.ts` ↔ `src/hooks/useCanvasSession.ts` | Functional overlap for common canvas features; ShawnderMind has not migrated to shared hook |
+| Signal | Files | Risk |
+|--------|-------|------|
+| flowLayout.ts | `packages/ui/src/canvas/` vs `src/app/ideation/canvas/` | Divergence over time |
+| ContextMenu.css | Orphaned from deleted component | Maintenance confusion |
 
 ### Tight Coupling
 
-| Area | Evidence | Impact |
-|------|----------|--------|
-| Client-side API keys | `NEXT_PUBLIC_*` prefix exposes keys to browser | Security concern — keys visible in client bundle |
-| Window globals | `__spawnPackedPipeline`, `__getFlowSnapshot`, `__triggerGroupExpand` in ShawnderMind | Cross-component communication via window — fragile, untypeable |
-| No tests | 0 test files | Any refactoring carries regression risk |
+- **ShawnderMind orchestrator ↔ SessionContext**: The orchestrator receives session state directly and modifies it through callbacks, creating bidirectional coupling.
+- **Character nodes ↔ window bridge**: Character generator nodes use `window` properties for inter-component communication (e.g., `window.__updateNodeData`), bypassing React's data flow.
+- **NEXT_PUBLIC_* API keys**: API keys are exposed client-side. While necessary for client-side AI calls, this means keys are visible in browser dev tools.
 
-### Documentation Debt
+### Broken Features
 
-13 doc drift items identified — governance docs do not reflect the current state of the codebase for recent additions (Gemini Studio, PrepromptNode, PostPromptNode, unified canvas features).
-
----
+- **ConceptLab presets**: Character/Weapon preset buttons reference non-existent node types (`multiViewer`, `editImage`). Evidence: `ConceptLabShell.tsx` preset definitions.
+- **GeminiStudioShell layout system**: Not wired to named layout management. Evidence: Still uses deprecated `onSaveLayout` prop.
 
 ## 11. Open Questions / Ambiguous Areas
 
-1. **Should ShawnderMind migrate to `useCanvasSession`?** Currently it uses its own `useFlowSession` with similar but extended functionality. The shared hook exists but ShawnderMind hasn't adopted it, creating functional overlap.
+1. **Home page renders null**: `src/app/page.tsx` returns `null`. The actual content comes from `ClientShell` which renders the Sidebar + workspace. Is this intentional? The route `/` appears to show the Home component through workspace routing.
 
-2. **What is the status of `ContextMenu.css`?** The original component (`ContextMenu.tsx`) was deleted and replaced by `CanvasContextMenu.tsx`, but the CSS file remains and is imported by the new component. Should these styles be merged into `CanvasCommon.css`?
+2. **StatusBar and NodeInspector**: These components exist in `src/app/ideation/canvas/` but are never imported. SPEC.md lists them as features. Are they planned for future use or abandoned?
 
-3. **Are proxy rewrites actually used?** `next.config.ts` defines rewrites to localhost backends, but all AI calls appear to go directly to Google APIs via `apiConfig.ts` from the client. The proxy routes may be vestigial for future backend tools.
+3. **loadPack.ts prompts**: The prompt pack system (`src/lib/ideation/engine/prompts/loadPack.ts`) exports templates that are never imported. Individual stage prompt files are used instead. Is this a deprecated approach?
 
-4. **Why are API keys `NEXT_PUBLIC_`?** This exposes keys in the client bundle. For production, these should be server-side API routes that proxy AI calls.
+4. **Sprite Lab and Walter**: Both are registered in the tool registry but have no implementation in `src/app/`. Sprite Lab has proxy rewrites configured, suggesting external deployment. Walter is marked `electron-only`.
 
-5. **What is the relationship between ideation canvas nodes and ConceptLab nodes?** SPEC.md says they share the same canvas, but ConceptLabShell has its own separate canvas instance using `useCanvasSession`.
+5. **Client-side API keys**: All API keys are `NEXT_PUBLIC_*`, making them visible in the browser. For a development/personal tool this may be acceptable, but for production deployment, a server-side proxy would be needed.
 
-6. **Is `src/app/page.tsx` intentionally empty?** It returns `null` — all content is rendered via `ClientShell` and `WorkspaceRenderer`.
-
----
+6. **Test coverage**: Zero test files exist. For a project with complex pipeline logic and AI integration, testing the orchestrator and data flow would reduce regression risk.
 
 ## 12. Appendix: Evidence Index
 
-| ID | File | Lines | Description |
-|----|------|-------|-------------|
-| E1 | `package.json` | 1-32 | Dependency manifest |
-| E2 | `src/app/layout.tsx` | 1-22 | Root layout with metadata |
-| E3 | `src/components/ClientShell.tsx` | 1-45 | App shell architecture |
-| E4 | `src/components/WorkspaceRenderer.tsx` | 1-143 | Keep-alive routing |
-| E5 | `src/lib/registry.ts` | 1-131 | Tool registry (6 tools) |
-| E6 | `next.config.ts` | 1-32 | Proxy rewrites |
-| E7 | `src/lib/ideation/engine/apiConfig.ts` | 1-112 | Dual-backend config |
-| E8 | `src/lib/ideation/engine/stages.ts` | 1-42 | Pipeline stage definitions |
-| E9 | `src/lib/ideation/engine/provider/geminiProvider.ts` | 1-50 | Tier configs and model mapping |
-| E10 | `src/hooks/useCanvasSession.ts` | 1-40 | Shared canvas session hook |
-| E11 | `src/components/GlobalToolbar.tsx` | 1-30 | Unified toolbar interface |
-| E12 | `src/components/CanvasContextMenu.tsx` | 1-30 | Unified context menu interface |
-| E13 | `src/app/ideation/canvas/FlowCanvas.tsx` | 1-50 | ShawnderMind canvas with 28 node types |
-| E14 | `run.bat` | 1-49 | Bootstrap launcher |
-| E15 | `.env.example` | all | Environment variable documentation |
-| E16 | `.gitignore` | all | Ignore patterns |
-| E17 | `AGENT_RULES.md` | all | Governance contract |
-| E18 | `PROJECT.md` | all | Project overview |
-| E19 | `SPEC.md` | all | Technical specification |
-| E20 | `ARCHITECTURE.md` | all | Architecture documentation |
-| E21 | `DECISIONS.md` | all | Architectural decision records |
-| E22 | `TASKS.md` | all | Task tracking |
+| Evidence ID | File | Lines | Description |
+|-------------|------|-------|-------------|
+| E1 | `package.json` | 1-30 | Dependencies and scripts |
+| E2 | `src/lib/registry.ts` | 1-131 | Tool registry (6 tools) |
+| E3 | `next.config.ts` | 1-30 | Rewrites for sub-tools |
+| E4 | `src/app/layout.tsx` | 1-24 | Root layout with ClientShell |
+| E5 | `src/app/page.tsx` | 1-4 | Home page (returns null) |
+| E6 | `run.bat` | 1-51 | Windows launcher script |
+| E7 | `.env.example` | 1-16 | Environment variable template |
+| E8 | `packages/ui/src/index.ts` | 1-17 | UI package exports |
+| E9 | `src/components/Sidebar.tsx` | 1-50 | Navigation sidebar |
+| E10 | `src/lib/ideation/engine/orchestrator.ts` | 1-60 | Pipeline orchestrator imports |
+| E11 | `src/app/ideation/canvas/nodes/nodeRegistry.ts` | 1-357 | Node type catalog |
+| E12 | `src/app/concept-lab/ConceptLabShell.tsx` | 1-95 | ConceptLab node registration |
+| E13 | `src/app/gemini-studio/GeminiStudioShell.tsx` | 1-75 | Gemini Studio node registration |
+| E14 | `src/lib/layoutStore.ts` | Full | Named layout persistence |
+| E15 | `src/components/GlobalToolbar.tsx` | Full | Unified toolbar with dropdowns |
+| E16 | `src/components/CostWidget.tsx` | Full | API cost tracking widget |
+| E17 | `src/lib/ideation/engine/provider/costTracker.ts` | Full | Cost tracking singleton |
+| E18 | `src/app/ideation/canvas/nodes/character/index.ts` | Full | Character node barrel export |
+| E19 | `src/app/api/character-save/route.ts` | Full | Character image save API |
+| E20 | `src/app/api/open-folder/route.ts` | Full | Folder open API |
+| E21 | `src/app/api/send-to-photoshop/route.ts` | Full | Photoshop integration API |
 
 ---
 
@@ -1044,7 +911,7 @@ npm run dev
 * Snapshot: `.repo_snapshot/repo_snapshot.md`
 * Snapshot JSON: `.repo_snapshot/repo_snapshot.json`
 * Health Report: `HEALTH_REPORT.md`
-* Health Metrics: `.repo_snapshot/health_reports/health_metrics__20260306_080757.json`
+* Health Metrics: `.repo_snapshot/health_reports/health_metrics__20260306_161152.json`
 * Tasks: `TASKS.md`
 * Comprehensive Report: `.repo_snapshot/repo_comprehensive_report.md`
 * Master Report: `MASTER_REPO_REPORT.md`

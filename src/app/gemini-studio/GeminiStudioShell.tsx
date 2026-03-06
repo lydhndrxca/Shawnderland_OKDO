@@ -25,6 +25,7 @@ import PipelineEdge from '@/app/ideation/canvas/edges/PipelineEdge';
 import GeminiStudioDock from './GeminiStudioDock';
 import CanvasContextMenu, { type ContextMenuCategory } from '@/components/CanvasContextMenu';
 import GlobalToolbar from '@/components/GlobalToolbar';
+import { ToastContainer, showToast } from '@/components/Toast';
 import CostWidget from '@/components/CostWidget';
 import { useCanvasSession, type CutLine } from '@/hooks/useCanvasSession';
 
@@ -374,10 +375,18 @@ function GeminiStudioCanvas() {
         onDuplicate={cs.duplicateSelected}
         onFitView={handleFitView}
         onClear={handleClear}
-        onExportSelected={cs.exportLayoutJSON}
-        onSaveLayout={cs.saveLayout}
+        onExportSelectedNodesOnly={cs.exportSelectedNodesOnly}
+        onExportSelectedWithConnections={cs.exportSelectedWithConnections}
+        onExportAllNodesOnly={cs.exportAllNodesOnly}
+        onExportAllWithConnections={cs.exportAllWithConnections}
         onImportLayout={handleImportLayout}
+        onSaveLayoutNamed={(name) => { cs.saveNamedLayout(name); showToast(`Layout "${name}" saved`); }}
+        onLoadLayout={(name) => { cs.loadNamedLayout(name); showToast(`Layout "${name}" loaded`); }}
+        onSetDefault={() => { cs.setDefaultLayout(); showToast('Current layout set as default'); }}
+        onDeleteLayout={(name) => { cs.deleteNamedLayout(name); showToast(`Layout "${name}" deleted`); }}
+        savedLayouts={cs.savedLayoutsList}
       />
+      <ToastContainer />
       <div className="gs-main">
         <GeminiStudioDock
           categories={DOCK_CATEGORIES}

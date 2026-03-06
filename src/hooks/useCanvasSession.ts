@@ -89,6 +89,10 @@ export interface CanvasSessionState {
   getNodeData: (nodeId: string) => Record<string, unknown> | undefined;
 
   exportLayoutJSON: () => void;
+  exportSelectedNodesOnly: () => void;
+  exportSelectedWithConnections: () => void;
+  exportAllNodesOnly: () => void;
+  exportAllWithConnections: () => void;
   saveLayout: () => void;
   loadLayout: () => boolean;
   importLayout: (file: File) => void;
@@ -496,20 +500,90 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     };
   }, [nodes, edges, persistNodeTypes]);
 
-  const exportLayoutJSON = useCallback(() => {
-    const snapshot = getFlowSnapshot();
-    const vp = reactFlow.getViewport();
-    const payload = { ...snapshot, viewport: vp, appKey };
-    const json = JSON.stringify(payload, null, 2);
+  const saveAndCopy = useCallback((json: string, filename: string) => {
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${appKey}-layout.json`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
     navigator.clipboard.writeText(json).catch(() => {});
-  }, [getFlowSnapshot, reactFlow, appKey]);
+  }, []);
+
+  const buildNodeExport = useCallback((targetNodes: Node[], includeStyle = true) => {
+    const nodeData: Record<string, Record<string, unknown>> = {};
+    for (const n of targetNodes) {
+      const d = n.data as Record<string, unknown>;
+      const entry: Record<string, unknown> = {};
+      if (n.type && persistNodeTypes.includes(n.type)) {
+        for (const [key, val] of Object.entries(d)) {
+          if (key !== 'stageId') entry[key] = val;
+        }
+      }
+      if (d.customInstructions) entry.customInstructions = d.customInstructions;
+      if (d.subName) entry.subName = d.subName;
+      if (d.__pinned) entry.__pinned = d.__pinned;
+      if (Object.keys(entry).length > 0) nodeData[n.id] = entry;
+    }
+    return {
+      nodes: targetNodes.map((n) => {
+        const base: Record<string, unknown> = { id: n.id, position: n.position, type: n.type };
+        if (includeStyle && n.style && (n.style.width || n.style.height)) {
+          base.style = { width: n.style.width, height: n.style.height };
+        }
+        return base;
+      }),
+      nodeData,
+    };
+  }, [persistNodeTypes]);
+
+  const exportLayoutJSON = useCallback(() => {
+    const snapshot = getFlowSnapshot();
+    const vp = reactFlow.getViewport();
+    const payload = { ...snapshot, viewport: vp, appKey };
+    saveAndCopy(JSON.stringify(payload, null, 2), `${appKey}-layout.json`);
+  }, [getFlowSnapshot, reactFlow, appKey, saveAndCopy]);
+
+  const exportSelectedNodesOnly = useCallback(() => {
+    const selected = nodes.filter((n) => n.selected);
+    if (!selected.length) return;
+    const { nodes: exportNodes, nodeData } = buildNodeExport(selected);
+    const payload = { nodes: exportNodes, edges: [], nodeData };
+    saveAndCopy(JSON.stringify(payload, null, 2), `${appKey}-selected-nodes.json`);
+  }, [nodes, buildNodeExport, saveAndCopy, appKey]);
+
+  const exportSelectedWithConnections = useCallback(() => {
+    const selected = nodes.filter((n) => n.selected);
+    if (!selected.length) return;
+    const selectedIds = new Set(selected.map((n) => n.id));
+    const relevantEdges = edges.filter((e) => selectedIds.has(e.source) && selectedIds.has(e.target));
+    const { nodes: exportNodes, nodeData } = buildNodeExport(selected);
+    const payload = {
+      nodes: exportNodes,
+      edges: relevantEdges.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle })),
+      nodeData,
+    };
+    saveAndCopy(JSON.stringify(payload, null, 2), `${appKey}-selected-connected.json`);
+  }, [nodes, edges, buildNodeExport, saveAndCopy, appKey]);
+
+  const exportAllNodesOnly = useCallback(() => {
+    const { nodes: exportNodes, nodeData } = buildNodeExport(nodes);
+    const payload = { nodes: exportNodes, edges: [], nodeData };
+    saveAndCopy(JSON.stringify(payload, null, 2), `${appKey}-all-nodes.json`);
+  }, [nodes, buildNodeExport, saveAndCopy, appKey]);
+
+  const exportAllWithConnections = useCallback(() => {
+    const { nodes: exportNodes, nodeData } = buildNodeExport(nodes);
+    const vp = reactFlow.getViewport();
+    const payload = {
+      nodes: exportNodes,
+      edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle })),
+      nodeData,
+      viewport: vp,
+    };
+    saveAndCopy(JSON.stringify(payload, null, 2), `${appKey}-all-connected.json`);
+  }, [nodes, edges, buildNodeExport, reactFlow, saveAndCopy, appKey]);
 
   const saveLayout = useCallback(() => {
     const snapshot = getFlowSnapshot();
@@ -662,6 +736,10 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     updateNodeData,
     getNodeData,
     exportLayoutJSON,
+    exportSelectedNodesOnly,
+    exportSelectedWithConnections,
+    exportAllNodesOnly,
+    exportAllWithConnections,
     saveLayout,
     loadLayout,
     importLayout,

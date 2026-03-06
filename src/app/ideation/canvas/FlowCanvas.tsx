@@ -813,8 +813,10 @@ function FlowCanvasInner() {
         onFitView={handleFitView}
         onAutoLayout={flow.autoLayout}
         onClear={() => { flow.setNodes([]); flow.setEdges([]); }}
-        onExportAll={flow.exportLayoutJSON}
-        onExportSelected={flow.exportSelectedJSON}
+        onExportSelectedNodesOnly={flow.exportSelectedNodesOnly}
+        onExportSelectedWithConnections={flow.exportSelectedWithConnections}
+        onExportAllNodesOnly={flow.exportAllNodesOnly}
+        onExportAllWithConnections={flow.exportAllWithConnections}
         onImportLayout={handleImportLayout}
         onSaveLayoutNamed={(name) => { flow.saveNamedLayout(name); showToast(`Layout "${name}" saved`); }}
         onLoadLayout={(name) => { flow.loadNamedLayout(name); showToast(`Layout "${name}" loaded`); }}

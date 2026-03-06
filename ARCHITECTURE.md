@@ -56,8 +56,7 @@ src/app/
       FlowCanvas.tsx            Main ReactFlow canvas
       useFlowSession.ts         Flow state management (nodes, edges, groups)
       ToolDock.tsx/.css          Left panel with categorized node templates + search
-      StatusBar.tsx/.css         Canvas status indicators
-      NodeInspector.tsx/.css     Node detail inspector
+      GlossaryOverlay.tsx/.css   Movable terminology glossary
       GuidedRunOverlay.tsx/.css  Step-by-step guided run UI
       DemoOverlay.tsx/.css       Demo/onboarding overlay
       flowLayout.ts             Dagre auto-layout helper
@@ -103,6 +102,25 @@ src/app/
         WeaponNode.tsx/.css             ConceptLab weapon designer
         TurnaroundNode.tsx/.css         ConceptLab multi-view generator
         BaseNode.tsx/.css               Shared base node component
+      nodes/character/                  Shared character generator nodes (16)
+        CharIdentityNode.tsx            Age, race, gender, build presets
+        CharDescriptionNode.tsx         Freeform character description
+        CharAttributesNode.tsx          14 attribute groups with dropdowns
+        ExtractAttributesNode.tsx       AI extraction from reference images
+        EnhanceDescriptionNode.tsx      AI-enhanced description (two-way modifier)
+        GenerateCharImageNode.tsx       Main character image generation
+        GenerateViewsNode.tsx           Front/back/side multi-view generation
+        ReferenceCalloutNode.tsx        Reference image with annotation prompt
+        MainStageViewerNode.tsx         Multi-tab image viewer with zoom
+        EditCharacterNode.tsx           Text-based image modifications
+        CharHistoryNode.tsx             Generation history with thumbnails
+        ResetCharacterNode.tsx          Clear all character data
+        SendToPhotoshopNode.tsx         Send images to Photoshop via API
+        ShowXMLNode.tsx                 View character config as XML
+        QuickGenerateNode.tsx           Auto-fill and generate a random character
+        ProjectSettingsNode.tsx         Project name and output directory
+        CharacterNodes.css              Shared character node styles
+        index.ts                        Barrel export
     stages/                     Stage-specific UI components
     layout/                     Shell, settings panel, save/open dialogs
     views/                      Lineage graph, evaluation dashboard
@@ -112,12 +130,8 @@ src/app/
     ConceptLabShell.tsx/.css    Canvas shell with useCanvasSession
     ConceptLabDock.tsx          Node template dock (presets panel)
     nodes/
-      CharIdentityNode.tsx      Character identity fields
-      CharAttributesNode.tsx    Character attribute panel (14 categories)
       WeapBaseNode.tsx          Weapon base design
       WeapComponentsNode.tsx    Weapon component fields
-      MultiViewerNode.tsx       Multi-view turnaround sheets
-      EditImageNode.tsx         Image editing node
       ConceptLabNodes.css       Shared ConceptLab node styles
 
   gemini-studio/                Gemini Studio (consumer AI media generation)
@@ -150,19 +164,29 @@ src/app/
     UILabShell.tsx              Lab shell with tool tabs
     components/                 Generate, extract, remove, plan panels
 
+  api/                          Next.js API routes
+    character-save/route.ts     Save character images to local disk
+    open-folder/route.ts        Open image output folder
+    send-to-photoshop/route.ts  Send images to Adobe Photoshop
+
 src/components/                 Hub-level shared components
   ClientShell.tsx               App shell with sidebar + workspace
   WorkspaceRenderer.tsx         Route resolver with keep-alive
   Sidebar.tsx                   Navigation sidebar
   HubCanvas.tsx                 Home screen node canvas
+  HomePage.tsx/.css             Hub landing page
   ToolNode.tsx                  Tool card node for hub canvas
   ToolShell.tsx                 Generic tool landing page wrapper
   CommandPalette.tsx            Ctrl+K command palette
   StatusBadge.tsx               Tool status indicator
-  GlobalToolbar.tsx/.css        Unified top toolbar for all canvas apps
-  CanvasContextMenu.tsx         Unified right-click context menu for all canvas apps
+  GlobalToolbar.tsx/.css        Unified top toolbar (Layout + Export dropdowns)
+  CanvasContextMenu.tsx         Unified right-click context menu
   CanvasCommon.css              Shared canvas styles (cut-line overlay, etc.)
   ImageContextMenu.tsx/.css     Image-specific context menu
+  CostWidget.tsx/.css           Global API cost tracker (per-app breakdown)
+  Toast.tsx/.css                Global toast notification system
+  nodes/ui/                     Shared UI element nodes (Button, TextBox, etc.)
+  nodes/withNodeResize.tsx      HOC for NodeResizer support
 
 src/hooks/
   useCanvasSession.ts           Shared canvas session hook (undo/redo, edge-cutting, grouping, clipboard, pin, export/save/import)
@@ -172,6 +196,7 @@ src/lib/
   types.ts                      Shared hub types
   cn.ts                         Tailwind class merge utility
   tool-client.ts                HTTP client for tool backends
+  layoutStore.ts                Named layout persistence (save, load, default per app)
   workspace/
     WorkspaceContext.tsx         Workspace routing + keep-alive context
   ideation/

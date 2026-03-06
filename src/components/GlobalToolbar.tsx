@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Undo2, Redo2, Copy, Maximize2, Trash2, Upload, Download, PackageCheck, LayoutGrid, ChevronDown, Layers } from 'lucide-react';
+import { Undo2, Redo2, Copy, Maximize2, Trash2, Upload, Download, LayoutGrid, ChevronDown, Layers } from 'lucide-react';
 import './GlobalToolbar.css';
 
 export interface SavedLayoutEntry {
@@ -21,9 +21,12 @@ export interface GlobalToolbarProps {
   onFitView?: () => void;
   onAutoLayout?: () => void;
   onClear?: () => void;
-  onExportAll?: () => void;
-  onExportSelected?: () => void;
   onImportLayout?: () => void;
+
+  onExportSelectedNodesOnly?: () => void;
+  onExportSelectedWithConnections?: () => void;
+  onExportAllNodesOnly?: () => void;
+  onExportAllWithConnections?: () => void;
 
   onSaveLayoutNamed?: (name: string) => void;
   onLoadLayout?: (name: string) => void;
@@ -31,13 +34,17 @@ export interface GlobalToolbarProps {
   onDeleteLayout?: (name: string) => void;
   savedLayouts?: SavedLayoutEntry[];
 
-  /** @deprecated use onSaveLayoutNamed */
+  /** @deprecated */
+  onExportAll?: () => void;
+  /** @deprecated */
+  onExportSelected?: () => void;
+  /** @deprecated */
   onSaveLayout?: () => void;
-  /** @deprecated use onImportLayout */
+  /** @deprecated */
   onImport?: () => void;
-  /** @deprecated use onSaveLayoutNamed */
+  /** @deprecated */
   onSave?: () => void;
-  /** @deprecated use onExportSelected */
+  /** @deprecated */
   onExport?: () => void;
 }
 
@@ -53,40 +60,52 @@ export default function GlobalToolbar({
   onFitView,
   onAutoLayout,
   onClear,
-  onExportAll,
-  onExportSelected,
   onImportLayout,
+  onExportSelectedNodesOnly,
+  onExportSelectedWithConnections,
+  onExportAllNodesOnly,
+  onExportAllWithConnections,
   onSaveLayoutNamed,
   onLoadLayout,
   onSetDefault,
   onDeleteLayout,
   savedLayouts,
+  onExportAll,
+  onExportSelected,
   onSaveLayout,
   onImport,
   onSave,
   onExport,
 }: GlobalToolbarProps) {
   const handleImport = onImportLayout ?? onImport;
-  const handleExportSelected = onExportSelected ?? onExport;
   const hasLayoutSystem = !!(onSaveLayoutNamed || onLoadLayout || onSetDefault);
   const legacySave = onSaveLayout ?? onSave;
 
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const hasExportSystem = !!(onExportSelectedNodesOnly || onExportSelectedWithConnections || onExportAllNodesOnly || onExportAllWithConnections);
+  const legacyExportAll = onExportAll;
+  const legacyExportSelected = onExportSelected ?? onExport;
+
+  const [layoutDropdownOpen, setLayoutDropdownOpen] = useState(false);
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
   const [savePrompt, setSavePrompt] = useState(false);
   const [saveName, setSaveName] = useState('');
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const layoutRef = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!dropdownOpen) return;
+    if (!layoutDropdownOpen && !exportDropdownOpen) return;
     const close = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as HTMLElement)) {
-        setDropdownOpen(false);
+      if (layoutDropdownOpen && layoutRef.current && !layoutRef.current.contains(e.target as HTMLElement)) {
+        setLayoutDropdownOpen(false);
+      }
+      if (exportDropdownOpen && exportRef.current && !exportRef.current.contains(e.target as HTMLElement)) {
+        setExportDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
-  }, [dropdownOpen]);
+  }, [layoutDropdownOpen, exportDropdownOpen]);
 
   useEffect(() => {
     if (savePrompt) inputRef.current?.focus();
@@ -98,7 +117,7 @@ export default function GlobalToolbar({
     onSaveLayoutNamed(name);
     setSaveName('');
     setSavePrompt(false);
-    setDropdownOpen(false);
+    setLayoutDropdownOpen(false);
   }, [saveName, onSaveLayoutNamed]);
 
   return (
@@ -135,24 +154,86 @@ export default function GlobalToolbar({
           </button>
         )}
         <div className="global-toolbar-sep" />
-        {onExportAll && (
-          <button className="global-toolbar-btn" onClick={onExportAll} title="Export all to JSON + clipboard">
-            <Download size={14} />
-            <span>Export All</span>
-          </button>
-        )}
-        {handleExportSelected && (
-          <button className="global-toolbar-btn" onClick={handleExportSelected} disabled={!hasSelection} title="Export selected to JSON + clipboard">
-            <PackageCheck size={14} />
-            <span>Export Selected</span>
-          </button>
-        )}
 
-        {hasLayoutSystem ? (
-          <div className="layout-dropdown-wrapper" ref={dropdownRef}>
+        {/* ── Export dropdown ── */}
+        {hasExportSystem ? (
+          <div className="layout-dropdown-wrapper" ref={exportRef}>
             <button
               className="global-toolbar-btn"
-              onClick={() => setDropdownOpen(!dropdownOpen)}
+              onClick={() => { setExportDropdownOpen(!exportDropdownOpen); setLayoutDropdownOpen(false); }}
+              title="Export options"
+            >
+              <Download size={14} />
+              <span>Export</span>
+              <ChevronDown size={12} />
+            </button>
+
+            {exportDropdownOpen && (
+              <div className="layout-dropdown-menu">
+                {onExportSelectedNodesOnly && (
+                  <button
+                    className="layout-menu-btn"
+                    disabled={!hasSelection}
+                    onClick={() => { onExportSelectedNodesOnly(); setExportDropdownOpen(false); }}
+                  >
+                    Selected &mdash; nodes only
+                  </button>
+                )}
+                {onExportSelectedWithConnections && (
+                  <button
+                    className="layout-menu-btn"
+                    disabled={!hasSelection}
+                    onClick={() => { onExportSelectedWithConnections(); setExportDropdownOpen(false); }}
+                  >
+                    Selected &mdash; with connections
+                  </button>
+                )}
+                {(onExportSelectedNodesOnly || onExportSelectedWithConnections) &&
+                  (onExportAllNodesOnly || onExportAllWithConnections) && (
+                    <div className="layout-menu-sep" />
+                  )}
+                {onExportAllNodesOnly && (
+                  <button
+                    className="layout-menu-btn"
+                    onClick={() => { onExportAllNodesOnly(); setExportDropdownOpen(false); }}
+                  >
+                    All &mdash; nodes only
+                  </button>
+                )}
+                {onExportAllWithConnections && (
+                  <button
+                    className="layout-menu-btn"
+                    onClick={() => { onExportAllWithConnections(); setExportDropdownOpen(false); }}
+                  >
+                    All &mdash; with connections
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            {legacyExportAll && (
+              <button className="global-toolbar-btn" onClick={legacyExportAll} title="Export all to JSON + clipboard">
+                <Download size={14} />
+                <span>Export All</span>
+              </button>
+            )}
+            {legacyExportSelected && (
+              <button className="global-toolbar-btn" onClick={legacyExportSelected} disabled={!hasSelection} title="Export selected to JSON + clipboard">
+                <Download size={14} />
+                <span>Export Selected</span>
+              </button>
+            )}
+          </>
+        )}
+
+        {/* ── Layout dropdown ── */}
+        {hasLayoutSystem ? (
+          <div className="layout-dropdown-wrapper" ref={layoutRef}>
+            <button
+              className="global-toolbar-btn"
+              onClick={() => { setLayoutDropdownOpen(!layoutDropdownOpen); setExportDropdownOpen(false); }}
               title="Layout options"
             >
               <Layers size={14} />
@@ -160,7 +241,7 @@ export default function GlobalToolbar({
               <ChevronDown size={12} />
             </button>
 
-            {dropdownOpen && (
+            {layoutDropdownOpen && (
               <div className="layout-dropdown-menu">
                 {savePrompt ? (
                   <div className="layout-save-prompt">
@@ -183,12 +264,12 @@ export default function GlobalToolbar({
                       Save Layout...
                     </button>
                     {onSetDefault && (
-                      <button className="layout-menu-btn" onClick={() => { onSetDefault(); setDropdownOpen(false); }}>
+                      <button className="layout-menu-btn" onClick={() => { onSetDefault(); setLayoutDropdownOpen(false); }}>
                         Set as Default
                       </button>
                     )}
                     {handleImport && (
-                      <button className="layout-menu-btn" onClick={() => { handleImport(); setDropdownOpen(false); }}>
+                      <button className="layout-menu-btn" onClick={() => { handleImport(); setLayoutDropdownOpen(false); }}>
                         Import Layout...
                       </button>
                     )}
@@ -201,7 +282,7 @@ export default function GlobalToolbar({
                             <div key={l.name} className="layout-menu-entry">
                               <button
                                 className="layout-menu-btn layout-entry-load"
-                                onClick={() => { onLoadLayout?.(l.name); setDropdownOpen(false); }}
+                                onClick={() => { onLoadLayout?.(l.name); setLayoutDropdownOpen(false); }}
                                 title={`Saved ${new Date(l.savedAt).toLocaleString()}`}
                               >
                                 {l.name === '__default__' ? '(Auto-saved default)' : l.name}

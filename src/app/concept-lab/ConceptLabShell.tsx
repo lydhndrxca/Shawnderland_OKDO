@@ -208,8 +208,8 @@ const CTX_CATEGORIES: ContextMenuCategory[] = DOCK_CATEGORIES.map((cat) => ({
 const CHAR_PRESET_NODES: Node[] = [
   { id: 'cl-charId', type: 'charIdentity', position: { x: 60, y: 60 }, data: {} },
   { id: 'cl-charAttr', type: 'charAttributes', position: { x: 60, y: 520 }, data: {} },
-  { id: 'cl-charViewer', type: 'multiViewer', position: { x: 500, y: 60 }, data: {} },
-  { id: 'cl-charEdit', type: 'editImage', position: { x: 500, y: 500 }, data: {} },
+  { id: 'cl-charViewer', type: 'charViewer', position: { x: 500, y: 60 }, data: {} },
+  { id: 'cl-charEdit', type: 'charEdit', position: { x: 500, y: 500 }, data: {} },
   { id: 'cl-charTurn', type: 'turnaround', position: { x: 1060, y: 60 }, data: {} },
   { id: 'cl-charEmo', type: 'emotion', position: { x: 60, y: -80 }, data: {} },
 ];
@@ -224,8 +224,8 @@ const CHAR_PRESET_EDGES: Edge[] = [
 const WEAPON_PRESET_NODES: Node[] = [
   { id: 'cl-weapGen', type: 'weapBase', position: { x: 60, y: 60 }, data: {} },
   { id: 'cl-weapComp', type: 'weapComponents', position: { x: 60, y: 500 }, data: {} },
-  { id: 'cl-weapViewer', type: 'multiViewer', position: { x: 500, y: 60 }, data: {} },
-  { id: 'cl-weapEdit', type: 'editImage', position: { x: 500, y: 500 }, data: {} },
+  { id: 'cl-weapViewer', type: 'charViewer', position: { x: 500, y: 60 }, data: {} },
+  { id: 'cl-weapEdit', type: 'charEdit', position: { x: 500, y: 500 }, data: {} },
   { id: 'cl-weapTurn', type: 'turnaround', position: { x: 1060, y: 60 }, data: {} },
   { id: 'cl-weapRef', type: 'imageReference', position: { x: 60, y: -80 }, data: {} },
 ];
@@ -441,7 +441,10 @@ function ConceptLabCanvas() {
         onDuplicate={cs.duplicateSelected}
         onFitView={handleFitView}
         onClear={handleClear}
-        onExportSelected={cs.exportLayoutJSON}
+        onExportSelectedNodesOnly={cs.exportSelectedNodesOnly}
+        onExportSelectedWithConnections={cs.exportSelectedWithConnections}
+        onExportAllNodesOnly={cs.exportAllNodesOnly}
+        onExportAllWithConnections={cs.exportAllWithConnections}
         onImportLayout={handleImportLayout}
         onSaveLayoutNamed={(name) => { cs.saveNamedLayout(name); showToast(`Layout "${name}" saved`); }}
         onLoadLayout={(name) => { cs.loadNamedLayout(name); showToast(`Layout "${name}" loaded`); }}

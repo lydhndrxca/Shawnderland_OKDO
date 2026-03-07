@@ -66,8 +66,7 @@ function ReferenceCalloutNodeInner({ id, data, selected }: Props) {
       </div>
 
       <Handle type="target" position={Position.Left} id="image-in" className="char-handle" style={{ top: '50%' }} />
-      <Handle type="source" position={Position.Right} id="image-out" className="char-handle" style={{ top: '35%' }} />
-      <Handle type="source" position={Position.Right} id="callout-out" className="char-handle" style={{ top: '65%' }} />
+      <Handle type="source" position={Position.Right} id="output" className="char-handle" style={{ top: '50%' }} />
     </div>
   );
 }

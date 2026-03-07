@@ -54,6 +54,7 @@ import GenerateCharImageNode from './nodes/character/GenerateCharImageNode';
 import GenerateViewsNode from './nodes/character/GenerateViewsNode';
 import ReferenceCalloutNode from './nodes/character/ReferenceCalloutNode';
 import MainStageViewerNode from './nodes/character/MainStageViewerNode';
+import CharViewNode from './nodes/character/CharViewNode';
 import EditCharacterNode from './nodes/character/EditCharacterNode';
 import CharHistoryNode from './nodes/character/CharHistoryNode';
 import ResetCharacterNode from './nodes/character/ResetCharacterNode';
@@ -61,6 +62,10 @@ import SendToPhotoshopNode from './nodes/character/SendToPhotoshopNode';
 import ShowXMLNode from './nodes/character/ShowXMLNode';
 import QuickGenerateNode from './nodes/character/QuickGenerateNode';
 import ProjectSettingsNode from './nodes/character/ProjectSettingsNode';
+import GateNode from './nodes/character/GateNode';
+import PoseNode from './nodes/character/PoseNode';
+import StyleNode from './nodes/character/StyleNode';
+import ImageBucketNode from './nodes/character/ImageBucketNode';
 import PipelineEdge from './edges/PipelineEdge';
 import ToolDock from './ToolDock';
 import CanvasContextMenu, { type ContextMenuCategory, type CustomNodeAction } from '@/components/CanvasContextMenu';
@@ -139,6 +144,14 @@ const rawNodeTypes: NodeTypes = {
   charShowXML: withCompatCheck(ShowXMLNode),
   charQuickGen: withCompatCheck(QuickGenerateNode),
   charProject: withCompatCheck(ProjectSettingsNode),
+  charGate: withCompatCheck(GateNode),
+  charMainViewer: withCompatCheck(CharViewNode),
+  charFrontViewer: withCompatCheck(CharViewNode),
+  charBackViewer: withCompatCheck(CharViewNode),
+  charSideViewer: withCompatCheck(CharViewNode),
+  charPose: withCompatCheck(PoseNode),
+  charStyle: withCompatCheck(StyleNode),
+  charImageBucket: withCompatCheck(ImageBucketNode),
   uiButton: UIButtonNode,
   uiTextBox: UITextBoxNode,
   uiDropdown: UIDropdownNode,
@@ -200,22 +213,28 @@ function buildCtxCategories(): ContextMenuCategory[] {
     {
       label: 'Character Generator',
       items: [
+        { id: 'charProject', label: 'Project Settings', color: '#546e7a' },
         { id: 'charIdentity', label: 'Character Identity', color: '#7c4dff' },
         { id: 'charDescription', label: 'Character Description', color: '#5c6bc0' },
         { id: 'charAttributes', label: 'Character Attributes', color: '#9c27b0' },
+        { id: 'charPose', label: 'Pose', color: '#8e24aa' },
+        { id: 'charStyle', label: 'Style', color: '#7b1fa2' },
         { id: 'charExtractAttrs', label: 'Extract Attributes', color: '#ffab40' },
         { id: 'charEnhanceDesc', label: 'Enhance Description', color: '#66bb6a' },
         { id: 'charGenerate', label: 'Generate Character', color: '#e91e63' },
-        { id: 'charGenViews', label: 'Generate Views', color: '#00bfa5' },
+        { id: 'charGate', label: 'Gate (On/Off)', color: '#66bb6a' },
+        { id: 'charMainViewer', label: 'Main Stage Viewer', color: '#00bfa5' },
+        { id: 'charFrontViewer', label: 'Front View', color: '#42a5f5' },
+        { id: 'charBackViewer', label: 'Back View', color: '#ab47bc' },
+        { id: 'charSideViewer', label: 'Side View', color: '#ff7043' },
         { id: 'charRefCallout', label: 'Reference Callout', color: '#26a69a' },
-        { id: 'charViewer', label: 'Image Viewer', color: '#00bfa5' },
         { id: 'charEdit', label: 'Edit Character', color: '#29b6f6' },
         { id: 'charHistory', label: 'History', color: '#78909c' },
         { id: 'charReset', label: 'Reset Character', color: '#ef5350' },
         { id: 'charSendPS', label: 'Send to Photoshop', color: '#1565c0' },
         { id: 'charShowXML', label: 'Show XML', color: '#8d6e63' },
         { id: 'charQuickGen', label: 'Quick Generate', color: '#ffa726' },
-        { id: 'charProject', label: 'Project Settings', color: '#546e7a' },
+        { id: 'charImageBucket', label: 'Generated Images', color: '#43a047' },
       ],
     },
     {
@@ -706,6 +725,57 @@ function FlowCanvasInner() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, [flow]);
 
+  // Gate dimming: collect node IDs downstream of OFF gates
+  const gateDisabledIds = useMemo(() => {
+    const disabled = new Set<string>();
+    const offGates = flow.nodes.filter(
+      (n) => n.type === 'charGate' && !(n.data as Record<string, unknown>).enabled,
+    );
+    const visit = (nodeId: string) => {
+      if (disabled.has(nodeId)) return;
+      disabled.add(nodeId);
+      for (const e of flow.edges) {
+        if (e.source === nodeId) visit(e.target);
+      }
+    };
+    for (const gate of offGates) {
+      for (const e of flow.edges) {
+        if (e.source === gate.id) visit(e.target);
+      }
+    }
+    return disabled;
+  }, [flow.nodes, flow.edges]);
+
+  // Character node processing animation: sync generating state to edges
+  useEffect(() => {
+    const generatingNodeIds = new Set(
+      flow.nodes
+        .filter((n) => (n.data as Record<string, unknown>)?.generating === true)
+        .map((n) => n.id),
+    );
+
+    if (generatingNodeIds.size === 0) {
+      flow.setEdges((prev) =>
+        prev.map((e) => {
+          if (e.data?.charRunning) return { ...e, data: { ...e.data, isRunning: false, charRunning: false } };
+          return e;
+        }),
+      );
+      return;
+    }
+
+    flow.setEdges((prev) =>
+      prev.map((e) => {
+        const sourceGenerating = generatingNodeIds.has(e.source);
+        const shouldRun = sourceGenerating;
+        if (shouldRun !== (e.data?.charRunning as boolean ?? false)) {
+          return { ...e, data: { ...e.data, isRunning: shouldRun, charRunning: shouldRun, pathLit: shouldRun } };
+        }
+        return e;
+      }),
+    );
+  }, [flow.nodes]);
+
   const nodesWithSnapClass = flow.nodes.map((n) => {
     let cls = n.className ?? '';
     if (snapPreviewIds.has(n.id)) {
@@ -720,6 +790,22 @@ function FlowCanvasInner() {
     } else {
       cls = cls.replace(/\blineage-highlight\b/g, '').trim();
     }
+
+    // Gate dimming
+    if (gateDisabledIds.has(n.id)) {
+      if (!cls.includes('gate-disabled')) cls = `${cls} gate-disabled`.trim();
+    } else {
+      cls = cls.replace(/\bgate-disabled\b/g, '').trim();
+    }
+
+    // Processing highlight
+    const isProcessing = (n.data as Record<string, unknown>)?.generating === true;
+    if (isProcessing) {
+      if (!cls.includes('char-node-processing')) cls = `${cls} char-node-processing`.trim();
+    } else {
+      cls = cls.replace(/\bchar-node-processing\b/g, '').trim();
+    }
+
     return cls !== (n.className ?? '') ? { ...n, className: cls || undefined } : n;
   });
 

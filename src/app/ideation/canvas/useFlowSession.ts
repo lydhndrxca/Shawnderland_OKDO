@@ -449,11 +449,19 @@ export function useFlowSession(): FlowSessionState {
       }
 
       const defaultStyle = NODE_DEFAULT_STYLE[nodeType];
+      const viewKeyDefaults: Record<string, Record<string, unknown>> = {
+        charMainViewer: { viewKey: 'main' },
+        charFrontViewer: { viewKey: 'front' },
+        charBackViewer: { viewKey: 'back' },
+        charSideViewer: { viewKey: 'side' },
+        charGate: { enabled: true },
+      };
+      const typeDefaults = viewKeyDefaults[nodeType] ?? {};
       const newNode: Node = {
         id,
         type: nodeType,
         position: finalPosition,
-        data: { stageId: nodeType, ...extraData },
+        data: { stageId: nodeType, ...typeDefaults, ...extraData },
         ...(defaultStyle ? { style: { width: defaultStyle.width, height: defaultStyle.height } } : {}),
       };
       setNodes((prev) => [...prev, newNode]);

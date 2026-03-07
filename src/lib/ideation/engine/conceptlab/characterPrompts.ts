@@ -103,12 +103,11 @@ export const ATTRIBUTE_GROUPS: AttributeGroup[] = [
     common: ['Material emphasis — leather & canvas mix','Material emphasis — denim & twill','Material emphasis — nylon & mesh','Material emphasis — cotton & rib knit','Material emphasis — suede accents','Wear — lightly worn edges','Wear — scuffed hardware','Finish — matte overall','Finish — mixed matte & satin','Repair — subtle hand stitch'],
     rare: ['Material emphasis — waxed cotton body','Material emphasis — ripstop + spacer mesh','Material emphasis — Cordura panelling','Wear — sun-bleached shoulders','Wear — oil-darkened cuffs','Wear — paint flecks clustered','Finish — stonewashed overall','Repair — sashiko knee patch','Patina — brass oxidized green','Stress — honeycomb on sleeves'],
   },
-  {
-    label: 'Pose', key: 'pose',
-    common: ['Pose — relaxed A-stance, hands at sides','Pose — hands on hips, grounded','Pose — one hand pocket, casual','Pose — slight contrapposto','Pose — feet shoulder width, neutral','Pose — arms crossed, relaxed','Pose — thumbs hooked on belt','Pose — light step forward','Pose — squared to camera','Pose — head tilt, attentive'],
-    rare: ['Pose — checking watch, subtle','Pose — adjusting cuff','Pose — lifting hood slightly','Pose — slinging pack on','Pose — leaning on foot, ready','Pose — securing strap','Pose — scanning horizon','Pose — rolling sleeve','Pose — kneeling to check boot','Pose — pinching bridge of nose'],
-  },
 ];
+
+// Pose options moved to dedicated PoseNode — kept here for reference/export
+export const POSE_COMMON = ['Pose — relaxed A-stance, hands at sides','Pose — hands on hips, grounded','Pose — one hand pocket, casual','Pose — slight contrapposto','Pose — feet shoulder width, neutral','Pose — arms crossed, relaxed','Pose — thumbs hooked on belt','Pose — light step forward','Pose — squared to camera','Pose — head tilt, attentive'];
+export const POSE_RARE = ['Pose — checking watch, subtle','Pose — adjusting cuff','Pose — lifting hood slightly','Pose — slinging pack on','Pose — leaning on foot, ready','Pose — securing strap','Pose — scanning horizon','Pose — rolling sleeve','Pose — kneeling to check boot','Pose — pinching bridge of nose'];
 
 /* ── Character Identity ── */
 

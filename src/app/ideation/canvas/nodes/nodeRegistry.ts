@@ -113,7 +113,7 @@ export type CharGeneratorNodeType =
   | 'charIdentity' | 'charDescription' | 'charAttributes'
   | 'charExtractAttrs' | 'charEnhanceDesc'
   | 'charGenerate' | 'charGenViews'
-  | 'charRefCallout' | 'charViewer'
+  | 'charRefCallout' | 'charViewer' | 'charImageViewer'
   | 'charEdit' | 'charHistory'
   | 'charReset' | 'charSendPS' | 'charShowXML' | 'charQuickGen' | 'charProject';
 export type AnyNodeType = StageId | OutputNodeType | InputNodeType | InfluenceNodeType | PromptInjectionNodeType | UtilityNodeType | ControlNodeType | ResultNodeType | GroupNodeType | PackedPipelineNodeType | ConceptLabNodeType | CharGeneratorNodeType;
@@ -432,7 +432,7 @@ export function isValidConnection(source: string, target: string): boolean {
     'charIdentity', 'charDescription', 'charAttributes',
     'charExtractAttrs', 'charEnhanceDesc',
     'charGenerate', 'charGenViews',
-    'charRefCallout', 'charViewer',
+    'charRefCallout', 'charViewer', 'charImageViewer',
     'charEdit', 'charHistory',
     'charReset', 'charSendPS', 'charShowXML', 'charQuickGen', 'charProject',
   ];
@@ -457,4 +457,7 @@ export function isValidConnection(source: string, target: string): boolean {
 export const NODE_DEFAULT_STYLE: Record<string, { width: number; height: number }> = {
   character: { width: 240, height: 200 },
   weapon: { width: 240, height: 220 },
+  charImageViewer: { width: 600, height: 700 },
+  charViewer: { width: 600, height: 700 },
+  charHistory: { width: 260, height: 500 },
 };

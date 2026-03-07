@@ -68,6 +68,7 @@ const RAW_NODE_TYPES: NodeTypes = {
   charGenViews: GenerateViewsNode,
   charRefCallout: ReferenceCalloutNode,
   charViewer: MainStageViewerNode,
+  charImageViewer: MainStageViewerNode,
   charEdit: EditCharacterNode,
   charHistory: CharHistoryNode,
   charReset: ResetCharacterNode,
@@ -114,7 +115,7 @@ const DOCK_CATEGORIES = [
       { type: 'charGenerate', label: 'Generate Character', desc: 'Main character image generation', color: '#e91e63' },
       { type: 'charGenViews', label: 'Generate Views', desc: 'Front, back, side view generation', color: '#00bfa5' },
       { type: 'charRefCallout', label: 'Reference Callout', desc: 'Annotate reference image for generation', color: '#26a69a' },
-      { type: 'charViewer', label: 'Main Stage Viewer', desc: 'Multi-tab image viewer with zoom', color: '#00bfa5' },
+      { type: 'charViewer', label: 'Image Viewer', desc: 'Resizable image viewer with zoom/pan and right-click menu', color: '#00bfa5' },
       { type: 'charEdit', label: 'Edit Character', desc: 'Text-based image edits', color: '#29b6f6' },
       { type: 'charHistory', label: 'History', desc: 'Generation history with thumbnails', color: '#78909c' },
       { type: 'charQuickGen', label: 'Quick Generate', desc: 'Randomly generate a character', color: '#ffa726' },
@@ -215,7 +216,7 @@ const CHAR_PRESET_NODES: Node[] = [
 ];
 const CHAR_PRESET_EDGES: Edge[] = [
   { id: 'ce-attr-id', type: 'pipeline', source: 'cl-charAttr', target: 'cl-charId', sourceHandle: 'attrs-out', targetHandle: 'attr-in', data: { isComplete: true } },
-  { id: 'ce-id-viewer', type: 'pipeline', source: 'cl-charId', target: 'cl-charViewer', sourceHandle: 'image-out', targetHandle: 'image-in', data: { isComplete: true } },
+  { id: 'ce-id-viewer', type: 'pipeline', source: 'cl-charId', target: 'cl-charViewer', sourceHandle: 'image-out', targetHandle: 'input', data: { isComplete: true } },
   { id: 'ce-id-edit', type: 'pipeline', source: 'cl-charId', target: 'cl-charEdit', sourceHandle: 'image-out', targetHandle: 'image-in', data: { isComplete: true } },
   { id: 'ce-id-turn', type: 'pipeline', source: 'cl-charId', target: 'cl-charTurn', sourceHandle: 'image-out', targetHandle: 'ref-image', data: { isComplete: true } },
 ];

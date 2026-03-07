@@ -41,31 +41,27 @@ function gatherInputs(
     if (!src?.data) continue;
     const d = src.data as Record<string, unknown>;
 
-    if (src.type === 'charIdentity' || e.targetHandle === 'identity-in') {
+    if (src.type === 'charIdentity') {
       const id = d.identity as CharacterIdentity | undefined;
       if (id) identity = id;
       if (d.name) description = `${d.name as string}: ${description}`;
-    }
-
-    if (src.type === 'charDescription' || e.targetHandle === 'desc-in') {
+    } else if (src.type === 'charDescription') {
       if (d.description) description += (d.description as string);
-    }
-
-    if (src.type === 'charAttributes' || e.targetHandle === 'attrs-in') {
+    } else if (src.type === 'charAttributes') {
       if (d.attributes) attributes = { ...attributes, ...(d.attributes as CharacterAttributes) };
-    }
-
-    if (e.targetHandle === 'ref-a' || e.targetHandle === 'ref-b' || e.targetHandle === 'ref-c') {
-      const img = d.generatedImage as GeneratedImage | undefined;
-      if (img?.base64) refImages.push(img);
-      else if (d.imageBase64) refImages.push({ base64: d.imageBase64 as string, mimeType: (d.mimeType as string) || 'image/png' });
-    }
-
-    if (src.type === 'charRefCallout') {
+    } else if (src.type === 'charRefCallout') {
       if (d.calloutText) callouts.push(d.calloutText as string);
       const img = d.generatedImage as GeneratedImage | undefined;
       if (img?.base64) refImages.push(img);
       else if (d.imageBase64) refImages.push({ base64: d.imageBase64 as string, mimeType: (d.mimeType as string) || 'image/png' });
+    } else {
+      const img = d.generatedImage as GeneratedImage | undefined;
+      if (img?.base64) {
+        refImages.push(img);
+      } else if (d.imageBase64) {
+        refImages.push({ base64: d.imageBase64 as string, mimeType: (d.mimeType as string) || 'image/png' });
+      }
+      if (d.calloutText) callouts.push(d.calloutText as string);
     }
   }
 
@@ -157,12 +153,7 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
         )}
       </div>
 
-      <Handle type="target" position={Position.Left} id="identity-in" className="char-handle" style={{ top: '15%' }} />
-      <Handle type="target" position={Position.Left} id="desc-in" className="char-handle" style={{ top: '30%' }} />
-      <Handle type="target" position={Position.Left} id="attrs-in" className="char-handle" style={{ top: '45%' }} />
-      <Handle type="target" position={Position.Left} id="ref-a" className="char-handle" style={{ top: '60%' }} />
-      <Handle type="target" position={Position.Left} id="ref-b" className="char-handle" style={{ top: '75%' }} />
-      <Handle type="target" position={Position.Left} id="ref-c" className="char-handle" style={{ top: '90%' }} />
+      <Handle type="target" position={Position.Left} id="input" className="char-handle" style={{ top: '50%' }} />
       <Handle type="source" position={Position.Right} id="image-out" className="char-handle" style={{ top: '50%' }} />
     </div>
   );

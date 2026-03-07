@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useState, useCallback, useEffect, useRef } from 'react';
-import { Handle, Position, useReactFlow } from '@xyflow/react';
+import { Handle, Position, NodeResizer, useReactFlow } from '@xyflow/react';
 import { ImageContextMenu } from '@/components/ImageContextMenu';
 import type { GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import './CharacterNodes.css';
@@ -12,84 +12,49 @@ interface Props {
   selected?: boolean;
 }
 
-type TabKey = 'main' | 'front' | 'back' | 'side' | 'refA' | 'refB' | 'refC';
-
-const TABS: { key: TabKey; label: string; handle: string }[] = [
-  { key: 'main', label: 'Main Stage', handle: 'main-in' },
-  { key: 'front', label: 'Front', handle: 'front-in' },
-  { key: 'back', label: 'Back', handle: 'back-in' },
-  { key: 'side', label: 'Side', handle: 'side-in' },
-  { key: 'refA', label: 'Ref A', handle: 'ref-a' },
-  { key: 'refB', label: 'Ref B', handle: 'ref-b' },
-  { key: 'refC', label: 'Ref C', handle: 'ref-c' },
-];
-
-function getImageFromHandle(
+function getUpstreamImage(
   nodeId: string,
-  handleId: string,
   getNode: ReturnType<typeof useReactFlow>['getNode'],
   getEdges: ReturnType<typeof useReactFlow>['getEdges'],
 ): GeneratedImage | null {
   const edges = getEdges();
-  const edge = edges.find((e) => e.target === nodeId && e.targetHandle === handleId);
-  if (!edge) return null;
-  const src = getNode(edge.source);
-  if (!src?.data) return null;
-  const d = src.data as Record<string, unknown>;
-
-  if (handleId === 'main-in') {
+  const incoming = edges.filter((e) => e.target === nodeId);
+  for (const e of incoming) {
+    const src = getNode(e.source);
+    if (!src?.data) continue;
+    const d = src.data as Record<string, unknown>;
     const img = d.generatedImage as GeneratedImage | undefined;
     if (img?.base64) return img;
+    const b64 = d.imageBase64 as string | undefined;
+    if (b64) return { base64: b64, mimeType: (d.mimeType as string) || 'image/png' };
   }
-
-  const viewKey = handleId.replace('-in', '');
-  const viewImg = d[`view_${viewKey}`] as GeneratedImage | undefined;
-  if (viewImg?.base64) return viewImg;
-
-  const img = d.generatedImage as GeneratedImage | undefined;
-  if (img?.base64) return img;
-  const b64 = d.imageBase64 as string | undefined;
-  if (b64) return { base64: b64, mimeType: (d.mimeType as string) || 'image/png' };
   return null;
 }
 
 function MainStageViewerNodeInner({ id, data, selected }: Props) {
   const { getNode, getEdges, setNodes } = useReactFlow();
-  const [activeTab, setActiveTab] = useState<TabKey>('main');
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [tabImages, setTabImages] = useState<Partial<Record<TabKey, GeneratedImage>>>(() =>
-    (data?.tabImages as Partial<Record<TabKey, GeneratedImage>>) ?? {},
+  const [localImage, setLocalImage] = useState<GeneratedImage | null>(
+    (data?.localImage as GeneratedImage) ?? null,
   );
-  const canvasRef = useRef<HTMLDivElement>(null);
+  const isPanning = useRef(false);
+  const lastMouse = useRef({ x: 0, y: 0 });
   const fileRef = useRef<HTMLInputElement>(null);
+  const label = (data?.viewerLabel as string) || 'Image Viewer';
+
+  const upstreamImage = getUpstreamImage(id, getNode, getEdges);
+  const displayImage = upstreamImage ?? localImage;
 
   useEffect(() => {
-    const updates: Partial<Record<TabKey, GeneratedImage>> = {};
-    for (const tab of TABS) {
-      const img = getImageFromHandle(id, tab.handle, getNode, getEdges);
-      if (img) updates[tab.key] = img;
+    if (upstreamImage && upstreamImage.base64 !== (data?.generatedImage as GeneratedImage)?.base64) {
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === id ? { ...n, data: { ...n.data, generatedImage: upstreamImage } } : n,
+        ),
+      );
     }
-    if (Object.keys(updates).length) {
-      setTabImages((prev) => {
-        const next = { ...prev, ...updates };
-        setNodes((nds) =>
-          nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, tabImages: next } } : n)),
-        );
-        return next;
-      });
-    }
-  }, [id, getNode, getEdges, setNodes]);
-
-  const currentImage = (() => {
-    const fromHandle = getImageFromHandle(
-      id,
-      TABS.find((t) => t.key === activeTab)!.handle,
-      getNode,
-      getEdges,
-    );
-    return fromHandle ?? tabImages[activeTab] ?? null;
-  })();
+  }, [upstreamImage, id, data?.generatedImage, setNodes]);
 
   const handleResetView = useCallback(() => {
     setZoom(1);
@@ -99,8 +64,42 @@ function MainStageViewerNodeInner({ id, data, selected }: Props) {
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.stopPropagation();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    setZoom((z) => Math.max(0.25, Math.min(5, z + delta)));
+    setZoom((z) => Math.max(0.1, Math.min(10, z + delta)));
   }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button === 1) {
+      e.preventDefault();
+      isPanning.current = true;
+      lastMouse.current = { x: e.clientX, y: e.clientY };
+    }
+  }, []);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isPanning.current) return;
+    const dx = e.clientX - lastMouse.current.x;
+    const dy = e.clientY - lastMouse.current.y;
+    lastMouse.current = { x: e.clientX, y: e.clientY };
+    setPan((p) => ({ x: p.x + dx, y: p.y + dy }));
+  }, []);
+
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+    if (e.button === 1) isPanning.current = false;
+  }, []);
+
+  const handlePasteImage = useCallback(
+    (img: GeneratedImage) => {
+      setLocalImage(img);
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === id
+            ? { ...n, data: { ...n.data, localImage: img, generatedImage: img } }
+            : n,
+        ),
+      );
+    },
+    [id, setNodes],
+  );
 
   const handleOpenImage = useCallback(() => {
     fileRef.current?.click();
@@ -114,73 +113,76 @@ function MainStageViewerNodeInner({ id, data, selected }: Props) {
       reader.onload = () => {
         const base64 = (reader.result as string).split(',')[1];
         const img: GeneratedImage = { base64, mimeType: file.type || 'image/png' };
-        setTabImages((prev) => {
-          const next = { ...prev, [activeTab]: img };
-          setNodes((nds) =>
-            nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, tabImages: next } } : n)),
-          );
-          return next;
-        });
+        handlePasteImage(img);
       };
       reader.readAsDataURL(file);
     },
-    [id, activeTab, setNodes],
+    [handlePasteImage],
   );
 
-  const imageCount = Object.values(tabImages).filter(Boolean).length;
+  const handleResize = useCallback(
+    (_: unknown, params: { width: number; height: number }) => {
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === id
+            ? { ...n, style: { ...n.style, width: params.width, height: params.height } }
+            : n,
+        ),
+      );
+    },
+    [id, setNodes],
+  );
 
   return (
-    <div className={`char-node char-viewer-node ${selected ? 'selected' : ''}`}>
+    <div className={`char-node char-viewer-node ${selected ? 'selected' : ''}`} style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <NodeResizer
+        isVisible={!!selected}
+        minWidth={300}
+        minHeight={300}
+        onResize={handleResize}
+      />
       <div className="char-node-header" style={{ background: '#00bfa5' }}>
-        Main Stage Viewer
-      </div>
-      <div className="char-viewer-tabs">
-        {TABS.map(({ key, label }) => (
-          <button
-            key={key}
-            className={`char-viewer-tab nodrag ${activeTab === key ? 'active' : ''} ${tabImages[key] ? 'has-image' : ''}`}
-            onClick={() => { setActiveTab(key); handleResetView(); }}
-          >
-            {label}
-          </button>
-        ))}
+        {label}
       </div>
       <div
-        ref={canvasRef}
         className="char-viewer-canvas nodrag nowheel"
         onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={() => { isPanning.current = false; }}
         onDoubleClick={handleResetView}
-        style={{ height: zoom > 1 ? 480 : 340 }}
+        style={{ flex: 1, overflow: 'hidden', cursor: isPanning.current ? 'grabbing' : 'default' }}
       >
-        {currentImage ? (
-          <ImageContextMenu image={currentImage} alt={`viewer-${activeTab}`}>
+        {displayImage ? (
+          <ImageContextMenu
+            image={displayImage}
+            alt={label}
+            onPasteImage={handlePasteImage}
+            onResetView={handleResetView}
+          >
             <img
-              src={`data:${currentImage.mimeType};base64,${currentImage.base64}`}
-              alt={activeTab}
+              src={`data:${displayImage.mimeType};base64,${displayImage.base64}`}
+              alt={label}
               style={{
                 transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
-                transition: 'transform 0.15s',
+                transition: isPanning.current ? 'none' : 'transform 0.1s',
               }}
             />
           </ImageContextMenu>
         ) : (
-          <span className="char-viewer-empty">No image loaded</span>
+          <span className="char-viewer-empty">No image loaded<br />Connect a source or open a file</span>
         )}
       </div>
       <div className="char-viewer-toolbar">
-        <button className="char-btn nodrag" onClick={handleOpenImage}>Open Image</button>
+        <button className="char-btn nodrag" onClick={handleOpenImage}>Open</button>
         <button className="char-btn nodrag" onClick={handleResetView}>Reset View</button>
         <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
-        <span className="char-viewer-zoom-info">{Math.round(zoom * 100)}% &middot; {imageCount} images</span>
+        <span className="char-viewer-zoom-info">{Math.round(zoom * 100)}%</span>
       </div>
 
-      <Handle type="target" position={Position.Left} id="main-in" className="char-handle" style={{ top: '10%' }} />
-      <Handle type="target" position={Position.Left} id="front-in" className="char-handle" style={{ top: '25%' }} />
-      <Handle type="target" position={Position.Left} id="back-in" className="char-handle" style={{ top: '40%' }} />
-      <Handle type="target" position={Position.Left} id="side-in" className="char-handle" style={{ top: '55%' }} />
-      <Handle type="target" position={Position.Left} id="ref-a" className="char-handle" style={{ top: '70%' }} />
-      <Handle type="target" position={Position.Left} id="ref-b" className="char-handle" style={{ top: '80%' }} />
-      <Handle type="target" position={Position.Left} id="ref-c" className="char-handle" style={{ top: '90%' }} />
+      <Handle type="target" position={Position.Left} id="input" className="char-handle" style={{ top: '50%' }} />
+      <Handle type="source" position={Position.Right} id="output" className="char-handle" style={{ top: '50%' }} />
     </div>
   );
 }

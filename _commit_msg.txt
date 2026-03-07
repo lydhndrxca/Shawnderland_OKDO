@@ -1,0 +1,10 @@
+feat: overhaul character nodes with single I/O, resizable viewer, full-state history
+
+- Simplify GenerateCharImageNode from 6 input handles to 1 input + 1 output; gatherInputs now inspects connected node types
+- Replace multi-tab MainStageViewerNode with single-purpose resizable image viewer (NodeResizer, zoom, middle-mouse pan, right-click menu)
+- Rewrite CharHistoryNode for full-state snapshots with "Current" entry, taller default, and full node restore on click
+- Simplify QuickGenerateNode to 1 input + 1 output with bidirectional push to connected nodes
+- Add charImageViewer type and default sizes (600x700 viewer, 260x500 history) to NODE_DEFAULT_STYLE
+- Register charImageViewer in FlowCanvas, ConceptLabShell, and nodeRegistry
+- Update viewer CSS to remove max-width constraint for resizable layout
+- Update ConceptLabShell preset edge handles to match new single-input viewer

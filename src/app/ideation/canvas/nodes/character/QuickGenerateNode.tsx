@@ -32,15 +32,23 @@ function QuickGenerateNodeInner({ id, data, selected }: Props) {
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  const getConnectedNodeIds = useCallback(() => {
+    const edges = getEdges();
+    const targets = new Set<string>();
+    for (const e of edges) {
+      if (e.source === id) targets.add(e.target);
+      if (e.target === id) targets.add(e.source);
+    }
+    return targets;
+  }, [id, getEdges]);
+
   const pushData = useCallback(
     (identity: CharacterIdentity, attributes: CharacterAttributes, description: string) => {
-      const edges = getEdges();
-      const outgoing = edges.filter((e) => e.source === id);
+      const connected = getConnectedNodeIds();
 
       setNodes((nds) =>
         nds.map((n) => {
-          const outEdge = outgoing.find((e) => e.target === n.id);
-          if (!outEdge) return n;
+          if (!connected.has(n.id)) return n;
 
           if (n.type === 'charIdentity') {
             return { ...n, data: { ...n.data, identity } };
@@ -55,7 +63,7 @@ function QuickGenerateNodeInner({ id, data, selected }: Props) {
         }),
       );
     },
-    [id, getEdges, setNodes],
+    [getConnectedNodeIds, setNodes],
   );
 
   const runDescriptionOnly = useCallback(async () => {
@@ -118,12 +126,10 @@ function QuickGenerateNodeInner({ id, data, selected }: Props) {
       const fullPrompt = buildCharacterViewPrompt('main', charDesc);
       const images = await generateWithImagen4(fullPrompt, '9:16', 1);
 
-      const edges = getEdges();
-      const outgoing = edges.filter((e) => e.source === id);
+      const connected = getConnectedNodeIds();
       setNodes((nds) =>
         nds.map((n) => {
-          const outEdge = outgoing.find((e) => e.target === n.id);
-          if (!outEdge) return n;
+          if (!connected.has(n.id)) return n;
           if (n.type === 'charGenerate') {
             return {
               ...n,
@@ -145,7 +151,7 @@ function QuickGenerateNodeInner({ id, data, selected }: Props) {
     } finally {
       setGenerating(false);
     }
-  }, [id, pushData, getEdges, setNodes]);
+  }, [pushData, getConnectedNodeIds, setNodes]);
 
   return (
     <div className={`char-node ${selected ? 'selected' : ''}`}>
@@ -167,9 +173,8 @@ function QuickGenerateNodeInner({ id, data, selected }: Props) {
         {error && <div className="char-error">{error}</div>}
       </div>
 
-      <Handle type="source" position={Position.Right} id="identity-out" className="char-handle" style={{ top: '25%' }} />
-      <Handle type="source" position={Position.Right} id="desc-out" className="char-handle" style={{ top: '50%' }} />
-      <Handle type="source" position={Position.Right} id="attrs-out" className="char-handle" style={{ top: '75%' }} />
+      <Handle type="target" position={Position.Left} id="input" className="char-handle" style={{ top: '50%' }} />
+      <Handle type="source" position={Position.Right} id="output" className="char-handle" style={{ top: '50%' }} />
     </div>
   );
 }

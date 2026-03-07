@@ -182,7 +182,7 @@ function buildCategories(): CategoryDef[] {
         { id: 'charGenerate', label: 'Generate Character', color: '#e91e63', subtitle: 'Main character image gen' },
         { id: 'charGenViews', label: 'Generate Views', color: '#00bfa5', subtitle: 'Front/back/side views' },
         { id: 'charRefCallout', label: 'Reference Callout', color: '#26a69a', subtitle: 'Annotate reference image' },
-        { id: 'charViewer', label: 'Main Stage Viewer', color: '#00bfa5', subtitle: 'Multi-tab image viewer' },
+        { id: 'charViewer', label: 'Image Viewer', color: '#00bfa5', subtitle: 'Resizable viewer with zoom/pan' },
         { id: 'charEdit', label: 'Edit Character', color: '#29b6f6', subtitle: 'Text-based image edits' },
         { id: 'charHistory', label: 'History', color: '#78909c', subtitle: 'Track generation history' },
         { id: 'charReset', label: 'Reset Character', color: '#ef5350', subtitle: 'Clear all character data' },

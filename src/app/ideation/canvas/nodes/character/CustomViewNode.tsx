@@ -41,6 +41,7 @@ function CustomViewNodeInner({ id, data, selected }: Props) {
   const [viewPrompt, setViewPrompt] = useState((data?.viewPrompt as string) ?? '');
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [imgRes, setImgRes] = useState<{ w: number; h: number } | null>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resultImage, setResultImage] = useState<GeneratedImage | null>(
@@ -187,16 +188,23 @@ function CustomViewNodeInner({ id, data, selected }: Props) {
         style={{ flex: 1, overflow: 'hidden', cursor: isPanning.current ? 'grabbing' : 'default' }}
       >
         {resultImage ? (
-          <ImageContextMenu image={resultImage} alt="custom view" onResetView={handleResetView}>
-            <img
-              src={`data:${resultImage.mimeType};base64,${resultImage.base64}`}
-              alt="Custom view"
-              style={{
-                transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
-                transition: isPanning.current ? 'none' : 'transform 0.1s',
-              }}
-            />
-          </ImageContextMenu>
+          <>
+            <ImageContextMenu image={resultImage} alt="custom view" onResetView={handleResetView}>
+              <img
+                src={`data:${resultImage.mimeType};base64,${resultImage.base64}`}
+                alt="Custom view"
+                onLoad={(e) => {
+                  const img = e.currentTarget;
+                  setImgRes({ w: img.naturalWidth, h: img.naturalHeight });
+                }}
+                style={{
+                  transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
+                  transition: isPanning.current ? 'none' : 'transform 0.1s',
+                }}
+              />
+            </ImageContextMenu>
+            {imgRes && <span className="char-viewer-res">{imgRes.w}&times;{imgRes.h}</span>}
+          </>
         ) : (
           <span className="char-viewer-empty">
             {generating ? 'Generating...' : 'Describe a view and click Generate'}

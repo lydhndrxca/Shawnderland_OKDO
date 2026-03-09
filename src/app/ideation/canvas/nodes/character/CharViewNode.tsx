@@ -180,7 +180,7 @@ function buildViewPrompt(viewKey: ViewKey, data: Record<string, unknown>): strin
 }
 
 function CharViewNodeInner({ id, data, selected }: Props) {
-  const { getNode, getNodes, getEdges, setNodes } = useReactFlow();
+  const { getNode, getNodes, getEdges, setNodes, addNodes, addEdges } = useReactFlow();
 
   const nodeType = getNode(id)?.type ?? '';
   const viewKey: ViewKey = NODE_TYPE_TO_VIEW[nodeType] ?? (data?.viewKey as ViewKey) ?? 'main';
@@ -190,6 +190,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [compact, setCompact] = useState(false);
+  const preCollapseSize = useRef<{ w: number; h: number } | null>(null);
   const [localImage, setLocalImage] = useState<GeneratedImage | null>(
     (data?.localImage as GeneratedImage) ?? null,
   );
@@ -198,6 +199,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const angleRefFileRef = useRef<HTMLInputElement>(null);
   const [showFullPreview, setShowFullPreview] = useState(false);
+  const [imgRes, setImgRes] = useState<{ w: number; h: number } | null>(null);
 
   // ── Custom view state ──
   const [customLabel, setCustomLabel] = useState<string>((data?.customLabel as string) ?? '');
@@ -297,7 +299,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
     ? (editedImage ?? pushedImage ?? upstreamImage ?? localImage)
     : (editedImage ?? pushedImage ?? localImage);
 
-  // Sync upstream → node data (Main Stage only)
+  // Sync upstream → node data (Main Stage only: clears editedImage on new upstream)
   const lastUpstreamSig = useRef<string | null>(null);
   useEffect(() => {
     if (!isMain || !upstreamImage) return;
@@ -311,6 +313,26 @@ function CharViewNodeInner({ id, data, selected }: Props) {
       ),
     );
   }, [isMain, upstreamImage, id, setNodes]);
+
+  // Sync displayed image → node data (all views) so external consumers
+  // (e.g. Gemini Editor overlay) can always read data.generatedImage.
+  const lastSyncedSig = useRef<string | null>(null);
+  useEffect(() => {
+    if (!currentImage) return;
+    const sig = currentImage.base64.slice(0, 120);
+    if (sig === lastSyncedSig.current) return;
+    const stored = (data?.generatedImage as GeneratedImage | undefined)?.base64?.slice(0, 120);
+    if (sig === stored) {
+      lastSyncedSig.current = sig;
+      return;
+    }
+    lastSyncedSig.current = sig;
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === id ? { ...n, data: { ...n.data, generatedImage: currentImage } } : n,
+      ),
+    );
+  }, [currentImage, data?.generatedImage, id, setNodes]);
 
   // ── Embedded History (all views) ──
   const initialEntries = (data?.historyEntries as HistorySnapshot[]) ?? [];
@@ -372,9 +394,26 @@ function CharViewNodeInner({ id, data, selected }: Props) {
   const viewImage = historyViewImage ?? currentImage;
 
   // ── Auto-generate perspective when Main Stage image arrives (non-main views) ──
+  // Only triggers on _orthoTrigger from a fresh generation, NOT from Gemini Editor edits.
   const gateBlocked = upstreamSig === '__gate_off__';
   const referenceImage = isMain ? null : (gateBlocked ? null : (upstreamImage ?? mainStageImage));
-  const lastRefSig = useRef<string | null>(null);
+
+  const orthoTriggerSelector = useCallback(
+    (state: { nodes: Array<{ id: string; type?: string; data: Record<string, unknown> }> }) => {
+      if (isMain) return null;
+      for (const n of state.nodes) {
+        if (n.id === id) continue;
+        const resolved = NODE_TYPE_TO_VIEW[n.type ?? ''] ?? (n.data?.viewKey as string);
+        if (resolved !== 'main') continue;
+        return (n.data?._orthoTrigger as number) ?? null;
+      }
+      return null;
+    },
+    [isMain, id],
+  );
+  const orthoTrigger = useStore(orthoTriggerSelector);
+
+  const lastTrigger = useRef<number | null>(null);
   const autoGenInFlight = useRef(false);
   const autoGenMountedRef = useRef(true);
   const [autoGenBusy, setAutoGenBusy] = useState(false);
@@ -385,10 +424,8 @@ function CharViewNodeInner({ id, data, selected }: Props) {
 
   useEffect(() => {
     if (isMain || !referenceImage || autoGenInFlight.current) return;
-
-    const sig = referenceImage.base64.slice(0, 120);
-    if (sig === lastRefSig.current) return;
-    lastRefSig.current = sig;
+    if (!orthoTrigger || orthoTrigger === lastTrigger.current) return;
+    lastTrigger.current = orthoTrigger;
 
     const prompt = buildViewPrompt(viewKey, data);
     if (!prompt) return;
@@ -403,7 +440,6 @@ function CharViewNodeInner({ id, data, selected }: Props) {
 
     const session = registerRequest();
 
-    // For custom views: include angle reference image if enabled
     const refImages: GeneratedImage | GeneratedImage[] = (() => {
       if (isCustom && useImage && angleRefImage) {
         return [referenceImage, angleRefImage];
@@ -441,7 +477,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         );
       }
     })();
-  }, [isMain, isCustom, referenceImage, viewKey, cfg, id, setNodes, pushHistory, data, useImage, angleRefImage]);
+  }, [isMain, isCustom, referenceImage, orthoTrigger, viewKey, cfg, id, setNodes, pushHistory, data, useImage, angleRefImage]);
 
   // ── Inline Edit ──
   const [editText, setEditText] = useState('');
@@ -669,14 +705,22 @@ function CharViewNodeInner({ id, data, selected }: Props) {
   const toggleCompact = useCallback(() => {
     const goingCompact = !compact;
     setCompact(goingCompact);
-    const w = goingCompact ? cfg.compactW : (viewKey === 'main' ? 600 : 400);
-    const h = goingCompact ? cfg.compactH : (viewKey === 'main' ? 820 : 720);
     setNodes((nds) =>
-      nds.map((n) =>
-        n.id === id ? { ...n, style: { ...n.style, width: w, height: h } } : n,
-      ),
+      nds.map((n) => {
+        if (n.id !== id) return n;
+        if (goingCompact) {
+          const curW = (n.style?.width as number) || (viewKey === 'main' ? 600 : 400);
+          const curH = (n.style?.height as number) || (viewKey === 'main' ? 820 : 720);
+          preCollapseSize.current = { w: curW, h: curH };
+          return { ...n, style: { ...n.style, width: curW, height: 42 } };
+        }
+        const prev = preCollapseSize.current;
+        const w = prev?.w ?? (viewKey === 'main' ? 600 : 400);
+        const h = prev?.h ?? (viewKey === 'main' ? 820 : 720);
+        return { ...n, style: { ...n.style, width: w, height: h } };
+      }),
     );
-  }, [compact, cfg, viewKey, id, setNodes]);
+  }, [compact, viewKey, id, setNodes]);
 
   // ── History navigation ──
   const handleHistoryCurrent = useCallback(() => {
@@ -740,11 +784,15 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         return mainImg;
       })();
 
-      const fullPrompt = isCustom && useImage && angleRefImage && !useText
+      const userEdit = editText.trim();
+      let fullPrompt = isCustom && useImage && angleRefImage && !useText
         ? `Create a custom view of this character matching the camera angle and pose shown in the second reference image. Preserve the character's identity from the first reference image exactly.\n${RENDER_STYLE_BLOCK}\nFull body head to toe, no cropping.\nBackground: Solid flat grey (#D3D3D3). No floor, no shadows, no environment.`
         : (isCustom && useImage && angleRefImage
           ? prompt + '\nUse the second reference image as a guide for the desired camera angle, pose, and framing.'
           : prompt);
+      if (userEdit) {
+        fullPrompt += `\n\nAdditional instructions: ${userEdit}`;
+      }
 
       const modelLabel = editModel === 'gemini-flash-image' ? 'Flash' : 'Pro';
       setEditStatus(`Waiting for Gemini ${modelLabel}…`);
@@ -763,7 +811,11 @@ function CharViewNodeInner({ id, data, selected }: Props) {
           n.id === id ? { ...n, data: { ...n.data, generatedImage: img } } : n,
         ),
       );
-      pushHistory(img, `Generated ${(isCustom ? (customLabel || cfg.label) : cfg.label).toLowerCase()}`);
+      const histLabel = userEdit
+        ? `${viewImage ? 'Regen' : 'Gen'}: ${userEdit.slice(0, 40)}`
+        : `${viewImage ? 'Regenerated' : 'Generated'} ${(isCustom ? (customLabel || cfg.label) : cfg.label).toLowerCase()}`;
+      pushHistory(img, histLabel);
+      if (userEdit) setEditText('');
       setTimeout(() => { if (mountedRef.current) setEditStatus(null); }, 3000);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -779,7 +831,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         setEditElapsed(0);
       }
     }
-  }, [isMain, isCustom, genBusy, id, cfg, customLabel, data, viewKey, getNodes, setNodes, pushHistory, editModel, useText, useImage, angleRefImage]);
+  }, [isMain, isCustom, genBusy, id, cfg, customLabel, data, viewKey, viewImage, editText, getNodes, setNodes, pushHistory, editModel, useText, useImage, angleRefImage]);
 
   const anyBusy = editBusy || genBusy || autoGenBusy;
 
@@ -791,6 +843,27 @@ function CharViewNodeInner({ id, data, selected }: Props) {
 
   const displayLabel = isCustom && customLabel ? customLabel : cfg.label;
 
+  const handleDetachViewer = useCallback(() => {
+    const sourceNode = getNode(id);
+    if (!sourceNode) return;
+    const newId = `detached-${id}-${Date.now()}`;
+    const offsetX = (sourceNode.style?.width as number) || 400;
+    addNodes([{
+      id: newId,
+      type: 'detachedViewer',
+      position: { x: sourceNode.position.x + offsetX + 40, y: sourceNode.position.y },
+      style: { width: 350, height: 400 },
+      data: { sourceLabel: displayLabel, sourceColor: cfg.color },
+    }]);
+    addEdges([{
+      id: `edge-${id}-${newId}`,
+      source: id,
+      sourceHandle: 'output',
+      target: newId,
+      targetHandle: 'input',
+    }]);
+  }, [id, getNode, addNodes, addEdges, displayLabel, cfg.color]);
+
   return (
     <div
       className={`char-node char-viewer-node ${selected ? 'selected' : ''} ${compact ? 'char-view-compact' : 'char-view-expanded'} ${anyBusy ? 'char-node-processing' : ''}`}
@@ -798,9 +871,9 @@ function CharViewNodeInner({ id, data, selected }: Props) {
       title={NODE_TOOLTIPS[tooltipKey]}
     >
       <NodeResizer
-        isVisible={!!selected}
-        minWidth={compact ? 100 : 200}
-        minHeight={compact ? 100 : 200}
+        isVisible={!!selected && !compact}
+        minWidth={200}
+        minHeight={200}
         onResize={handleResize}
       />
 
@@ -838,10 +911,29 @@ function CharViewNodeInner({ id, data, selected }: Props) {
             ⚙
           </button>
         )}
-        <button className="char-view-toggle nodrag" onClick={toggleCompact} title={compact ? 'Expand' : 'Shrink'}>
-          {compact ? '\u2922' : '\u2921'}
+        {viewImage && (
+          <button
+            className="char-view-toggle nodrag"
+            onClick={handleDetachViewer}
+            title="Detach image to a floating viewer"
+            style={{ fontSize: 11 }}
+          >
+            ⧉
+          </button>
+        )}
+        <button className="char-view-toggle nodrag" onClick={toggleCompact} title={compact ? 'Expand' : 'Collapse'}>
+          {compact ? '\u25BC' : '\u25B2'}
         </button>
       </div>
+
+      {compact && (
+        <div className="char-node-body" style={{ padding: '3px 10px' }}>
+          <span style={{ fontSize: 10, color: 'var(--text-muted, #888)' }}>
+            {viewImage ? (imgRes ? `${imgRes.w}×${imgRes.h}` : 'Image loaded') : 'No image'}
+            {historyEntries.length > 0 ? ` · ${historyEntries.length} hist` : ''}
+          </span>
+        </div>
+      )}
 
       {/* ── Full-size image popup (to the right of the node) ── */}
       {showFullPreview && viewImage && (
@@ -937,7 +1029,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         </div>
       )}
 
-      <div
+      {!compact && <div
         className="char-viewer-canvas nodrag nowheel"
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
@@ -948,24 +1040,31 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         style={{ flex: 1, overflow: 'hidden', cursor: isPanning.current ? 'grabbing' : 'default' }}
       >
         {viewImage ? (
-          <ImageContextMenu
-            image={viewImage}
-            alt={displayLabel}
-            onPasteImage={handlePasteImage}
-            onResetView={handleResetView}
-          >
-            <img
-              key={viewImage.base64.slice(-40)}
-              src={`data:${viewImage.mimeType};base64,${viewImage.base64}`}
+          <>
+            <ImageContextMenu
+              image={viewImage}
               alt={displayLabel}
-              onClick={() => { if (!isPanning.current) setShowFullPreview(true); }}
-              style={{
-                transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
-                transition: isPanning.current ? 'none' : 'transform 0.1s',
-                cursor: 'pointer',
-              }}
-            />
-          </ImageContextMenu>
+              onPasteImage={handlePasteImage}
+              onResetView={handleResetView}
+            >
+              <img
+                key={viewImage.base64.slice(-40)}
+                src={`data:${viewImage.mimeType};base64,${viewImage.base64}`}
+                alt={displayLabel}
+                onClick={() => { if (!isPanning.current) setShowFullPreview(true); }}
+                onLoad={(e) => {
+                  const img = e.currentTarget;
+                  setImgRes({ w: img.naturalWidth, h: img.naturalHeight });
+                }}
+                style={{
+                  transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
+                  transition: isPanning.current ? 'none' : 'transform 0.1s',
+                  cursor: 'pointer',
+                }}
+              />
+            </ImageContextMenu>
+            {imgRes && <span className="char-viewer-res">{imgRes.w}&times;{imgRes.h}</span>}
+          </>
         ) : (
           <span className="char-viewer-empty">
             {isMain ? (
@@ -977,7 +1076,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
             )}
           </span>
         )}
-      </div>
+      </div>}
 
       {!compact && (
         <div className="char-viewer-toolbar">
@@ -990,7 +1089,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
               title={mainStageImage ? `Generate ${displayLabel.toLowerCase()} from Main Stage` : 'No Main Stage image yet'}
               style={{ background: anyBusy ? undefined : cfg.color, color: '#000', fontWeight: 600 }}
             >
-              {genBusy ? `${editElapsed}s…` : 'Generate View'}
+              {genBusy ? `${editElapsed}s…` : viewImage ? 'Regenerate' : 'Generate View'}
             </button>
           )}
           <button className="char-btn nodrag" onClick={handleResetView}>Reset View</button>

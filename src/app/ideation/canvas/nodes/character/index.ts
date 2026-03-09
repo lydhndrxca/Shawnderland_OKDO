@@ -16,3 +16,5 @@ export { default as QuickGenerateNode } from './QuickGenerateNode';
 export { default as ProjectSettingsNode } from './ProjectSettingsNode';
 export { default as RandomizeNode } from './RandomizeNode';
 export { default as CustomViewNode } from './CustomViewNode';
+export { default as GeminiEditorNode } from './GeminiEditorNode';
+export { default as DetachedViewerNode } from './DetachedViewerNode';

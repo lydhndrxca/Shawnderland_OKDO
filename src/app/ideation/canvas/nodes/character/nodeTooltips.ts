@@ -57,6 +57,10 @@ export const NODE_TOOLTIPS: Record<string, string> = {
     'Randomize character attributes. Connect output → Attributes, Identity.',
   charImageBucket:
     'Opens the generated images folder on disk. Shows all saved outputs.',
+  geminiEditor:
+    'Full-screen image editor with text editing, brush masking, and inpainting. Connect inputs ← any image viewer nodes (Main Stage, Front, Back, Side, etc.). Click "Open Editor" to expand.',
+  detachedViewer:
+    'Floating image viewer — connect to any view node (Main Stage, Front, Back, Side, etc.) to show its image. Drag, resize, and pin for a clear overview of all character views.',
 
   // ── Ideation / ShawnderMind nodes ──
   seed:

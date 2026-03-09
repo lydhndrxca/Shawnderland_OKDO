@@ -262,8 +262,14 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
       if (callouts.length > 0) fullPrompt += '\n\nReference image callouts:\n' + callouts.join('\n');
 
       setProgress(`Generating main image (${currentModelDef.label}, ${selectedAspectRatio}, ${currentMaxRes})...`);
+      const mainViewerIdsEarly = findDownstreamMainViewers(id, getNode, getEdges);
       setNodes((nds) =>
-        nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, generating: true } } : n)),
+        nds.map((n) => {
+          if (n.id === id || mainViewerIdsEarly.includes(n.id)) {
+            return { ...n, data: { ...n.data, generating: true } };
+          }
+          return n;
+        }),
       );
 
       let result: GeneratedImage[];
@@ -307,7 +313,7 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
         setNodes((nds) =>
           nds.map((n) =>
             mainViewerIds.includes(n.id)
-              ? { ...n, data: { ...n.data, generatedImage: mainImage } }
+              ? { ...n, data: { ...n.data, generatedImage: mainImage, _orthoTrigger: Date.now() } }
               : n,
           ),
         );
@@ -319,8 +325,14 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setGenerating(false);
+      const mainViewerIdsCleanup = findDownstreamMainViewers(id, getNode, getEdges);
       setNodes((nds) =>
-        nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, generating: false } } : n)),
+        nds.map((n) => {
+          if (n.id === id || mainViewerIdsCleanup.includes(n.id)) {
+            return { ...n, data: { ...n.data, generating: false } };
+          }
+          return n;
+        }),
       );
       anim.clearAll();
     }

@@ -36,6 +36,7 @@ function MainStageViewerNodeInner({ id, data, selected }: Props) {
   const { getNode, getEdges, setNodes } = useReactFlow();
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [imgRes, setImgRes] = useState<{ w: number; h: number } | null>(null);
   const [localImage, setLocalImage] = useState<GeneratedImage | null>(
     (data?.localImage as GeneratedImage) ?? null,
   );
@@ -157,21 +158,28 @@ function MainStageViewerNodeInner({ id, data, selected }: Props) {
         style={{ flex: 1, overflow: 'hidden', cursor: isPanning.current ? 'grabbing' : 'default' }}
       >
         {displayImage ? (
-          <ImageContextMenu
-            image={displayImage}
-            alt={label}
-            onPasteImage={handlePasteImage}
-            onResetView={handleResetView}
-          >
-            <img
-              src={`data:${displayImage.mimeType};base64,${displayImage.base64}`}
+          <>
+            <ImageContextMenu
+              image={displayImage}
               alt={label}
-              style={{
-                transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
-                transition: isPanning.current ? 'none' : 'transform 0.1s',
-              }}
-            />
-          </ImageContextMenu>
+              onPasteImage={handlePasteImage}
+              onResetView={handleResetView}
+            >
+              <img
+                src={`data:${displayImage.mimeType};base64,${displayImage.base64}`}
+                alt={label}
+                onLoad={(e) => {
+                  const img = e.currentTarget;
+                  setImgRes({ w: img.naturalWidth, h: img.naturalHeight });
+                }}
+                style={{
+                  transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
+                  transition: isPanning.current ? 'none' : 'transform 0.1s',
+                }}
+              />
+            </ImageContextMenu>
+            {imgRes && <span className="char-viewer-res">{imgRes.w}&times;{imgRes.h}</span>}
+          </>
         ) : (
           <span className="char-viewer-empty">No image loaded<br />Connect a source or open a file</span>
         )}

@@ -251,7 +251,7 @@ function QuickGenerateNodeInner({ id, data, selected }: Props) {
             };
           }
           if (mainViewerIds.has(n.id)) {
-            return { ...n, data: { ...n.data, generatedImage: mainImage } };
+            return { ...n, data: { ...n.data, generatedImage: mainImage, _orthoTrigger: Date.now() } };
           }
           return n;
         }),

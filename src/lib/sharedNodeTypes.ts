@@ -74,6 +74,8 @@ import GateNode from '@/app/ideation/canvas/nodes/character/GateNode';
 import StyleNode from '@/app/ideation/canvas/nodes/character/StyleNode';
 import ImageBucketNode from '@/app/ideation/canvas/nodes/character/ImageBucketNode';
 import RandomizeNode from '@/app/ideation/canvas/nodes/character/RandomizeNode';
+import GeminiEditorNode from '@/app/ideation/canvas/nodes/character/GeminiEditorNode';
+import DetachedViewerNode from '@/app/ideation/canvas/nodes/character/DetachedViewerNode';
 // CustomViewNode is now handled by CharViewNode with viewKey='custom'
 
 // ── Gemini Studio nodes ─────────────────────────────────────────
@@ -177,6 +179,8 @@ export const ALL_RAW_NODE_TYPES: NodeTypes = {
   charImageBucket: ImageBucketNode,
   charRandomize: RandomizeNode,
   charCustomView: CharViewNode,
+  geminiEditor: GeminiEditorNode,
+  detachedViewer: DetachedViewerNode,
 
   // Gemini Studio
   gsPrompt: PromptNode,
@@ -224,6 +228,8 @@ export const NODE_DEFAULTS: Record<string, { style?: { width: number; height: nu
   charImageBucket: { style: { width: 240, height: 180 } },
   charRandomize: { style: { width: 180, height: 100 } },
   charCustomView: { style: { width: 400, height: 720 }, data: { viewKey: 'custom' } },
+  geminiEditor: { style: { width: 240, height: 220 } },
+  detachedViewer: { style: { width: 350, height: 400 } },
 };
 
 export interface DockNodeDef {
@@ -357,6 +363,8 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
       { type: 'charImageBucket', label: 'Generated Images', desc: 'Browse generated image directory', color: '#43a047' },
       { type: 'charRandomize', label: 'Randomize', desc: 'Randomize connected node options', color: '#ff5722' },
       { type: 'charCustomView', label: 'Custom View', desc: 'User-prompted custom angle/view', color: '#7e57c2' },
+      { type: 'geminiEditor', label: 'Gemini Editor', desc: 'Full-screen image editor with inpainting', color: '#00bcd4' },
+      { type: 'detachedViewer', label: 'Detached Viewer', desc: 'Floating image viewer — connect to any view node', color: '#607d8b' },
     ],
   },
   {

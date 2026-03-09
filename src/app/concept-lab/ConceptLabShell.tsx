@@ -22,6 +22,8 @@ import CanvasContextMenu from '@/components/CanvasContextMenu';
 import GlobalToolbar from '@/components/GlobalToolbar';
 import { ToastContainer, showToast } from '@/components/Toast';
 import CostWidget from '@/components/CostWidget';
+import GeminiEditorOverlay from '@/app/ideation/canvas/GeminiEditorOverlay';
+import { registerEditorOpener, unregisterEditorOpener } from '@/app/ideation/canvas/geminiEditorBridge';
 import { useCanvasSession, type CutLine } from '@/hooks/useCanvasSession';
 import { ALL_RAW_NODE_TYPES, ALL_DOCK_CATEGORIES, ALL_CTX_CATEGORIES, NODE_DEFAULTS } from '@/lib/sharedNodeTypes';
 import { applyResizeToAll } from '@/components/nodes/withNodeResize';
@@ -104,6 +106,13 @@ function ConceptLabCanvas() {
   });
 
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
+  const [editorNodeId, setEditorNodeId] = useState<string | null>(null);
+
+  // Register opener for GeminiEditor button clicks
+  useEffect(() => {
+    registerEditorOpener((nodeId: string) => setEditorNodeId(nodeId));
+    return () => unregisterEditorOpener();
+  }, []);
 
   const handleFitView = useCallback(() => {
     reactFlowInstance.fitView({ padding: 0.4, duration: 300 });
@@ -323,6 +332,9 @@ function ConceptLabCanvas() {
             onDragOver={onDragOver}
             onDrop={onDrop}
             onNodeClick={(_, node) => cs.setSelectedNodeId(node.id)}
+            onNodeDoubleClick={(_, node) => {
+              if (node.type === 'geminiEditor') setEditorNodeId(node.id);
+            }}
             onPaneClick={() => { cs.setSelectedNodeId(null); setCtxMenu(null); }}
             onPaneContextMenu={(e) => handlePaneContextMenu(e as unknown as React.MouseEvent)}
             onNodeContextMenu={(e, node) => handleNodeContextMenu(e as unknown as React.MouseEvent, node.id)}
@@ -383,6 +395,13 @@ function ConceptLabCanvas() {
           )}
 
           <CutLineOverlay cutLine={cs.cutLine} />
+
+          {editorNodeId && (
+            <GeminiEditorOverlay
+              editorNodeId={editorNodeId}
+              onClose={() => setEditorNodeId(null)}
+            />
+          )}
         </div>
       </div>
       <input ref={fileInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleFileChange} />

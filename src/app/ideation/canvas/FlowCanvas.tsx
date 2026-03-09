@@ -24,6 +24,8 @@ import GlobalToolbar from '@/components/GlobalToolbar';
 import { ToastContainer, showToast } from '@/components/Toast';
 import DemoOverlay from './DemoOverlay';
 import GuidedRunOverlay from './GuidedRunOverlay';
+import GeminiEditorOverlay from './GeminiEditorOverlay';
+import { registerEditorOpener, unregisterEditorOpener } from './geminiEditorBridge';
 import { useCanvasSession, type CutLine } from '@/hooks/useCanvasSession';
 import { ALL_RAW_NODE_TYPES, ALL_CTX_CATEGORIES, NODE_DEFAULTS } from '@/lib/sharedNodeTypes';
 import {
@@ -267,6 +269,7 @@ function FlowCanvasInner() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(session.projectName || '');
   const [showDemo, setShowDemo] = useState(false);
+  const [editorNodeId, setEditorNodeId] = useState<string | null>(null);
   const [ctxMenu, setCtxMenu] = useState<{
     x: number;
     y: number;
@@ -291,6 +294,12 @@ function FlowCanvasInner() {
     w.__getEdges = () => flow.edges;
     w.__getFlowSnapshot = flow.getFlowSnapshot;
   }, [flow.updateNodeData, flow.getNodeData, flow.edges, flow.getFlowSnapshot]);
+
+  // Register opener for GeminiEditor button clicks
+  useEffect(() => {
+    registerEditorOpener((nodeId: string) => setEditorNodeId(nodeId));
+    return () => unregisterEditorOpener();
+  }, []);
 
   // Pipeline-specific window globals
   const spawnFullChain = useCallback(() => {
@@ -948,6 +957,9 @@ function FlowCanvasInner() {
             flow.setSelectedNodeId(node.id);
             setInspectorNodeId(node.id);
           }}
+          onNodeDoubleClick={(_, node) => {
+            if (node.type === 'geminiEditor') setEditorNodeId(node.id);
+          }}
           onPaneClick={() => {
             flow.setSelectedNodeId(null);
             setCtxMenu(null);
@@ -1018,6 +1030,12 @@ function FlowCanvasInner() {
 
         {showDemo && <DemoOverlay onDismiss={() => setShowDemo(false)} />}
         <GuidedRunOverlay guidedState={guidedRunState} />
+        {editorNodeId && (
+          <GeminiEditorOverlay
+            editorNodeId={editorNodeId}
+            onClose={() => setEditorNodeId(null)}
+          />
+        )}
 
         {isEditingName && (
           <div className="rename-overlay" onClick={() => setIsEditingName(false)}>

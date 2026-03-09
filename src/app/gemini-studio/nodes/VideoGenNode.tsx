@@ -3,7 +3,7 @@
 import { memo, useCallback, useState, useRef } from 'react';
 import { Handle, Position, useReactFlow, useHandleConnections } from '@xyflow/react';
 import { ALL_VIDEO_MODELS_SORTED, ASPECT_RATIOS, type ModelOption } from '@/app/ideation/canvas/nodes/modelCatalog';
-import { buildModelUrl, buildOperationUrl } from '@/lib/ideation/engine/apiConfig';
+import { proxyGenerate, proxyPollOperation } from '@/lib/ideation/engine/aiProxy';
 
 interface VideoGenNodeProps {
   id: string;
@@ -46,21 +46,11 @@ function VideoGenNodeInner({ id, selected }: VideoGenNodeProps) {
     pollRef.current = true;
 
     try {
-      const url = buildModelUrl(model.modelId, 'predictLongRunning');
-      const body = {
+      const json = await proxyGenerate(model.modelId, 'predictLongRunning', {
         instances: [{ prompt }],
         parameters: { aspectRatio },
-      };
+      }, 60_000) as { name?: string; predictions?: Array<{ bytesBase64Encoded: string; mimeType?: string }> };
 
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) throw new Error(`Veo API error ${res.status}: ${(await res.text()).slice(0, 300)}`);
-
-      const json = await res.json();
       const opName = json?.name;
 
       if (!opName) {
@@ -81,7 +71,6 @@ function VideoGenNodeInner({ id, selected }: VideoGenNodeProps) {
       }
 
       setPollStatus('Video generating... polling for results');
-      const pollUrl = buildOperationUrl(opName);
       let attempts = 0;
 
       while (pollRef.current && attempts < 60) {
@@ -89,12 +78,15 @@ function VideoGenNodeInner({ id, selected }: VideoGenNodeProps) {
         attempts++;
         setPollStatus(`Generating video... (${attempts * 5}s elapsed)`);
 
-        const pollRes = await fetch(pollUrl);
-        if (!pollRes.ok) continue;
-
-        const pollJson = await pollRes.json();
-        if (pollJson.done) {
-          const video = pollJson.response?.predictions?.[0];
+        let pollJson: Record<string, unknown>;
+        try {
+          pollJson = await proxyPollOperation(opName);
+        } catch {
+          continue;
+        }
+        if ((pollJson as { done?: boolean }).done) {
+          const resp = pollJson as { response?: { predictions?: Array<{ bytesBase64Encoded?: string; mimeType?: string }> }; error?: { message?: string } };
+          const video = resp.response?.predictions?.[0];
           if (video?.bytesBase64Encoded) {
             const mime = video.mimeType || 'video/mp4';
             const src = `data:${mime};base64,${video.bytesBase64Encoded}`;
@@ -104,8 +96,8 @@ function VideoGenNodeInner({ id, selected }: VideoGenNodeProps) {
                 n.id === id ? { ...n, data: { ...n.data, videoSrc: src } } : n,
               ),
             );
-          } else if (pollJson.error) {
-            throw new Error(`Failed: ${pollJson.error.message || JSON.stringify(pollJson.error)}`);
+          } else if (resp.error) {
+            throw new Error(`Failed: ${resp.error.message || JSON.stringify(resp.error)}`);
           }
           setPollStatus(null);
           return;

@@ -89,3 +89,110 @@ export function loadDefaultOrLatest(appKey: string): LayoutSnapshot | null {
   );
   return sorted[0].snapshot;
 }
+
+// ── Session persistence (IndexedDB – supports large payloads) ───
+
+export interface SessionSnapshot extends LayoutSnapshot {
+  fullNodeData: Record<string, Record<string, unknown>>;
+}
+
+export interface SavedSession {
+  name: string;
+  snapshot: SessionSnapshot;
+  savedAt: string;
+}
+
+const IDB_NAME = 'shawnderland-sessions';
+const IDB_VERSION = 1;
+const IDB_STORE = 'sessions';
+
+function openSessionDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function idbKey(appKey: string): string {
+  return `sessions-${appKey}`;
+}
+
+function activeSessionKey(appKey: string): string {
+  return `shawnderland-active-session-${appKey}`;
+}
+
+export async function listSessions(appKey: string): Promise<SavedSession[]> {
+  try {
+    const db = await openSessionDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const store = tx.objectStore(IDB_STORE);
+      const req = store.get(idbKey(appKey));
+      req.onsuccess = () => resolve((req.result as SavedSession[] | undefined) ?? []);
+      req.onerror = () => resolve([]);
+    });
+  } catch {
+    return [];
+  }
+}
+
+export async function saveSession(appKey: string, name: string, snapshot: SessionSnapshot): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const sessions = await listSessions(appKey);
+    const existing = sessions.findIndex((s) => s.name === name);
+    const entry: SavedSession = { name, snapshot, savedAt: new Date().toISOString() };
+    if (existing >= 0) {
+      sessions[existing] = entry;
+    } else {
+      sessions.push(entry);
+    }
+
+    const db = await openSessionDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      const store = tx.objectStore(IDB_STORE);
+      store.put(sessions, idbKey(appKey));
+      tx.oncomplete = () => {
+        localStorage.setItem(activeSessionKey(appKey), name);
+        resolve({ ok: true });
+      };
+      tx.onerror = () => resolve({ ok: false, error: tx.error?.message ?? 'IndexedDB write failed' });
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function loadSession(appKey: string, name: string): Promise<SessionSnapshot | null> {
+  const sessions = await listSessions(appKey);
+  const found = sessions.find((s) => s.name === name);
+  return found?.snapshot ?? null;
+}
+
+export async function deleteSession(appKey: string, name: string): Promise<void> {
+  try {
+    const sessions = (await listSessions(appKey)).filter((s) => s.name !== name);
+    const db = await openSessionDB();
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(sessions, idbKey(appKey));
+    const active = getActiveSessionName(appKey);
+    if (active === name) {
+      localStorage.removeItem(activeSessionKey(appKey));
+    }
+  } catch { /* best-effort */ }
+}
+
+export function getActiveSessionName(appKey: string): string | null {
+  return localStorage.getItem(activeSessionKey(appKey)) ?? null;
+}
+
+export function setActiveSessionName(appKey: string, name: string): void {
+  localStorage.setItem(activeSessionKey(appKey), name);
+}

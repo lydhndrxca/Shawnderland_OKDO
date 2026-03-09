@@ -18,7 +18,7 @@ import {
   regenDivergeVariant as engineRegenVariant,
   regenExpandSection as engineRegenSection,
 } from '../engine/orchestrator';
-import { getApiKey } from '../engine/apiConfig';
+import { getApiKey as _getApiKey } from '../engine/apiConfig';
 import { logGeneration, getSessionHistory, buildLineageContext } from '../engine/generationLog';
 import { mockProvider } from '../engine/provider/mockProvider';
 import { createGeminiProvider } from '../engine/provider/geminiProvider';
@@ -198,7 +198,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      getApiKey();
+      _getApiKey();
       setHasApiKey(true);
     } catch {
       setHasApiKey(false);

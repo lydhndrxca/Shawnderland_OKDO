@@ -29,7 +29,7 @@ export default function DivergeNode({ data, selected, id: nodeId }: NodeProps) {
   const status: NodeStatus = runningStageId === 'diverge' ? 'running' : output ? (stale ? 'stale' : 'complete') : 'empty';
 
   const handleRun = useCallback(async () => {
-    try { await runStage('diverge'); } catch { /* StatusBar */ }
+    try { await runStage('diverge'); } catch (e) { console.error('[DivergeNode] runStage error:', e); }
   }, [runStage]);
 
   const updateCount = useCallback((field: string, value: number) => {

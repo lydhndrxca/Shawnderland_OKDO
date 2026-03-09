@@ -3,6 +3,7 @@
 import { memo, useState, useCallback, useEffect, useRef } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import type { GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import { NODE_TOOLTIPS } from './nodeTooltips';
 import './CharacterNodes.css';
 
 interface Props {
@@ -48,7 +49,12 @@ function collectConnectedNodeStates(
   return states;
 }
 
-function findLatestImage(
+interface PendingSnapshot {
+  image: GeneratedImage;
+  label: string;
+}
+
+function findLatestImageFromEdges(
   historyNodeId: string,
   getNode: ReturnType<typeof useReactFlow>['getNode'],
   getEdges: ReturnType<typeof useReactFlow>['getEdges'],
@@ -71,32 +77,25 @@ function CharHistoryNodeInner({ id, data, selected }: Props) {
     (data?.historyEntries as HistorySnapshot[]) ?? [],
   );
   const [activeIdx, setActiveIdx] = useState(-1);
+  const [minimized, setMinimized] = useState(false);
   const [currentState, setCurrentState] = useState<Record<string, Record<string, unknown>> | null>(null);
   const lastImageRef = useRef<string>('');
 
-  useEffect(() => {
-    const img = findLatestImage(id, getNode, getEdges);
-    if (!img?.base64) return;
-
+  const createEntry = useCallback((img: GeneratedImage, entryLabel: string) => {
     const sig = img.base64.slice(0, 100);
     if (sig === lastImageRef.current) return;
     lastImageRef.current = sig;
 
     const nodeStates = collectConnectedNodeStates(id, getNode, getEdges);
-    const label =
-      Object.values(nodeStates).find((s) => s.__type === 'charEdit' && s.editText)
-        ? (Object.values(nodeStates).find((s) => s.__type === 'charEdit')?.editText as string)?.slice(0, 50) ?? 'Edit'
-        : 'Generated character';
 
     const snap: HistorySnapshot = {
       image: img,
-      label,
+      label: entryLabel,
       timestamp: new Date().toLocaleTimeString(),
       nodeStates,
     };
 
     setCurrentState(nodeStates);
-
     setEntries((prev) => {
       const next = [...prev, snap];
       setNodes((nds) =>
@@ -108,6 +107,38 @@ function CharHistoryNodeInner({ id, data, selected }: Props) {
     });
     setActiveIdx(-1);
   }, [id, getNode, getEdges, setNodes]);
+
+  // Handle directly-pushed snapshots (from EditCharacterNode, etc.)
+  useEffect(() => {
+    const pending = (data as Record<string, unknown>)?._pendingSnapshot as PendingSnapshot | undefined;
+    if (!pending?.image?.base64) return;
+
+    // Clear the pending flag first to prevent re-trigger
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (n.id !== id) return n;
+        const nd = { ...(n.data as Record<string, unknown>) };
+        delete nd._pendingSnapshot;
+        return { ...n, data: nd };
+      }),
+    );
+
+    createEntry(pending.image, pending.label);
+  }, [id, data, setNodes, createEntry]);
+
+  // Monitor incoming edges for images (from GenerateCharImageNode, etc.)
+  useEffect(() => {
+    const img = findLatestImageFromEdges(id, getNode, getEdges);
+    if (!img?.base64) return;
+
+    const nodeStates = collectConnectedNodeStates(id, getNode, getEdges);
+    const editNode = Object.values(nodeStates).find((s) => s.__type === 'charEdit' && s.editText);
+    const label = editNode
+      ? (editNode.editText as string)?.slice(0, 50) ?? 'Edit'
+      : 'Generated character';
+
+    createEntry(img, label);
+  }, [id, getNode, getEdges, createEntry]);
 
   const captureCurrentState = useCallback(() => {
     const states = collectConnectedNodeStates(id, getNode, getEdges);
@@ -154,10 +185,36 @@ function CharHistoryNodeInner({ id, data, selected }: Props) {
   const emptySlots = Math.max(0, PLACEHOLDER_COUNT - entries.length);
 
   return (
-    <div className={`char-node ${selected ? 'selected' : ''}`} style={{ minHeight: 420 }}>
-      <div className="char-node-header" style={{ background: '#78909c' }}>
+    <div className={`char-node ${selected ? 'selected' : ''}`} style={{ minHeight: minimized ? undefined : 420 }} title={NODE_TOOLTIPS.charHistory}>
+      <div className="char-node-header" style={{ background: '#78909c', cursor: 'pointer' }} onClick={() => setMinimized((m) => !m)}>
         History
+        <span style={{ marginLeft: 'auto', fontSize: 10, opacity: 0.7 }}>
+          {minimized ? '\u25BC' : '\u25B2'} {entries.length}
+        </span>
       </div>
+      {/* When minimized, show only the latest entry */}
+      {minimized && entries.length > 0 && (() => {
+        const latest = entries[entries.length - 1];
+        return (
+          <div className="char-node-body" style={{ padding: '4px 6px' }}>
+            <div className="char-history-entry active" style={{ cursor: 'default' }}>
+              {latest.image && (
+                <img
+                  src={`data:${latest.image.mimeType};base64,${latest.image.base64}`}
+                  alt={latest.label}
+                  className="char-history-thumb"
+                />
+              )}
+              <div className="char-history-info">
+                <span className="char-history-label">{latest.label}</span>
+                <span className="char-history-time">{latest.timestamp}</span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {!minimized && (
       <div className="char-node-body" style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
         <div className="char-history-list nodrag nowheel" style={{ flex: 1, minHeight: 300, overflowY: 'auto' }}>
           {/* Current entry */}
@@ -237,6 +294,7 @@ function CharHistoryNodeInner({ id, data, selected }: Props) {
           </button>
         </div>
       </div>
+      )}
 
       <Handle type="target" position={Position.Left} id="input" className="char-handle" style={{ top: '50%' }} />
       <Handle type="source" position={Position.Right} id="viewer-out" className="char-handle" style={{ top: '50%' }} />

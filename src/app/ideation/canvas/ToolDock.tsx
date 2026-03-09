@@ -178,7 +178,6 @@ function buildCategories(): CategoryDef[] {
         { id: 'charIdentity', label: 'Character Identity', color: '#7c4dff', subtitle: 'Age, race, gender, build presets' },
         { id: 'charDescription', label: 'Character Description', color: '#5c6bc0', subtitle: 'Freeform description text' },
         { id: 'charAttributes', label: 'Character Attributes', color: '#9c27b0', subtitle: 'Clothing/gear attribute groups' },
-        { id: 'charPose', label: 'Pose', color: '#8e24aa', subtitle: 'Character pose selector' },
         { id: 'charStyle', label: 'Style', color: '#7b1fa2', subtitle: 'Style text or reference images' },
         { id: 'charExtractAttrs', label: 'Extract Attributes', color: '#ffab40', subtitle: 'AI image analysis' },
         { id: 'charEnhanceDesc', label: 'Enhance Description', color: '#66bb6a', subtitle: 'AI text enhancement' },
@@ -196,6 +195,8 @@ function buildCategories(): CategoryDef[] {
         { id: 'charShowXML', label: 'Show XML', color: '#8d6e63', subtitle: 'View character XML config' },
         { id: 'charQuickGen', label: 'Quick Generate', color: '#ffa726', subtitle: 'Random character generator' },
         { id: 'charImageBucket', label: 'Generated Images', color: '#43a047', subtitle: 'Browse generated image directory' },
+        { id: 'charRandomize', label: 'Randomize', color: '#ff5722', subtitle: 'Randomize connected node options' },
+        { id: 'charCustomView', label: 'Custom View', color: '#7e57c2', subtitle: 'User-prompted custom angle/view' },
       ],
     },
     {
@@ -244,9 +245,8 @@ export default function ToolDock({ inspectorNodeId, onCloseInspector }: ToolDock
         .filter((cat) => cat.items.length > 0)
     : allCategories;
 
-  useEffect(() => {
-    if (inspectorNodeId) setActiveTab('details');
-  }, [inspectorNodeId]);
+  // Let the user manually switch between Nodes and Details tabs
+  // (removed auto-switch to Details on node selection)
 
   const cancelHideTimer = useCallback(() => {
     if (hideTimerRef.current) {
@@ -442,7 +442,7 @@ function DetailsTab({ nodeId, onClose }: { nodeId: string | null; onClose: () =>
 
   const handleRun = async () => {
     if (!stageId) return;
-    try { await runStage(stageId); } catch { /* shown elsewhere */ }
+    try { await runStage(stageId); } catch (e) { console.error('[ToolDock] runStage error:', e); }
   };
 
   return (

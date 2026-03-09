@@ -17,7 +17,7 @@ export default function CommitNode({ data, selected }: NodeProps) {
   const status: NodeStatus = runningStageId === 'commit' ? 'running' : output ? (stale ? 'stale' : 'complete') : 'empty';
 
   const handleRun = useCallback(async () => {
-    try { await runStage('commit'); } catch { /* StatusBar */ }
+    try { await runStage('commit'); } catch (e) { console.error('[CommitNode] runStage error:', e); }
   }, [runStage]);
 
   return (

@@ -3,6 +3,7 @@
 import { memo, useCallback, useState } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import type { GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import { NODE_TOOLTIPS } from './nodeTooltips';
 import './CharacterNodes.css';
 
 interface Props {
@@ -95,16 +96,16 @@ function SendToPhotoshopNodeInner({ id, data, selected }: Props) {
   }, [id, getNode, getEdges]);
 
   return (
-    <div className={`char-node ${selected ? 'selected' : ''}`}>
+    <div className={`char-node ${selected ? 'selected' : ''}`} title={NODE_TOOLTIPS.charSendPS}>
       <div className="char-node-header" style={{ background: '#1565c0' }}>
         Send to Photoshop
       </div>
       <div className="char-node-body">
         <div className="char-btn-row">
-          <button className="char-btn primary nodrag" onClick={handleSendCurrent} disabled={sending}>
+          <button type="button" className="char-btn primary nodrag" onClick={handleSendCurrent} disabled={sending}>
             {sending ? 'Sending...' : 'Send Current'}
           </button>
-          <button className="char-btn nodrag" onClick={handleSendAll} disabled={sending}>
+          <button type="button" className="char-btn nodrag" onClick={handleSendAll} disabled={sending}>
             Send All
           </button>
         </div>

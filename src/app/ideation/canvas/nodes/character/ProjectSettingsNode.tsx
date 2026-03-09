@@ -1,7 +1,9 @@
 "use client";
 
-import { memo, useCallback, useState } from 'react';
-import { Handle, Position, useReactFlow } from '@xyflow/react';
+import { memo } from 'react';
+import { Handle, Position } from '@xyflow/react';
+import { useGlobalSettings } from '@/lib/globalSettings';
+import { NODE_TOOLTIPS } from './nodeTooltips';
 import './CharacterNodes.css';
 
 interface Props {
@@ -10,76 +12,48 @@ interface Props {
   selected?: boolean;
 }
 
-function ProjectSettingsNodeInner({ id, data, selected }: Props) {
-  const { setNodes } = useReactFlow();
-  const [projectName, setProjectName] = useState((data?.projectName as string) ?? '');
-  const [outputDir, setOutputDir] = useState((data?.outputDir as string) ?? '');
+function ProjectSettingsNodeInner({ data, selected }: Props) {
+  const settings = useGlobalSettings();
+  const projectName = (data?.projectName as string) || '';
+  const displayDir = settings.outputDir || '(not set)';
 
-  const persist = useCallback(
-    (updates: Record<string, unknown>) => {
-      setNodes((nds) =>
-        nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...updates } } : n)),
-      );
-    },
-    [id, setNodes],
-  );
-
-  const handleBrowse = useCallback(async () => {
-    try {
-      const res = await fetch('/api/open-folder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'browse' }),
-      });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.path) {
-          setOutputDir(json.path);
-          persist({ outputDir: json.path });
-        }
-      }
-    } catch {
-      // API may not be available in all environments
+  const openSettings = () => {
+    const w = window as unknown as Record<string, unknown>;
+    const nav = w.__workspaceNavigate as ((path: string) => void) | undefined;
+    if (nav) {
+      nav('/settings');
+    } else {
+      window.history.pushState({}, '', '/settings');
+      window.dispatchEvent(new PopStateEvent('popstate'));
     }
-  }, [persist]);
+  };
 
   return (
-    <div className={`char-node ${selected ? 'selected' : ''}`}>
+    <div className={`char-node ${selected ? 'selected' : ''}`} title={NODE_TOOLTIPS.charProject}>
       <div className="char-node-header" style={{ background: '#546e7a' }}>
         Project Settings
       </div>
       <div className="char-node-body">
-        <div className="char-field">
-          <span className="char-field-label">Name</span>
-          <input
-            className="char-input nodrag"
-            value={projectName}
-            onChange={(e) => {
-              setProjectName(e.target.value);
-              persist({ projectName: e.target.value });
-            }}
-            placeholder="Character project name..."
-          />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span className="char-field-label wide">Output Directory</span>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <input
-              className="char-input nodrag"
-              value={outputDir}
-              onChange={(e) => {
-                setOutputDir(e.target.value);
-                persist({ outputDir: e.target.value });
-              }}
-              placeholder="e.g., C:\Characters"
-              style={{ flex: 1 }}
-            />
-            <button className="char-btn nodrag" onClick={handleBrowse} style={{ flexShrink: 0 }}>
-              Browse
-            </button>
+        {projectName && (
+          <div className="char-field">
+            <span className="char-field-label">Name</span>
+            <span className="char-input" style={{ opacity: 0.7, fontSize: 11 }}>{projectName}</span>
           </div>
-          {outputDir && <div className="char-project-path">{outputDir}</div>}
+        )}
+        <div className="char-field">
+          <span className="char-field-label wide">Output Directory</span>
+          <span className="char-input" style={{ opacity: 0.7, fontSize: 11, wordBreak: 'break-all' }}>
+            {displayDir}
+          </span>
         </div>
+        <button
+          type="button"
+          className="char-btn nodrag"
+          onClick={openSettings}
+          style={{ marginTop: 4, width: '100%' }}
+        >
+          Open Global Settings
+        </button>
       </div>
 
       <Handle type="source" position={Position.Right} id="settings-out" className="char-handle" style={{ top: '50%' }} />

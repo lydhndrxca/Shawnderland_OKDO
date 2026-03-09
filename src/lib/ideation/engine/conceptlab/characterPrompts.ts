@@ -147,9 +147,31 @@ CAMERA & COMPOSITION:
 
 export const VIEW_REQUESTS: Record<string, string> = {
   main: 'Casual standing pose, full body, three-quarter front view of the character. Camera at chest height, rotated about 9 degrees to the right from the front view. Primarily front-facing with just a hint of the right side visible. Keep proportions natural, lens normal, no extreme perspective.',
-  front: 'Full-body FRONT orthographic view of the SAME character as the reference. Camera EXACTLY at eye level, positioned directly in front of the character. Character\'s shoulders must be SQUARED TO THE CAMERA - perfectly parallel to the image plane. Perfectly straight-on view with ZERO rotation, tilt, yaw, or pitch. Character must be facing DIRECTLY toward camera - completely symmetrical left and right sides. All clothing, equipment, tools, weapons, accessories, prosthetics, and held objects must match the reference exactly. Only change the viewing angle. No ground plane or floor.',
-  back: 'Full-body BACK orthographic view of the SAME character as the reference. Camera directly behind the character at exact eye level. Perfectly straight-on rear view with NO rotation, tilt, or angle whatsoever. Show the back side of the SAME outfit, gear, and tools (no changes, just the back view). No ground plane or floor.',
-  side: 'Full-body SIDE orthographic profile view of the SAME character as the reference. Camera exactly perpendicular to the character at chest height. Character looking straight ahead in their own facing direction. No three-quarter angle, no visible far-side eye, and minimal perspective foreshortening. Do not add or remove any clothing, tools, weapons, accessories, or prosthetics.',
+
+  front: `ORTHOGRAPHIC FRONT VIEW (0° azimuth):
+Camera locked dead-center front, orthographic/200mm+ lens, zero perspective distortion.
+Character's left and right halves PERFECTLY SYMMETRICAL in frame.
+NO 3/4 turn, NO yaw, NO rotation. If you can see the side of the head or ear, you've rotated too far — correct to 0°.
+Pose: Neutral A-pose, arms 30° from body, palms forward, feet shoulder-width.
+Show: Face (dead-on), chest, belt, front of both arms/legs/shoes, all front-facing gear.
+Full body head-to-toe, no cropping. No ground plane or floor.`,
+
+  back: `ORTHOGRAPHIC BACK VIEW (180° azimuth):
+Camera locked dead-center rear, orthographic/200mm+ lens, zero perspective distortion.
+ONLY the back visible. Face completely hidden. Back left/right PERFECTLY SYMMETRICAL in frame.
+NO 3/4 turn, NO yaw, NO rotation.
+Pose: Neutral A-pose, arms 30° from body, feet shoulder-width, head facing away.
+Show: Back of head/hair, shoulder blades, spine, back of jacket/clothing, back of belt, rear pockets, back of arms/legs, heels, any backpack/cape/rear gear.
+Full body head-to-toe, no cropping. No ground plane or floor.`,
+
+  side: `ORTHOGRAPHIC LEFT SIDE PROFILE (90° azimuth):
+Camera locked at EXACTLY 90° left side, orthographic/200mm+ lens, zero perspective distortion.
+Character's nose points to RIGHT edge of frame, back of head points LEFT.
+Must be a CLEAN SILHOUETTE profile. ONLY ONE EAR visible (left). If you can see both eyes or any chest/back surface, you are doing a 3/4 view which is WRONG.
+NO 3/4 turn. TRUE 90° side profile only.
+Pose: Neutral standing, arms slightly away from body, head in profile facing screen-right.
+Show: Left profile of face, left ear, left shoulder/arm, side silhouette of torso, left hip/leg, side profile of all gear.
+Full body head-to-toe, no cropping. No ground plane or floor.`,
 };
 
 export const LOCK_OUTFIT_BLOCK = `IDENTITY LOCK - MANDATORY:
@@ -248,7 +270,9 @@ export function buildCharacterViewPrompt(
 
 /* ── Extract Attributes Schema ── */
 
-export const EXTRACT_ATTRIBUTES_PROMPT = `You are a data extraction tool. Analyze the provided character image and return JSON only with this exact schema:
+export const EXTRACT_ATTRIBUTES_PROMPT = `You are a character design extrapolation tool. Your job is to produce a COMPLETE full-body character outfit from the provided image — head to toe, front and back — even if the image only shows part of the character.
+
+Return JSON only with this exact schema:
 {
   "age": string,
   "race": string,
@@ -275,8 +299,12 @@ IDENTITY FIELDS — you MUST pick one of these exact strings:
 - gender: ${GENDER_OPTIONS.map((o) => `"${o}"`).join(' | ')}
 - build: ${BUILD_OPTIONS.map((o) => `"${o}"`).join(' | ')}
 
-For clothing/gear fields, be specific and descriptive: include color, material, pattern, fit, and condition when known.
-Avoid generic single words like 'shirt' or 'pants' unless nothing else is known.
+CRITICAL RULES:
+1. EVERY clothing/gear field MUST contain a specific, descriptive value. Describe color, material, pattern, fit, and condition.
+2. You are building a FULL-BODY character. If feet are cropped out, INVENT appropriate footwear. If hands are hidden, INVENT appropriate gloves or describe bare hands. If a field has no obvious match, DESIGN something that fits the character's overall aesthetic, era, and style.
+3. NEVER write "not visible", "none", "n/a", "unknown", or "not shown". These are FORBIDDEN values. Every field must describe an actual garment, accessory, or design choice.
+4. If a slot genuinely wouldn't have an item (e.g. no gloves), describe what the bare body part looks like instead (e.g. "bare hands, calloused knuckles with a faded scar across the right palm").
+5. Think like a character designer completing a concept sheet — extrapolate from the visible style, silhouette, color palette, materials, and era to fill in anything not shown.
 - coloraccents: 2-5 primary colors, comma-separated
 - detailing: specific wear, stains, damage, dust, wrinkles, scuffs, repairs, etc.
 Return ONLY JSON. No markdown, no extra text.`;

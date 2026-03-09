@@ -3,6 +3,7 @@
 import { memo, useCallback, useState } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import type { GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import { NODE_TOOLTIPS } from './nodeTooltips';
 import './CharacterNodes.css';
 
 interface Props {
@@ -38,7 +39,7 @@ function ReferenceCalloutNodeInner({ id, data, selected }: Props) {
   }
 
   return (
-    <div className={`char-node ${selected ? 'selected' : ''}`}>
+    <div className={`char-node ${selected ? 'selected' : ''}`} title={NODE_TOOLTIPS.charRefCallout}>
       <div className="char-node-header" style={{ background: '#26a69a' }}>
         Reference Callout
       </div>

@@ -4,6 +4,7 @@ import { memo, useState, useCallback, useEffect, useRef } from 'react';
 import { Handle, Position, NodeResizer, useReactFlow } from '@xyflow/react';
 import { ImageContextMenu } from '@/components/ImageContextMenu';
 import type { GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import { NODE_TOOLTIPS } from './nodeTooltips';
 import './CharacterNodes.css';
 
 interface Props {
@@ -44,7 +45,8 @@ function MainStageViewerNodeInner({ id, data, selected }: Props) {
   const label = (data?.viewerLabel as string) || 'Image Viewer';
 
   const upstreamImage = getUpstreamImage(id, getNode, getEdges);
-  const displayImage = upstreamImage ?? localImage;
+  const pushedImage = (data?.generatedImage as GeneratedImage | undefined) ?? null;
+  const displayImage = upstreamImage ?? pushedImage ?? localImage;
 
   useEffect(() => {
     if (upstreamImage && upstreamImage.base64 !== (data?.generatedImage as GeneratedImage)?.base64) {
@@ -134,7 +136,7 @@ function MainStageViewerNodeInner({ id, data, selected }: Props) {
   );
 
   return (
-    <div className={`char-node char-viewer-node ${selected ? 'selected' : ''}`} style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className={`char-node char-viewer-node ${selected ? 'selected' : ''}`} style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }} title={NODE_TOOLTIPS.charMainViewer}>
       <NodeResizer
         isVisible={!!selected}
         minWidth={300}
@@ -175,8 +177,48 @@ function MainStageViewerNodeInner({ id, data, selected }: Props) {
         )}
       </div>
       <div className="char-viewer-toolbar">
-        <button className="char-btn nodrag" onClick={handleOpenImage}>Open</button>
-        <button className="char-btn nodrag" onClick={handleResetView}>Reset View</button>
+        <button type="button" className="char-btn nodrag" onClick={handleOpenImage}>Open</button>
+        <button type="button" className="char-btn nodrag" onClick={handleResetView}>Reset View</button>
+        <button
+          type="button"
+          className="char-btn nodrag"
+          onClick={async () => {
+            try {
+              const items = await navigator.clipboard.read();
+              for (const item of items) {
+                const imgType = item.types.find((t) => t.startsWith('image/'));
+                if (imgType) {
+                  const blob = await item.getType(imgType);
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    const url = reader.result as string;
+                    const parts = url.split(',');
+                    const mime = parts[0].match(/:(.*?);/)?.[1] ?? 'image/png';
+                    handlePasteImage({ base64: parts[1], mimeType: mime });
+                  };
+                  reader.readAsDataURL(blob);
+                }
+              }
+            } catch { /* clipboard may be unavailable */ }
+          }}
+        >
+          Paste
+        </button>
+        {displayImage && (
+          <button
+            type="button"
+            className="char-btn nodrag"
+            onClick={async () => {
+              try {
+                const resp = await fetch(`data:${displayImage.mimeType};base64,${displayImage.base64}`);
+                const blob = await resp.blob();
+                await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+              } catch { /* clipboard may be unavailable */ }
+            }}
+          >
+            Copy
+          </button>
+        )}
         <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
         <span className="char-viewer-zoom-info">{Math.round(zoom * 100)}%</span>
       </div>

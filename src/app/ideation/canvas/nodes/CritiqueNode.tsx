@@ -26,7 +26,7 @@ export default function CritiqueNode({ data, selected, id: nodeId }: NodeProps) 
   const status: NodeStatus = runningStageId === 'critique-salvage' ? 'running' : output ? (stale ? 'stale' : 'complete') : 'empty';
 
   const handleRun = useCallback(async () => {
-    try { await runStage('critique-salvage'); } catch { /* StatusBar */ }
+    try { await runStage('critique-salvage'); } catch (e) { console.error('[CritiqueNode] runStage error:', e); }
   }, [runStage]);
 
   const updateCount = useCallback((field: string, value: number) => {

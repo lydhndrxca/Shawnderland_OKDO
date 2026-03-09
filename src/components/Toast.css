@@ -23,6 +23,12 @@
   pointer-events: auto;
 }
 
+.toast-error {
+  background: #4a1c1c;
+  border: 1px solid rgba(220, 60, 60, 0.5);
+  color: #ffa0a0;
+}
+
 @keyframes toast-slide-in {
   from {
     opacity: 0;

@@ -1,10 +1,10 @@
 "use client";
 
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useState, useRef, useEffect } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import { recordUsage } from '@/lib/ideation/engine/provider/costTracker';
 import { logGeneration, buildLineageContext, type SessionSnapshot } from '@/lib/ideation/engine/generationLog';
-import { buildModelUrl } from '@/lib/ideation/engine/apiConfig';
+import { proxyGenerate } from '@/lib/ideation/engine/aiProxy';
 import './ExtractDataNode.css';
 
 type ExtractMode = 'image-to-text' | 'image-to-image';
@@ -59,6 +59,8 @@ function ExtractDataNodeInner({ id, selected }: ExtractDataNodeProps) {
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(copyTimerRef.current), []);
 
   const handleExtract = useCallback(async () => {
     setProcessing(true);
@@ -80,18 +82,11 @@ function ExtractDataNodeInner({ id, selected }: ExtractDataNodeProps) {
         generationConfig: { temperature: 0.2 },
       };
 
-      const res = await fetch(buildModelUrl('gemini-2.0-flash', 'generateContent'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+      const json = await proxyGenerate('gemini-2.0-flash', 'generateContent', body) as {
+        usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      };
 
-      if (!res.ok) {
-        const errBody = await res.text();
-        throw new Error(`Gemini API error ${res.status}: ${errBody.slice(0, 200)}`);
-      }
-
-      const json = await res.json();
       if (json?.usageMetadata) recordUsage(json.usageMetadata, 'gemini-2.0-flash');
       const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) throw new Error('No text returned from Gemini vision API');
@@ -120,7 +115,8 @@ function ExtractDataNodeInner({ id, selected }: ExtractDataNodeProps) {
     if (!extractedText) return;
     navigator.clipboard.writeText(extractedText);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopied(false), 2000);
   }, [extractedText]);
 
   return (

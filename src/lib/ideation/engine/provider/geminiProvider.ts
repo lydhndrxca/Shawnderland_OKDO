@@ -1,7 +1,7 @@
 import type { Provider, ProviderGenerateOpts, MediaPart } from './types';
 import { recordUsage } from './costTracker';
 import type { ThinkingTier } from '../../state/sessionTypes';
-import { buildModelUrl, getApiKey } from '../apiConfig';
+import { registerRequest, unregisterRequest } from '@/lib/activeRequests';
 
 interface TierConfig {
   model: string;
@@ -25,10 +25,7 @@ const TIER_CONFIGS: Record<ThinkingTier, TierConfig> = {
   },
 };
 
-function getEndpoint(tier: ThinkingTier): string {
-  const cfg = TIER_CONFIGS[tier];
-  return buildModelUrl(cfg.model, 'generateContent');
-}
+const PROXY_URL = '/api/ai-generate';
 
 function getGenerationConfig(tier: ThinkingTier) {
   const cfg = TIER_CONFIGS[tier];
@@ -40,13 +37,44 @@ function getGenerationConfig(tier: ThinkingTier) {
   return config;
 }
 
-function resolveApiKey(explicitKey?: string): string {
-  if (explicitKey) return explicitKey;
-  return getApiKey();
+async function proxyGemini(
+  model: string,
+  body: Record<string, unknown>,
+  label: string,
+): Promise<Record<string, unknown>> {
+  const tracker = registerRequest();
+  const timer = setTimeout(() => tracker.abort(), 120_000);
+
+  try {
+    let res: Response;
+    try {
+      res = await fetch(PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, method: 'generateContent', body }),
+        signal: tracker.signal,
+      });
+    } catch (err) {
+      clearTimeout(timer);
+      if (tracker.signal.aborted) throw new Error('Cancelled');
+      throw new Error(`Network error calling ${label}: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      throw new Error(`${label} error ${res.status}: ${(errBody as { error?: string }).error || 'unknown'}`);
+    }
+
+    return res.json();
+  } finally {
+    unregisterRequest(tracker);
+  }
 }
 
-async function callGemini(prompt: string, tier: ThinkingTier = 'standard', apiKey?: string, mediaParts?: MediaPart[]): Promise<string> {
-  resolveApiKey(apiKey);
+async function callGemini(prompt: string, tier: ThinkingTier = 'standard', _apiKey?: string, mediaParts?: MediaPart[]): Promise<string> {
+  const cfg = TIER_CONFIGS[tier];
 
   const parts: Array<Record<string, unknown>> = [];
   if (mediaParts?.length) {
@@ -61,26 +89,18 @@ async function callGemini(prompt: string, tier: ThinkingTier = 'standard', apiKe
     generationConfig: getGenerationConfig(tier),
   };
 
-  const response = await fetch(getEndpoint(tier), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Gemini API error ${response.status}: ${errorText}`);
+  const data = await proxyGemini(cfg.model, body, `Gemini ${tier}`);
+  if ((data as { usageMetadata?: object })?.usageMetadata) {
+    recordUsage((data as { usageMetadata: { promptTokenCount?: number; candidatesTokenCount?: number } }).usageMetadata);
   }
-
-  const data = await response.json();
-  if (data?.usageMetadata) recordUsage(data.usageMetadata);
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  const text = (data as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
+    ?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('No text in Gemini response');
   return text;
 }
 
-async function callGeminiRetry(prompt: string, retryContext: string, tier: ThinkingTier = 'standard', apiKey?: string): Promise<string> {
-  resolveApiKey(apiKey);
+async function callGeminiRetry(prompt: string, retryContext: string, tier: ThinkingTier = 'standard', _apiKey?: string): Promise<string> {
+  const cfg = TIER_CONFIGS[tier];
 
   const body = {
     contents: [
@@ -91,20 +111,12 @@ async function callGeminiRetry(prompt: string, retryContext: string, tier: Think
     generationConfig: getGenerationConfig(tier),
   };
 
-  const response = await fetch(getEndpoint(tier), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Gemini retry API error ${response.status}: ${errorText}`);
+  const data = await proxyGemini(cfg.model, body, `Gemini retry ${tier}`);
+  if ((data as { usageMetadata?: object })?.usageMetadata) {
+    recordUsage((data as { usageMetadata: { promptTokenCount?: number; candidatesTokenCount?: number } }).usageMetadata);
   }
-
-  const data = await response.json();
-  if (data?.usageMetadata) recordUsage(data.usageMetadata);
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  const text = (data as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
+    ?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('No text in Gemini retry response');
   return text;
 }

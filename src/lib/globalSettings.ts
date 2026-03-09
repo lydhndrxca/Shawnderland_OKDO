@@ -1,0 +1,60 @@
+/**
+ * Global settings store backed by localStorage.
+ * Provides both plain functions (for non-React code like API callers)
+ * and a React hook via useSyncExternalStore.
+ */
+
+import { useSyncExternalStore } from 'react';
+
+export interface GlobalSettings {
+  outputDir: string;
+}
+
+const STORAGE_KEY = 'shawnderland-global-settings';
+
+const DEFAULTS: GlobalSettings = {
+  outputDir: '',
+};
+
+const listeners = new Set<() => void>();
+let cached: GlobalSettings | null = null;
+
+function notify() {
+  cached = null;
+  for (const fn of listeners) fn();
+}
+
+export function getGlobalSettings(): GlobalSettings {
+  if (cached) return cached;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed: GlobalSettings = { ...DEFAULTS, ...JSON.parse(raw) };
+      cached = parsed;
+      return parsed;
+    }
+  } catch { /* corrupt data */ }
+  const fallback: GlobalSettings = { ...DEFAULTS };
+  cached = fallback;
+  return fallback;
+}
+
+export function setGlobalSettings(partial: Partial<GlobalSettings>): void {
+  const current = getGlobalSettings();
+  const next = { ...current, ...partial };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  notify();
+}
+
+function subscribe(cb: () => void): () => void {
+  listeners.add(cb);
+  return () => listeners.delete(cb);
+}
+
+function getSnapshot(): GlobalSettings {
+  return getGlobalSettings();
+}
+
+export function useGlobalSettings(): GlobalSettings {
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}

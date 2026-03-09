@@ -1,11 +1,10 @@
 "use client";
 
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useState, useRef, useEffect } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import {
   buildCharacterDescription,
   buildCharacterViewPrompt,
-  LOCK_OUTFIT_BLOCK,
   type CharacterIdentity,
   type CharacterAttributes,
 } from '@/lib/ideation/engine/conceptlab/characterPrompts';
@@ -13,10 +12,11 @@ import {
   generateWithImagen4,
   generateWithGeminiRef,
   type GeneratedImage,
-  type GeminiImageModel,
 } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { resolveNodeInfluences } from '@/lib/ideation/engine/conceptlab/resolveInfluences';
-import { ImageContextMenu } from '@/components/ImageContextMenu';
+import { getGlobalSettings } from '@/lib/globalSettings';
+import { createProcessingAnimator } from '@/lib/processingAnimation';
+import { NODE_TOOLTIPS } from './nodeTooltips';
 import './CharacterNodes.css';
 
 interface Props {
@@ -25,14 +25,48 @@ interface Props {
   selected?: boolean;
 }
 
-type ViewKey = 'main' | 'front' | 'back' | 'side';
+const MAIN_VIEWER_TYPES = new Set(['charMainViewer', 'charViewer', 'charImageViewer']);
 
-const VIEWER_TYPES: Record<string, ViewKey> = {
-  charMainViewer: 'main',
-  charFrontViewer: 'front',
-  charBackViewer: 'back',
-  charSideViewer: 'side',
-};
+/* ── Text-to-Image model options ── */
+interface ImagenModelDef {
+  id: string;
+  label: string;
+  timeEstimate: string;
+  supports2K: boolean;
+  maxRes: Record<string, string>;
+}
+
+const IMAGEN_MODELS: ImagenModelDef[] = [
+  {
+    id: 'imagen-4.0-generate-001',
+    label: 'Imagen 4',
+    timeEstimate: '~15-25s',
+    supports2K: true,
+    maxRes: { '1:1': '2048×2048', '9:16': '1536×2816', '16:9': '2816×1536', '3:4': '1792×2560', '4:3': '2560×1792' },
+  },
+  {
+    id: 'imagen-4.0-ultra-generate-001',
+    label: 'Imagen 4 Ultra',
+    timeEstimate: '~30-60s',
+    supports2K: true,
+    maxRes: { '1:1': '2048×2048', '9:16': '1536×2816', '16:9': '2816×1536', '3:4': '1792×2560', '4:3': '2560×1792' },
+  },
+  {
+    id: 'imagen-4.0-fast-generate-001',
+    label: 'Imagen 4 Fast',
+    timeEstimate: '~5-10s',
+    supports2K: false,
+    maxRes: { '1:1': '1024×1024', '9:16': '768×1408', '16:9': '1408×768', '3:4': '896×1280', '4:3': '1280×896' },
+  },
+];
+
+const ASPECT_RATIOS = [
+  { value: '9:16', label: 'Portrait 9:16' },
+  { value: '1:1', label: 'Square 1:1' },
+  { value: '16:9', label: 'Landscape 16:9' },
+  { value: '3:4', label: 'Portrait 3:4' },
+  { value: '4:3', label: 'Landscape 4:3' },
+];
 
 function gatherInputs(
   nodeId: string,
@@ -91,37 +125,37 @@ function gatherInputs(
   return { identity, description, attributes, pose, styleText, styleImages, refImages, callouts, projectName, outputDir };
 }
 
-interface DownstreamViewer {
-  nodeId: string;
-  viewKey: ViewKey;
-}
-
-function findDownstreamViewers(
+/** Find only main-stage viewer nodes downstream (through gates). */
+function findDownstreamMainViewers(
   nodeId: string,
   getNode: ReturnType<typeof useReactFlow>['getNode'],
   getEdges: ReturnType<typeof useReactFlow>['getEdges'],
-): DownstreamViewer[] {
+): string[] {
   const edges = getEdges();
-  const outgoing = edges.filter((e) => e.source === nodeId);
-  const viewers: DownstreamViewer[] = [];
+  const viewers: string[] = [];
+  const visited = new Set<string>();
+  const queue = [nodeId];
 
-  for (const e of outgoing) {
-    const target = getNode(e.target);
-    if (!target) continue;
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (visited.has(current)) continue;
+    visited.add(current);
 
-    if (target.type === 'charGate') {
-      const gateData = target.data as Record<string, unknown>;
-      if (!(gateData.enabled as boolean ?? true)) continue;
-      const gateOutgoing = edges.filter((ge) => ge.source === target.id);
-      for (const ge of gateOutgoing) {
-        const downstream = getNode(ge.target);
-        if (!downstream) continue;
-        const viewKey = VIEWER_TYPES[downstream.type ?? ''];
-        if (viewKey) viewers.push({ nodeId: downstream.id, viewKey });
+    const outgoing = edges.filter((e) => e.source === current);
+    for (const e of outgoing) {
+      const target = getNode(e.target);
+      if (!target || visited.has(target.id)) continue;
+
+      if (target.type === 'charGate') {
+        const gateData = target.data as Record<string, unknown>;
+        if (!(gateData.enabled as boolean ?? true)) continue;
       }
-    } else {
-      const viewKey = VIEWER_TYPES[target.type ?? ''];
-      if (viewKey) viewers.push({ nodeId: target.id, viewKey });
+
+      if (MAIN_VIEWER_TYPES.has(target.type ?? '')) {
+        viewers.push(target.id);
+      }
+
+      queue.push(target.id);
     }
   }
   return viewers;
@@ -131,11 +165,13 @@ async function autoSaveImage(
   image: GeneratedImage,
   viewName: string,
   charName: string,
-  outputDir: string,
-) {
-  if (!outputDir && !charName) return;
+  outputDirOverride?: string,
+): Promise<{ ok: boolean; path?: string; error?: string }> {
+  const globalDir = getGlobalSettings().outputDir;
+  const outputDir = outputDirOverride || globalDir;
+  if (!outputDir) return { ok: false, error: 'No output directory configured' };
   try {
-    await fetch('/api/character-save', {
+    const res = await fetch('/api/character-save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -143,34 +179,72 @@ async function autoSaveImage(
         mimeType: image.mimeType,
         charName: charName || 'character',
         viewName,
-        outputDir: outputDir || undefined,
+        outputDir,
+        appKey: 'concept-lab',
+        contentType: 'characters',
       }),
     });
-  } catch {
-    // non-critical
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return { ok: false, error: (body as Record<string, string>).error || `HTTP ${res.status}` };
+    }
+    const body = await res.json() as { path?: string };
+    return { ok: true, path: body.path };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
 function GenerateCharImageNodeInner({ id, data, selected }: Props) {
-  const { setNodes, getNode, getEdges } = useReactFlow();
+  const { setNodes, setEdges, getNode, getEdges } = useReactFlow();
   const [images, setImages] = useState<GeneratedImage[]>(
     (data?.generatedImages as GeneratedImage[]) ?? [],
   );
-  const [viewIdx, setViewIdx] = useState(0);
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+
+  const [selectedModel, setSelectedModel] = useState<string>(
+    (data?.selectedModel as string) ?? 'imagen-4.0-generate-001',
+  );
+  const [selectedAspectRatio, setSelectedAspectRatio] = useState<string>(
+    (data?.selectedAspectRatio as string) ?? '9:16',
+  );
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  const persistSetting = useCallback((updates: Record<string, unknown>) => {
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === id ? { ...n, data: { ...n.data, ...updates } } : n,
+      ),
+    );
+  }, [id, setNodes]);
+
+  const currentModelDef = IMAGEN_MODELS.find((m) => m.id === selectedModel) ?? IMAGEN_MODELS[0];
+  const currentMaxRes = currentModelDef.maxRes[selectedAspectRatio] ?? 'auto';
 
   const handleGenerate = useCallback(async () => {
     setGenerating(true);
     setError(null);
     setProgress('Gathering inputs...');
+    const anim = createProcessingAnimator(setNodes, setEdges, getEdges);
 
     try {
-      const inputs = gatherInputs(id, getNode, getEdges);
-      const { identity, attributes, pose, styleText, callouts, projectName, outputDir } = inputs;
-      let { description } = inputs;
+      anim.markNodes([id], true);
+      anim.markEdgesFrom(id, true);
 
+      const inputs = gatherInputs(id, getNode, getEdges);
+      const { identity, attributes, styleText, styleImages, callouts, projectName, outputDir } = inputs;
+      let { description, pose } = inputs;
+
+      if (!pose && attributes.pose) {
+        pose = attributes.pose;
+      }
       if (pose) {
         attributes.pose = pose;
       }
@@ -187,19 +261,20 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
       if (styleText) fullPrompt += `\n\n[STYLE OVERRIDE]\n${styleText}`;
       if (callouts.length > 0) fullPrompt += '\n\nReference image callouts:\n' + callouts.join('\n');
 
-      const viewers = findDownstreamViewers(id, getNode, getEdges);
-      const hasMainViewer = viewers.some((v) => v.viewKey === 'main');
-      const otherViewers = viewers.filter((v) => v.viewKey !== 'main');
-
-      setProgress('Generating main image...');
+      setProgress(`Generating main image (${currentModelDef.label}, ${selectedAspectRatio}, ${currentMaxRes})...`);
       setNodes((nds) =>
         nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, generating: true } } : n)),
       );
 
-      const result = await generateWithImagen4(fullPrompt, '9:16', 1);
+      let result: GeneratedImage[];
+      if (styleImages.length > 0) {
+        const stylePrompt = fullPrompt + '\n\nMatch the visual style of the provided reference image(s) as closely as possible.';
+        result = await generateWithGeminiRef(stylePrompt, styleImages[0]);
+      } else {
+        result = await generateWithImagen4(fullPrompt, selectedAspectRatio, 1, selectedModel);
+      }
       const mainImage = result[0];
       setImages(result);
-      setViewIdx(0);
 
       setNodes((nds) =>
         nds.map((n) => {
@@ -211,6 +286,7 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
                 generatedImages: result,
                 generatedImage: mainImage,
                 characterDescription: desc,
+                aspectRatio: selectedAspectRatio,
               },
             };
           }
@@ -218,8 +294,16 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
         }),
       );
 
-      if (hasMainViewer) {
-        const mainViewerIds = viewers.filter((v) => v.viewKey === 'main').map((v) => v.nodeId);
+      autoSaveImage(mainImage, 'main_stage', projectName, outputDir || undefined)
+        .then((r) => { if (!r.ok) console.warn('[auto-save] main image:', r.error); });
+
+      // Push main image ONLY to main-stage viewers.
+      // Front/back/side/custom CharViewNodes auto-generate their own perspectives
+      // when they detect the Main Stage image change (concurrent, independent).
+      const mainViewerIds = findDownstreamMainViewers(id, getNode, getEdges);
+      if (mainViewerIds.length > 0) {
+        anim.markNodes(mainViewerIds, true);
+        for (const vid of mainViewerIds) anim.markEdgesTo(vid, true);
         setNodes((nds) =>
           nds.map((n) =>
             mainViewerIds.includes(n.id)
@@ -227,42 +311,10 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
               : n,
           ),
         );
-        if (projectName || outputDir) {
-          autoSaveImage(mainImage, 'main_stage', projectName, outputDir);
-        }
       }
 
-      if (otherViewers.length > 0 && mainImage) {
-        const viewPromises = otherViewers.map(async (viewer) => {
-          setProgress(`Generating ${viewer.viewKey} view...`);
-          const viewPrompt = buildCharacterViewPrompt(viewer.viewKey, desc)
-            + '\n\n' + LOCK_OUTFIT_BLOCK
-            + influenceBlock;
-
-          const viewResult = await generateWithGeminiRef(
-            viewPrompt,
-            mainImage,
-            'gemini-3-pro' as GeminiImageModel,
-          );
-
-          if (viewResult.length > 0) {
-            setNodes((nds) =>
-              nds.map((n) =>
-                n.id === viewer.nodeId
-                  ? { ...n, data: { ...n.data, generatedImage: viewResult[0] } }
-                  : n,
-              ),
-            );
-            if (projectName || outputDir) {
-              autoSaveImage(viewResult[0], viewer.viewKey, projectName, outputDir);
-            }
-          }
-        });
-
-        await Promise.all(viewPromises);
-      }
-
-      setProgress('');
+      setProgress('Done! Ortho views auto-generating...');
+      setTimeout(() => { setProgress(''); }, 3000);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -270,39 +322,83 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
       setNodes((nds) =>
         nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, generating: false } } : n)),
       );
+      anim.clearAll();
     }
-  }, [id, getNode, getEdges, setNodes]);
-
-  const currentImage = images[viewIdx];
+  }, [id, getNode, getEdges, setNodes, setEdges, selectedModel, selectedAspectRatio, currentModelDef, currentMaxRes]);
 
   return (
-    <div className={`char-node ${selected ? 'selected' : ''} ${generating ? 'char-node-processing' : ''}`}>
+    <div className={`char-node ${selected ? 'selected' : ''} ${generating ? 'char-node-processing' : ''}`}
+      title={NODE_TOOLTIPS.charGenerate}>
       <div className="char-node-header" style={{ background: '#e91e63' }}>
         Generate Character Image
       </div>
       <div className="char-node-body">
-        <button className="char-btn primary nodrag" onClick={handleGenerate} disabled={generating}>
+        {/* ── Model Selector ── */}
+        <div style={{ marginBottom: 6 }}>
+          <label style={{ fontSize: 10, color: '#aaa', display: 'block', marginBottom: 2 }}>Model</label>
+          <select
+            className="nodrag nowheel"
+            value={selectedModel}
+            onChange={(e) => { setSelectedModel(e.target.value); persistSetting({ selectedModel: e.target.value }); }}
+            disabled={generating}
+            style={{
+              width: '100%',
+              padding: '5px 6px',
+              fontSize: 11,
+              background: '#1a1a2e',
+              color: '#eee',
+              border: '1px solid #444',
+              borderRadius: 4,
+            }}
+          >
+            {IMAGEN_MODELS.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label} — {m.maxRes[selectedAspectRatio] ?? 'auto'} — {m.timeEstimate}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* ── Aspect Ratio ── */}
+        <div style={{ marginBottom: 6 }}>
+          <label style={{ fontSize: 10, color: '#aaa', display: 'block', marginBottom: 2 }}>Aspect Ratio</label>
+          <select
+            className="nodrag nowheel"
+            value={selectedAspectRatio}
+            onChange={(e) => { setSelectedAspectRatio(e.target.value); persistSetting({ selectedAspectRatio: e.target.value }); }}
+            disabled={generating}
+            style={{
+              width: '100%',
+              padding: '5px 6px',
+              fontSize: 11,
+              background: '#1a1a2e',
+              color: '#eee',
+              border: '1px solid #444',
+              borderRadius: 4,
+            }}
+          >
+            {ASPECT_RATIOS.map((ar) => (
+              <option key={ar.value} value={ar.value}>
+                {ar.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* ── Max Resolution Info ── */}
+        <div style={{ fontSize: 9, color: '#888', marginBottom: 8, textAlign: 'center' }}>
+          Output: {currentMaxRes}{currentModelDef.supports2K ? ' (2K mode)' : ''}
+        </div>
+
+        <button type="button" className="char-btn primary nodrag" onClick={handleGenerate} disabled={generating}>
           {generating ? 'Generating...' : 'Generate Character Image'}
         </button>
         {generating && <div className="char-progress">{progress || 'Creating character...'}</div>}
         {error && <div className="char-error">{error}</div>}
-        {currentImage && (
-          <>
-            <ImageContextMenu image={currentImage} alt="character">
-              <img
-                src={`data:${currentImage.mimeType};base64,${currentImage.base64}`}
-                alt="Generated character"
-                className="char-preview"
-              />
-            </ImageContextMenu>
-            {images.length > 1 && (
-              <div className="char-gallery-nav">
-                <button className="nodrag" onClick={() => setViewIdx((i) => (i - 1 + images.length) % images.length)}>&lt;</button>
-                <span>{viewIdx + 1}/{images.length}</span>
-                <button className="nodrag" onClick={() => setViewIdx((i) => (i + 1) % images.length)}>&gt;</button>
-              </div>
-            )}
-          </>
+        {images.length > 0 && !generating && (
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'center' }}>
+            Image sent to Main Stage — ortho views auto-generate
+          </div>
         )}
       </div>
 

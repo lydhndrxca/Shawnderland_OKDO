@@ -179,11 +179,16 @@ function TurnaroundNodeInner({ id, selected }: TurnaroundNodeProps) {
             onChange={(e) => setGeminiModel(e.target.value as GeminiImageModel)}
             disabled={generating}
           >
-            {(Object.keys(GEMINI_IMAGE_MODELS) as GeminiImageModel[]).map((k) => (
-              <option key={k} value={k} title={GEMINI_IMAGE_MODELS[k].description}>
-                {GEMINI_IMAGE_MODELS[k].label}
-              </option>
-            ))}
+            {(Object.keys(GEMINI_IMAGE_MODELS) as GeminiImageModel[]).map((k) => {
+              const m = GEMINI_IMAGE_MODELS[k];
+              const res = k === 'gemini-flash-image' ? '1024×1024' : '2048×2048';
+              const time = k === 'gemini-flash-image' ? '~5-10s' : '~20-30s';
+              return (
+                <option key={k} value={k} title={m.description}>
+                  {m.label} — {res} — {time}
+                </option>
+              );
+            })}
           </select>
         </div>
         <div className="turn-tabs nodrag">

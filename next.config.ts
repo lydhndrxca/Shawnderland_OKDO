@@ -7,6 +7,9 @@ const CONCEPT_LAB_URL = process.env.CONCEPT_LAB_URL || "http://localhost:5174";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@shawnderland/ui"],
+  experimental: {
+    serverActions: { bodySizeLimit: '50mb' },
+  },
   async rewrites() {
     return [
       {

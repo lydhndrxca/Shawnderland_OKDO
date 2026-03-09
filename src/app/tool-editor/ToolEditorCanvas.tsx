@@ -22,12 +22,15 @@ import TextBoxNode from './nodes/TextBoxNode';
 import DropdownNode from './nodes/DropdownNode';
 import ImageNode from './nodes/ImageNode';
 import PipelineEdge from '@/app/ideation/canvas/edges/PipelineEdge';
-import CanvasContextMenu, { type ContextMenuCategory } from '@/components/CanvasContextMenu';
+import CanvasContextMenu from '@/components/CanvasContextMenu';
 import { useToolEditorStore } from './useToolEditorStore';
 import type { TENodeKind } from './types';
+import { ALL_RAW_NODE_TYPES, ALL_CTX_CATEGORIES } from '@/lib/sharedNodeTypes';
+import { applyResizeToAll } from '@/components/nodes/withNodeResize';
 import './ToolEditorCanvas.css';
 
-const nodeTypes = {
+const nodeTypes = applyResizeToAll({
+  ...ALL_RAW_NODE_TYPES,
   generic: GenericNode,
   window: WindowNode,
   frame: FrameNode,
@@ -35,15 +38,15 @@ const nodeTypes = {
   textbox: TextBoxNode,
   dropdown: DropdownNode,
   image: ImageNode,
-};
+});
 
 const edgeTypes: EdgeTypes = {
   pipeline: PipelineEdge,
 };
 
-const TE_CTX_CATEGORIES: ContextMenuCategory[] = [
+const TE_CTX_CATEGORIES = [
   {
-    label: 'UI Elements',
+    label: 'TE UI Elements',
     items: [
       { id: 'generic', label: 'Node', color: '#607d8b' },
       { id: 'button', label: 'Button', color: '#42a5f5' },
@@ -53,12 +56,13 @@ const TE_CTX_CATEGORIES: ContextMenuCategory[] = [
     ],
   },
   {
-    label: 'Containers',
+    label: 'TE Containers',
     items: [
       { id: 'window', label: 'Window', color: '#78909c' },
       { id: 'frame', label: 'Frame', color: '#8d6e63' },
     ],
   },
+  ...ALL_CTX_CATEGORIES,
 ];
 
 interface CtxMenuState { x: number; y: number; nodeId?: string; edgeId?: string }
@@ -290,7 +294,7 @@ export default function ToolEditorCanvas() {
         deleteKeyCode={null}
         proOptions={{ hideAttribution: true }}
       >
-        <Background variant={BackgroundVariant.Lines} gap={gridSize} size={1} color="rgba(255,255,255,0.06)" />
+        <Background variant={BackgroundVariant.Lines} gap={gridSize * 2} size={1} color="rgba(255,255,255,0.06)" />
         <Controls className="flow-controls" showInteractive={false} />
         <MiniMap
           className="flow-minimap"

@@ -1,7 +1,8 @@
 "use client";
 
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useState, useRef, useEffect } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
+import { NODE_TOOLTIPS } from './nodeTooltips';
 import './CharacterNodes.css';
 
 interface Props {
@@ -13,6 +14,8 @@ interface Props {
 function ResetCharacterNodeInner({ id, data, selected }: Props) {
   const { setNodes, getEdges } = useReactFlow();
   const [done, setDone] = useState(false);
+  const doneTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(doneTimerRef.current), []);
 
   const handleReset = useCallback(() => {
     const edges = getEdges();
@@ -62,11 +65,12 @@ function ResetCharacterNodeInner({ id, data, selected }: Props) {
       }),
     );
     setDone(true);
-    setTimeout(() => setDone(false), 2000);
+    clearTimeout(doneTimerRef.current);
+    doneTimerRef.current = setTimeout(() => setDone(false), 2000);
   }, [id, getEdges, setNodes]);
 
   return (
-    <div className={`char-node ${selected ? 'selected' : ''}`}>
+    <div className={`char-node ${selected ? 'selected' : ''}`} title={NODE_TOOLTIPS.charReset}>
       <div className="char-node-header" style={{ background: '#ef5350' }}>
         Reset Character
       </div>

@@ -1,10 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Undo2, Redo2, Copy, Maximize2, Trash2, Upload, Download, LayoutGrid, ChevronDown, Layers } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback, useSyncExternalStore } from 'react';
+import { Undo2, Redo2, Copy, Maximize2, Trash2, Upload, Download, LayoutGrid, ChevronDown, Layers, Save, XCircle } from 'lucide-react';
+import { cancelAll, getActiveCount, subscribe } from '@/lib/activeRequests';
 import './GlobalToolbar.css';
 
 export interface SavedLayoutEntry {
+  name: string;
+  savedAt: string;
+}
+
+export interface SavedSessionEntry {
   name: string;
   savedAt: string;
 }
@@ -35,6 +41,13 @@ export interface GlobalToolbarProps {
   onUpdateLayout?: () => void;
   activeLayoutName?: string | null;
   savedLayouts?: SavedLayoutEntry[];
+
+  onSaveSessionNamed?: (name: string) => void;
+  onSaveCurrentSession?: () => void;
+  onLoadSession?: (name: string) => void;
+  onDeleteSession?: (name: string) => void;
+  activeSessionName?: string | null;
+  savedSessions?: SavedSessionEntry[];
 
   /** @deprecated */
   onExportAll?: () => void;
@@ -80,10 +93,19 @@ export default function GlobalToolbar({
   onImport,
   onSave,
   onExport,
+  onSaveSessionNamed,
+  onSaveCurrentSession,
+  onLoadSession,
+  onDeleteSession,
+  activeSessionName,
+  savedSessions,
 }: GlobalToolbarProps) {
   const handleImport = onImportLayout ?? onImport;
   const hasLayoutSystem = !!(onSaveLayoutNamed || onLoadLayout || onSetDefault);
   const legacySave = onSaveLayout ?? onSave;
+  const hasSessionSystem = !!(onSaveSessionNamed || onLoadSession);
+
+  const activeRequestCount = useSyncExternalStore(subscribe, getActiveCount, getActiveCount);
 
   const hasExportSystem = !!(onExportSelectedNodesOnly || onExportSelectedWithConnections || onExportAllNodesOnly || onExportAllWithConnections);
   const legacyExportAll = onExportAll;
@@ -91,14 +113,19 @@ export default function GlobalToolbar({
 
   const [layoutDropdownOpen, setLayoutDropdownOpen] = useState(false);
   const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+  const [sessionDropdownOpen, setSessionDropdownOpen] = useState(false);
   const [savePrompt, setSavePrompt] = useState(false);
   const [saveName, setSaveName] = useState('');
+  const [sessionSavePrompt, setSessionSavePrompt] = useState(false);
+  const [sessionSaveName, setSessionSaveName] = useState('');
   const layoutRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
+  const sessionRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const sessionInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!layoutDropdownOpen && !exportDropdownOpen) return;
+    if (!layoutDropdownOpen && !exportDropdownOpen && !sessionDropdownOpen) return;
     const close = (e: MouseEvent) => {
       if (layoutDropdownOpen && layoutRef.current && !layoutRef.current.contains(e.target as HTMLElement)) {
         setLayoutDropdownOpen(false);
@@ -106,14 +133,21 @@ export default function GlobalToolbar({
       if (exportDropdownOpen && exportRef.current && !exportRef.current.contains(e.target as HTMLElement)) {
         setExportDropdownOpen(false);
       }
+      if (sessionDropdownOpen && sessionRef.current && !sessionRef.current.contains(e.target as HTMLElement)) {
+        setSessionDropdownOpen(false);
+      }
     };
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
-  }, [layoutDropdownOpen, exportDropdownOpen]);
+  }, [layoutDropdownOpen, exportDropdownOpen, sessionDropdownOpen]);
 
   useEffect(() => {
     if (savePrompt) inputRef.current?.focus();
   }, [savePrompt]);
+
+  useEffect(() => {
+    if (sessionSavePrompt) sessionInputRef.current?.focus();
+  }, [sessionSavePrompt]);
 
   const handleSaveSubmit = useCallback(() => {
     const name = saveName.trim();
@@ -124,6 +158,15 @@ export default function GlobalToolbar({
     setLayoutDropdownOpen(false);
   }, [saveName, onSaveLayoutNamed]);
 
+  const handleSessionSaveSubmit = useCallback(() => {
+    const name = sessionSaveName.trim();
+    if (!name || !onSaveSessionNamed) return;
+    onSaveSessionNamed(name);
+    setSessionSaveName('');
+    setSessionSavePrompt(false);
+    setSessionDropdownOpen(false);
+  }, [sessionSaveName, onSaveSessionNamed]);
+
   return (
     <header className="global-toolbar">
       <div className="global-toolbar-left">
@@ -131,6 +174,19 @@ export default function GlobalToolbar({
         {hint && <span className="global-toolbar-hint">{hint}</span>}
       </div>
       <div className="global-toolbar-right">
+        {activeRequestCount > 0 && (
+          <>
+            <button
+              className="global-toolbar-btn global-toolbar-cancel-all"
+              onClick={cancelAll}
+              title={`Cancel all requests (${activeRequestCount} active)`}
+            >
+              <XCircle size={14} />
+              <span>Cancel All</span>
+            </button>
+            <div className="global-toolbar-sep" />
+          </>
+        )}
         {onUndo && (
           <button className="global-toolbar-btn" onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)">
             <Undo2 size={14} />
@@ -330,6 +386,84 @@ export default function GlobalToolbar({
             <Upload size={14} />
             <span>Import</span>
           </button>
+        )}
+
+        {/* ── Session dropdown ── */}
+        {hasSessionSystem && (
+          <>
+            <div className="global-toolbar-sep" />
+            <div className="layout-dropdown-wrapper" ref={sessionRef}>
+              <button
+                className="global-toolbar-btn"
+                onClick={() => { setSessionDropdownOpen(!sessionDropdownOpen); setLayoutDropdownOpen(false); setExportDropdownOpen(false); }}
+                title="Session options"
+              >
+                <Save size={14} />
+                <span>Session{activeSessionName ? `: ${activeSessionName}` : ''}</span>
+                <ChevronDown size={12} />
+              </button>
+
+              {sessionDropdownOpen && (
+                <div className="layout-dropdown-menu">
+                  {sessionSavePrompt ? (
+                    <div className="layout-save-prompt">
+                      <input
+                        ref={sessionInputRef}
+                        className="layout-save-input"
+                        value={sessionSaveName}
+                        onChange={(e) => setSessionSaveName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSessionSaveSubmit(); if (e.key === 'Escape') setSessionSavePrompt(false); }}
+                        placeholder="Session name..."
+                      />
+                      <div className="layout-save-actions">
+                        <button className="layout-menu-btn layout-save-confirm" onClick={handleSessionSaveSubmit} disabled={!sessionSaveName.trim()}>Save</button>
+                        <button className="layout-menu-btn" onClick={() => setSessionSavePrompt(false)}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {activeSessionName && onSaveCurrentSession && (
+                        <button className="layout-menu-btn" onClick={() => { onSaveCurrentSession(); setSessionDropdownOpen(false); }}>
+                          Save Session
+                        </button>
+                      )}
+                      <button className="layout-menu-btn" onClick={() => setSessionSavePrompt(true)}>
+                        Save Session As...
+                      </button>
+                      {savedSessions && savedSessions.length > 0 && (
+                        <>
+                          <div className="layout-menu-sep" />
+                          <div className="layout-menu-label">Saved Sessions</div>
+                          <div className="layout-menu-list">
+                            {savedSessions.map((s) => (
+                              <div key={s.name} className="layout-menu-entry">
+                                <button
+                                  className={`layout-menu-btn layout-entry-load ${s.name === activeSessionName ? 'layout-active' : ''}`}
+                                  onClick={() => { onLoadSession?.(s.name); setSessionDropdownOpen(false); }}
+                                  title={`Saved ${new Date(s.savedAt).toLocaleString()}`}
+                                >
+                                  {s.name}
+                                </button>
+                                {onDeleteSession && (
+                                  <button
+                                    className="layout-menu-delete"
+                                    onClick={() => onDeleteSession(s.name)}
+                                    title="Delete this session"
+                                  >
+                                    &times;
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
         )}
 
         {onClear && (

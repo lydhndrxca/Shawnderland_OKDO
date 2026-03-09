@@ -14,3 +14,5 @@ export { default as SendToPhotoshopNode } from './SendToPhotoshopNode';
 export { default as ShowXMLNode } from './ShowXMLNode';
 export { default as QuickGenerateNode } from './QuickGenerateNode';
 export { default as ProjectSettingsNode } from './ProjectSettingsNode';
+export { default as RandomizeNode } from './RandomizeNode';
+export { default as CustomViewNode } from './CustomViewNode';

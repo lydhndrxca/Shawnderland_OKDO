@@ -114,17 +114,17 @@ export default function CanvasContextMenu({
         <>
           {onCopy && (
             <button className="context-menu-item" onClick={() => { onCopy(); onClose(); }}>
-              <span className="context-menu-icon">{'\uD83D\uDCCB'}</span>Copy
+              <span className="context-menu-icon">{'\uD83D\uDCCB'}</span>Copy Node(s)
             </button>
           )}
           {onPaste && (
             <button className="context-menu-item" onClick={() => { onPaste(); onClose(); }}>
-              <span className="context-menu-icon">{'\uD83D\uDCCE'}</span>Paste
+              <span className="context-menu-icon">{'\uD83D\uDCCE'}</span>Paste Node(s)
             </button>
           )}
           {onDuplicateSelected && (
             <button className="context-menu-item" onClick={() => { onDuplicateSelected(); onClose(); }}>
-              <span className="context-menu-icon">{'\u29C9'}</span>Duplicate
+              <span className="context-menu-icon">{'\u29C9'}</span>Duplicate Node(s)
             </button>
           )}
 
@@ -236,14 +236,11 @@ export default function CanvasContextMenu({
             </div>
           ))}
 
-          {onCopy && onPaste && (
+          {onPaste && (
             <>
               <div className="context-menu-separator" />
-              <button className="context-menu-item" onClick={() => { onCopy(); onClose(); }}>
-                <span className="context-menu-icon">{'\uD83D\uDCCB'}</span>Copy
-              </button>
               <button className="context-menu-item" onClick={() => { onPaste(); onClose(); }}>
-                <span className="context-menu-icon">{'\uD83D\uDCCE'}</span>Paste
+                <span className="context-menu-icon">{'\uD83D\uDCCE'}</span>Paste Node(s)
               </button>
             </>
           )}

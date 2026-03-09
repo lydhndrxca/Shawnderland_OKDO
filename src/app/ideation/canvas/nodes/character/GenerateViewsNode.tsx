@@ -10,6 +10,7 @@ import {
   type GeneratedImage,
 } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { ImageContextMenu } from '@/components/ImageContextMenu';
+import { NODE_TOOLTIPS } from './nodeTooltips';
 import './CharacterNodes.css';
 
 interface Props {
@@ -133,7 +134,7 @@ function GenerateViewsNodeInner({ id, data, selected }: Props) {
   const currentImage = viewImages[activeTab];
 
   return (
-    <div className={`char-node ${selected ? 'selected' : ''}`}>
+    <div className={`char-node ${selected ? 'selected' : ''}`} title={NODE_TOOLTIPS.charGenViews}>
       <div className="char-node-header" style={{ background: '#00bfa5' }}>
         Generate Views
       </div>

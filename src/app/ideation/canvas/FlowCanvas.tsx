@@ -12,60 +12,11 @@ import {
   type EdgeTypes,
   type OnConnectEnd,
   type Node,
+  type Edge,
+  addEdge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import SeedNode from './nodes/SeedNode';
-import NormalizeNode from './nodes/NormalizeNode';
-import DivergeNode from './nodes/DivergeNode';
-import CritiqueNode from './nodes/CritiqueNode';
-import ExpandNode from './nodes/ExpandNode';
-import ConvergeNode from './nodes/ConvergeNode';
-import CommitNode from './nodes/CommitNode';
-import IterateNode from './nodes/IterateNode';
-import TextOutputNode from './nodes/TextOutputNode';
-import ImageOutputNode from './nodes/ImageOutputNode';
-import VideoOutputNode from './nodes/VideoOutputNode';
-import CountNode from './nodes/CountNode';
-import ImageReferenceNode from './nodes/ImageReferenceNode';
-import ExtractDataNode from './nodes/ExtractDataNode';
-import EmotionNode from './nodes/EmotionNode';
-import InfluenceNode from './nodes/InfluenceNode';
-import TextInfluenceNode from './nodes/TextInfluenceNode';
-import DocumentInfluenceNode from './nodes/DocumentInfluenceNode';
-import ImageInfluenceNode from './nodes/ImageInfluenceNode';
-import LinkInfluenceNode from './nodes/LinkInfluenceNode';
-import VideoInfluenceNode from './nodes/VideoInfluenceNode';
-import PrepromptNode from './nodes/PrepromptNode';
-import PostPromptNode from './nodes/PostPromptNode';
-import StartNode from './nodes/StartNode';
-import GroupNode from './nodes/GroupNode';
-import PackedPipelineNode from './nodes/PackedPipelineNode';
-import ResultNode from './nodes/ResultNode';
-import CharacterNode from './nodes/CharacterNode';
-import WeaponNode from './nodes/WeaponNode';
-import TurnaroundNode from './nodes/TurnaroundNode';
-import CharIdentityNode from './nodes/character/CharIdentityNode';
-import CharDescriptionNode from './nodes/character/CharDescriptionNode';
-import CharAttributesNode from './nodes/character/CharAttributesNode';
-import ExtractAttributesNode from './nodes/character/ExtractAttributesNode';
-import EnhanceDescriptionNode from './nodes/character/EnhanceDescriptionNode';
-import GenerateCharImageNode from './nodes/character/GenerateCharImageNode';
-import GenerateViewsNode from './nodes/character/GenerateViewsNode';
-import ReferenceCalloutNode from './nodes/character/ReferenceCalloutNode';
-import MainStageViewerNode from './nodes/character/MainStageViewerNode';
-import CharViewNode from './nodes/character/CharViewNode';
-import EditCharacterNode from './nodes/character/EditCharacterNode';
-import CharHistoryNode from './nodes/character/CharHistoryNode';
-import ResetCharacterNode from './nodes/character/ResetCharacterNode';
-import SendToPhotoshopNode from './nodes/character/SendToPhotoshopNode';
-import ShowXMLNode from './nodes/character/ShowXMLNode';
-import QuickGenerateNode from './nodes/character/QuickGenerateNode';
-import ProjectSettingsNode from './nodes/character/ProjectSettingsNode';
-import GateNode from './nodes/character/GateNode';
-import PoseNode from './nodes/character/PoseNode';
-import StyleNode from './nodes/character/StyleNode';
-import ImageBucketNode from './nodes/character/ImageBucketNode';
 import PipelineEdge from './edges/PipelineEdge';
 import ToolDock from './ToolDock';
 import CanvasContextMenu, { type ContextMenuCategory, type CustomNodeAction } from '@/components/CanvasContextMenu';
@@ -73,13 +24,12 @@ import GlobalToolbar from '@/components/GlobalToolbar';
 import { ToastContainer, showToast } from '@/components/Toast';
 import DemoOverlay from './DemoOverlay';
 import GuidedRunOverlay from './GuidedRunOverlay';
-import { useFlowSession } from './useFlowSession';
+import { useCanvasSession, type CutLine } from '@/hooks/useCanvasSession';
+import { ALL_RAW_NODE_TYPES, ALL_CTX_CATEGORIES, NODE_DEFAULTS } from '@/lib/sharedNodeTypes';
 import {
   isValidConnection,
-  STAGE_ORDER, NODE_META,
-  OUTPUT_NODE_TYPES, INPUT_NODE_TYPES, INFLUENCE_NODE_TYPES, UTILITY_NODE_TYPES, CONTROL_NODE_TYPES,
-  OUTPUT_NODE_META, INPUT_NODE_META, INFLUENCE_NODE_META, UTILITY_NODE_META, CONTROL_NODE_META,
-  CONCEPTLAB_NODE_TYPES, CONCEPTLAB_NODE_META,
+  STAGE_ORDER,
+  OUTPUT_NODE_TYPES, type OutputNodeType,
 } from './nodes/nodeRegistry';
 import { useSession } from '@/lib/ideation/context/SessionContext';
 import { getStageOutput } from '@/lib/ideation/state/sessionSelectors';
@@ -92,74 +42,18 @@ import GlossaryOverlay from './GlossaryOverlay';
 import { materializeGraph } from '@/lib/ideation/engine/lineage/materializeGraph';
 import { getAncestors, getDescendants } from '@/lib/ideation/engine/lineage/graphSelectors';
 import type { LineageNode } from '@/lib/ideation/engine/lineage/graphTypes';
-import { UIButtonNode, UITextBoxNode, UIDropdownNode, UIImageNode, UIWindowNode, UIFrameNode, UIGenericNode } from '@/components/nodes/ui';
 import { applyResizeToAll } from '@/components/nodes/withNodeResize';
+import { applyDagreLayout } from './flowLayout';
+import type { FlowState } from '@/lib/ideation/state/sessionTypes';
+import { loadDefaultOrLatest } from '@/lib/layoutStore';
+import CostWidget from '@/components/CostWidget';
 import './FlowCanvas.css';
 
-const rawNodeTypes: NodeTypes = {
-  seed: withCompatCheck(SeedNode),
-  normalize: withCompatCheck(NormalizeNode),
-  diverge: withCompatCheck(DivergeNode),
-  'critique-salvage': withCompatCheck(CritiqueNode),
-  expand: withCompatCheck(ExpandNode),
-  converge: withCompatCheck(ConvergeNode),
-  commit: withCompatCheck(CommitNode),
-  iterate: withCompatCheck(IterateNode),
-  textOutput: withCompatCheck(TextOutputNode),
-  imageOutput: withCompatCheck(ImageOutputNode),
-  videoOutput: withCompatCheck(VideoOutputNode),
-  count: withCompatCheck(CountNode),
-  imageReference: withCompatCheck(ImageReferenceNode),
-  extractData: withCompatCheck(ExtractDataNode),
-  emotion: withCompatCheck(EmotionNode),
-  influence: withCompatCheck(InfluenceNode),
-  textInfluence: withCompatCheck(TextInfluenceNode),
-  documentInfluence: withCompatCheck(DocumentInfluenceNode),
-  imageInfluence: withCompatCheck(ImageInfluenceNode),
-  linkInfluence: withCompatCheck(LinkInfluenceNode),
-  videoInfluence: withCompatCheck(VideoInfluenceNode),
-  preprompt: withCompatCheck(PrepromptNode),
-  postprompt: withCompatCheck(PostPromptNode),
-  start: withCompatCheck(StartNode),
-  group: GroupNode,
-  packedPipeline: withCompatCheck(PackedPipelineNode),
-  resultNode: withCompatCheck(ResultNode),
-  character: withCompatCheck(CharacterNode),
-  weapon: withCompatCheck(WeaponNode),
-  turnaround: withCompatCheck(TurnaroundNode),
-  charIdentity: withCompatCheck(CharIdentityNode),
-  charDescription: withCompatCheck(CharDescriptionNode),
-  charAttributes: withCompatCheck(CharAttributesNode),
-  charExtractAttrs: withCompatCheck(ExtractAttributesNode),
-  charEnhanceDesc: withCompatCheck(EnhanceDescriptionNode),
-  charGenerate: withCompatCheck(GenerateCharImageNode),
-  charGenViews: withCompatCheck(GenerateViewsNode),
-  charRefCallout: withCompatCheck(ReferenceCalloutNode),
-  charViewer: withCompatCheck(MainStageViewerNode),
-  charImageViewer: withCompatCheck(MainStageViewerNode),
-  charEdit: withCompatCheck(EditCharacterNode),
-  charHistory: withCompatCheck(CharHistoryNode),
-  charReset: withCompatCheck(ResetCharacterNode),
-  charSendPS: withCompatCheck(SendToPhotoshopNode),
-  charShowXML: withCompatCheck(ShowXMLNode),
-  charQuickGen: withCompatCheck(QuickGenerateNode),
-  charProject: withCompatCheck(ProjectSettingsNode),
-  charGate: withCompatCheck(GateNode),
-  charMainViewer: withCompatCheck(CharViewNode),
-  charFrontViewer: withCompatCheck(CharViewNode),
-  charBackViewer: withCompatCheck(CharViewNode),
-  charSideViewer: withCompatCheck(CharViewNode),
-  charPose: withCompatCheck(PoseNode),
-  charStyle: withCompatCheck(StyleNode),
-  charImageBucket: withCompatCheck(ImageBucketNode),
-  uiButton: UIButtonNode,
-  uiTextBox: UITextBoxNode,
-  uiDropdown: UIDropdownNode,
-  uiImage: UIImageNode,
-  uiWindow: UIWindowNode,
-  uiFrame: UIFrameNode,
-  uiGeneric: UIGenericNode,
-};
+const rawNodeTypes: NodeTypes = Object.fromEntries(
+  Object.entries(ALL_RAW_NODE_TYPES).map(([key, Comp]) =>
+    key === 'group' ? [key, Comp] : [key, withCompatCheck(Comp)],
+  ),
+);
 
 const nodeTypes: NodeTypes = applyResizeToAll(rawNodeTypes);
 
@@ -170,101 +64,204 @@ const edgeTypes: EdgeTypes = {
 const SNAP_DISTANCE_X = 40;
 const SNAP_DISTANCE_Y = 60;
 
-const REFERENCE_INFLUENCES = ['textInfluence', 'documentInfluence', 'imageInfluence', 'linkInfluence', 'videoInfluence', 'imageReference'] as const;
-const MODIFIER_INFLUENCES = ['emotion', 'influence'] as const;
+const CTX_CATEGORIES = ALL_CTX_CATEGORIES;
 
-function buildCtxCategories(): ContextMenuCategory[] {
-  return [
-    {
-      label: 'Pipeline',
-      items: STAGE_ORDER.map((s) => ({ id: s, label: NODE_META[s].label, color: NODE_META[s].color })),
-    },
-    {
-      label: 'Inputs & References',
-      items: REFERENCE_INFLUENCES.map((t) => {
-        const infMeta = (INFLUENCE_NODE_META as Record<string, { label: string; color: string }>)[t];
-        const utMeta = (UTILITY_NODE_META as Record<string, { label: string; color: string }>)[t];
-        const meta = infMeta ?? utMeta;
-        return { id: t, label: meta.label, color: meta.color };
-      }),
-    },
-    {
-      label: 'Modifiers',
-      items: [
-        ...INPUT_NODE_TYPES.map((t) => ({ id: t, label: INPUT_NODE_META[t].label, color: INPUT_NODE_META[t].color })),
-        ...MODIFIER_INFLUENCES.map((t) => ({ id: t, label: INFLUENCE_NODE_META[t].label, color: INFLUENCE_NODE_META[t].color })),
-      ],
-    },
-    {
-      label: 'Outputs',
-      items: [
-        ...OUTPUT_NODE_TYPES.map((t) => ({ id: t, label: OUTPUT_NODE_META[t].label, color: OUTPUT_NODE_META[t].color })),
-        ...UTILITY_NODE_TYPES.filter((t) => t === 'extractData').map((t) => ({ id: t, label: UTILITY_NODE_META[t].label, color: UTILITY_NODE_META[t].color })),
-      ],
-    },
-    {
-      label: 'Control',
-      items: CONTROL_NODE_TYPES.map((t) => ({ id: t, label: CONTROL_NODE_META[t].label, color: CONTROL_NODE_META[t].color })),
-    },
-    {
-      label: 'Concept Lab',
-      items: CONCEPTLAB_NODE_TYPES.map((t) => ({ id: t, label: CONCEPTLAB_NODE_META[t].label, color: CONCEPTLAB_NODE_META[t].color })),
-    },
-    {
-      label: 'Character Generator',
-      items: [
-        { id: 'charProject', label: 'Project Settings', color: '#546e7a' },
-        { id: 'charIdentity', label: 'Character Identity', color: '#7c4dff' },
-        { id: 'charDescription', label: 'Character Description', color: '#5c6bc0' },
-        { id: 'charAttributes', label: 'Character Attributes', color: '#9c27b0' },
-        { id: 'charPose', label: 'Pose', color: '#8e24aa' },
-        { id: 'charStyle', label: 'Style', color: '#7b1fa2' },
-        { id: 'charExtractAttrs', label: 'Extract Attributes', color: '#ffab40' },
-        { id: 'charEnhanceDesc', label: 'Enhance Description', color: '#66bb6a' },
-        { id: 'charGenerate', label: 'Generate Character', color: '#e91e63' },
-        { id: 'charGate', label: 'Gate (On/Off)', color: '#66bb6a' },
-        { id: 'charMainViewer', label: 'Main Stage Viewer', color: '#00bfa5' },
-        { id: 'charFrontViewer', label: 'Front View', color: '#42a5f5' },
-        { id: 'charBackViewer', label: 'Back View', color: '#ab47bc' },
-        { id: 'charSideViewer', label: 'Side View', color: '#ff7043' },
-        { id: 'charRefCallout', label: 'Reference Callout', color: '#26a69a' },
-        { id: 'charEdit', label: 'Edit Character', color: '#29b6f6' },
-        { id: 'charHistory', label: 'History', color: '#78909c' },
-        { id: 'charReset', label: 'Reset Character', color: '#ef5350' },
-        { id: 'charSendPS', label: 'Send to Photoshop', color: '#1565c0' },
-        { id: 'charShowXML', label: 'Show XML', color: '#8d6e63' },
-        { id: 'charQuickGen', label: 'Quick Generate', color: '#ffa726' },
-        { id: 'charImageBucket', label: 'Generated Images', color: '#43a047' },
-      ],
-    },
-    {
-      label: 'UI Elements',
-      items: [
-        { id: 'uiButton', label: 'Button', color: '#5c6bc0' },
-        { id: 'uiTextBox', label: 'Text Box', color: '#66bb6a' },
-        { id: 'uiDropdown', label: 'Dropdown', color: '#ffa726' },
-        { id: 'uiImage', label: 'Image', color: '#ab47bc' },
-        { id: 'uiGeneric', label: 'Node', color: '#607d8b' },
-      ],
-    },
-    {
-      label: 'Containers',
-      items: [
-        { id: 'uiWindow', label: 'Window', color: '#26a69a' },
-        { id: 'uiFrame', label: 'Frame', color: '#78909c' },
-      ],
-    },
-  ];
+function buildInitialNodes(session: { stageState: Record<string, unknown>; seedText: string }): Node[] {
+  const nodes: Node[] = [];
+  nodes.push({ id: 'start', type: 'start', position: { x: -250, y: 0 }, data: { stageId: 'start' } });
+  nodes.push({ id: 'seed', type: 'seed', position: { x: 0, y: 0 }, data: { stageId: 'seed' } });
+  for (const stageId of STAGE_ORDER.slice(1)) {
+    const hasOutput = !!(session.stageState as Record<string, { output: unknown }>)[stageId]?.output;
+    if (hasOutput) {
+      nodes.push({ id: stageId, type: stageId, position: { x: 0, y: 0 }, data: { stageId } });
+    }
+  }
+  return nodes;
 }
 
-const CTX_CATEGORIES = buildCtxCategories();
+function buildInitialEdges(nodes: Node[]): Edge[] {
+  const edges: Edge[] = [];
+  const nodeIds = new Set(nodes.map((n) => n.id));
+  if (nodeIds.has('start') && nodeIds.has('seed')) {
+    edges.push({ id: 'e-start-seed', source: 'start', target: 'seed', type: 'pipeline', data: { sourceStage: 'start', isRunning: false, isComplete: false } });
+  }
+  for (let i = 0; i < STAGE_ORDER.length - 1; i++) {
+    const src = STAGE_ORDER[i];
+    const tgt = STAGE_ORDER[i + 1];
+    if (!nodeIds.has(src) || !nodeIds.has(tgt)) continue;
+    if (src === 'normalize') {
+      for (const handle of ['assumptions', 'questions']) {
+        edges.push({ id: `e-${src}-${handle}-${tgt}`, source: src, target: tgt, sourceHandle: handle, type: 'pipeline', data: { sourceStage: src, isRunning: false, isComplete: false } });
+      }
+    } else if (src === 'diverge') {
+      for (const handle of ['practical', 'inversion', 'constraint']) {
+        edges.push({ id: `e-${src}-${handle}-${tgt}`, source: src, target: tgt, sourceHandle: handle, type: 'pipeline', data: { sourceStage: src, isRunning: false, isComplete: false } });
+      }
+    } else if (src === 'critique-salvage') {
+      for (const handle of ['generic', 'mutations']) {
+        edges.push({ id: `e-${src}-${handle}-${tgt}`, source: src, target: tgt, sourceHandle: handle, type: 'pipeline', data: { sourceStage: src, isRunning: false, isComplete: false } });
+      }
+    } else {
+      edges.push({ id: `e-${src}-${tgt}`, source: src, target: tgt, type: 'pipeline', data: { sourceStage: src, isRunning: false, isComplete: false } });
+    }
+  }
+  return edges;
+}
+
+function computeInitialLayout(session: { stageState: Record<string, unknown>; seedText: string }) {
+  const initialNodes = buildInitialNodes(session);
+  const initialEdges = buildInitialEdges(initialNodes);
+  const savedFlowState = (session as unknown as Record<string, unknown>).flowState as FlowState | undefined;
+  let saved = savedFlowState;
+  if (!saved?.nodes?.length) {
+    const storeSnap = loadDefaultOrLatest('shawndermind');
+    if (storeSnap?.nodes?.length) saved = storeSnap as unknown as FlowState;
+  }
+  if (!saved?.nodes?.length) {
+    try {
+      const raw = localStorage.getItem('shawnderland-layout-shawndermind');
+      if (raw) { const parsed = JSON.parse(raw) as FlowState; if (parsed?.nodes?.length) saved = parsed; }
+    } catch { /* ignore */ }
+  }
+  if (saved?.nodes?.length) {
+    const posMap = new Map(saved.nodes.map((n) => [n.id, n.position]));
+    const savedNodeData = saved.nodeData ?? {};
+    const extraNodes: Node[] = [];
+    for (const sn of saved.nodes) {
+      if (!initialNodes.find((n) => n.id === sn.id) && sn.type) {
+        extraNodes.push({ id: sn.id, type: sn.type, position: sn.position, data: { stageId: sn.type, ...savedNodeData[sn.id] } });
+      }
+    }
+    const restored = initialNodes.map((n) => ({
+      ...n, position: posMap.get(n.id) ?? n.position,
+      data: savedNodeData[n.id] ? { ...n.data, ...savedNodeData[n.id] } : n.data,
+    }));
+    return { nodes: [...restored, ...extraNodes], edges: initialEdges, viewport: saved.viewport };
+  }
+  return { ...applyDagreLayout(initialNodes, initialEdges), viewport: undefined };
+}
+
+function CutLineOverlay({ cutLine }: { cutLine: CutLine | null }) {
+  if (!cutLine) return null;
+  return (
+    <svg className="cut-line-overlay">
+      <line x1={cutLine.x1} y1={cutLine.y1} x2={cutLine.x2} y2={cutLine.y2} className="cut-line" />
+    </svg>
+  );
+}
 
 function FlowCanvasInner() {
-  const { session, createBranch, runStage, recordExport, setProjectName, saveFlowState, guidedRunState, awaitingInputNodeId } = useSession();
-  const flow = useFlowSession();
+  const { session, createBranch, runStage, recordExport, setProjectName, saveFlowState, guidedRunState, awaitingInputNodeId, isRunning, runningStageId } = useSession();
   const reactFlowInstance = useReactFlow();
   const canvasRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const initialSessionRef = useRef(session);
+  const initial = useMemo(() => computeInitialLayout(initialSessionRef.current), []);
+
+  const registeredTypes = useMemo(() => new Set(Object.keys(ALL_RAW_NODE_TYPES)), []);
+
+  const flow = useCanvasSession({
+    appKey: 'shawndermind',
+    initialNodes: initial.nodes,
+    initialEdges: initial.edges,
+    idPrefix: 'sm',
+    nodeDefaults: NODE_DEFAULTS,
+    registeredNodeTypes: registeredTypes,
+    onConnect: (params) => {
+      const sourceType = flow.nodes.find((n) => n.id === params.source)?.type ?? params.source as string;
+      const targetType = flow.nodes.find((n) => n.id === params.target)?.type ?? params.target as string;
+      if (!isValidConnection(sourceType, targetType)) return false;
+    },
+    persistNodeTypes: ['emotion', 'influence', 'group', 'packedPipeline', 'textInfluence', 'documentInfluence', 'imageInfluence', 'linkInfluence', 'videoInfluence', 'preprompt', 'postprompt'],
+  });
+
+  const spawnedResultsRef = useRef<Set<string>>(new Set());
+
+  // ── Pipeline state sync: auto-spawn nodes, update edges ─────────
+  useEffect(() => {
+    const runIdx = runningStageId ? STAGE_ORDER.indexOf(runningStageId) : -1;
+    flow.setEdges((prev) =>
+      prev.map((e) => {
+        const sourceStage = e.data?.sourceStage as StageId | undefined;
+        const targetStage = e.target as StageId;
+        if (!sourceStage) return e;
+        const sourceHasOutput = !!(session.stageState as Record<string, { output: unknown }>)[sourceStage]?.output;
+        const targetHasOutput = !!(session.stageState as Record<string, { output: unknown }>)[targetStage]?.output;
+        const srcIdx = STAGE_ORDER.indexOf(sourceStage);
+        const tgtIdx = STAGE_ORDER.indexOf(targetStage);
+        const edgeLeadsToRunning = runIdx >= 0 && tgtIdx <= runIdx && srcIdx < runIdx;
+        const edgeIsRunning = runIdx >= 0 && tgtIdx === runIdx;
+        return { ...e, data: { ...e.data, isRunning: edgeIsRunning, isComplete: sourceHasOutput && targetHasOutput, pathLit: edgeLeadsToRunning } };
+      }),
+    );
+
+    const currentNodeIds = new Set(flow.nodes.map((n) => n.id));
+    const newNodes: Node[] = [];
+    for (const stageId of STAGE_ORDER) {
+      if (currentNodeIds.has(stageId)) continue;
+      const hasOutput = !!(session.stageState as Record<string, { output: unknown }>)[stageId]?.output;
+      if (hasOutput) newNodes.push({ id: stageId, type: stageId, position: { x: 0, y: 0 }, data: { stageId } });
+    }
+    if (newNodes.length > 0) {
+      flow.setNodes((prev) => {
+        const rightmostX = prev.reduce((max, n) => Math.max(max, n.position.x), -Infinity);
+        const GAP = 380;
+        return [...prev, ...newNodes.map((n, i) => ({ ...n, position: { x: rightmostX + GAP * (i + 1), y: 0 } }))];
+      });
+      flow.setEdges((prev) => {
+        const currentIds = new Set(prev.map((e) => e.id));
+        const allNodes = [...flow.nodes, ...newNodes];
+        const allEdges = buildInitialEdges(allNodes);
+        return [...prev, ...allEdges.filter((e) => !currentIds.has(e.id))];
+      });
+    }
+
+    // Auto-spawn Result Nodes below completed pipeline stages
+    const resultStageIds: { stageId: StageId; output: unknown }[] = [];
+    for (const stageId of STAGE_ORDER) {
+      if (spawnedResultsRef.current.has(stageId)) continue;
+      const output = getStageOutput(session, stageId);
+      if (!output) continue;
+      const allNodeIds = new Set([...currentNodeIds, ...newNodes.map((n) => n.id)]);
+      if (allNodeIds.has(`result-${stageId}`)) { spawnedResultsRef.current.add(stageId); continue; }
+      resultStageIds.push({ stageId, output });
+      spawnedResultsRef.current.add(stageId);
+    }
+    if (resultStageIds.length > 0) {
+      flow.setNodes((prev) => {
+        const GRID = 20; const EST_H = 320; const GAP = 3 * GRID;
+        const toAdd: Node[] = [];
+        const occupiedBottom = new Map<number, number>();
+        for (const n of prev) { const bx = Math.round(n.position.x / 100) * 100; occupiedBottom.set(bx, Math.max(occupiedBottom.get(bx) ?? -Infinity, n.position.y + EST_H)); }
+        for (const { stageId, output } of resultStageIds) {
+          const parent = prev.find((n) => n.id === stageId);
+          const pp = parent?.position ?? { x: 0, y: 0 };
+          const bx = Math.round(pp.x / 100) * 100;
+          const low = Math.max(occupiedBottom.get(bx) ?? pp.y + EST_H, pp.y + EST_H);
+          const ry = Math.ceil((low + GAP) / GRID) * GRID;
+          occupiedBottom.set(bx, ry + EST_H);
+          toAdd.push({ id: `result-${stageId}`, type: 'resultNode', position: { x: pp.x, y: ry }, data: { sourceStage: stageId, outputData: output } });
+        }
+        return [...prev, ...toAdd];
+      });
+      flow.setEdges((prev) => [...prev, ...resultStageIds.map(({ stageId }) => ({
+        id: `e-${stageId}-result`, source: stageId, sourceHandle: 'results', target: `result-${stageId}`,
+        type: 'pipeline', data: { sourceStage: stageId, isRunning: false, isComplete: true },
+      }))]);
+    }
+
+    // Update existing result nodes with latest output data
+    flow.setNodes((prev) => prev.map((n) => {
+      if (n.type !== 'resultNode') return n;
+      const d = n.data as Record<string, unknown>;
+      const srcStage = d.sourceStage as StageId | undefined;
+      if (!srcStage) return n;
+      const latestOutput = getStageOutput(session, srcStage);
+      if (!latestOutput || latestOutput === d.outputData) return n;
+      return { ...n, data: { ...d, outputData: latestOutput } };
+    }));
+  }, [session.stageState, isRunning, runningStageId]);
 
   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
   const [isEditingName, setIsEditingName] = useState(false);
@@ -280,50 +277,97 @@ function FlowCanvasInner() {
   const pendingConnectionRef = useRef<{ source: string; sourceHandle: string | null } | null>(null);
   const [snapPreviewIds, setSnapPreviewIds] = useState<Set<string>>(new Set());
   const snapCandidateRef = useRef<{ draggedId: string; targetId: string } | null>(null);
-
-  const [cutLine, setCutLine] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
-  const cutStartRef = useRef<{ x: number; y: number } | null>(null);
   const prevAwaitingRef = useRef<string | null>(null);
   const [presetDialog, setPresetDialog] = useState<{ mode: 'save' | 'load'; nodeId: string; nodeType: string } | null>(null);
   const [presetName, setPresetName] = useState('');
   const [showGlossary, setShowGlossary] = useState(false);
   const [lineageHighlightStages, setLineageHighlightStages] = useState<Set<string>>(new Set());
 
+  // Window globals for node components
+  useEffect(() => {
+    const w = window as unknown as Record<string, unknown>;
+    w.__updateNodeData = flow.updateNodeData;
+    w.__getNodeData = flow.getNodeData;
+    w.__getEdges = () => flow.edges;
+    w.__getFlowSnapshot = flow.getFlowSnapshot;
+  }, [flow.updateNodeData, flow.getNodeData, flow.edges, flow.getFlowSnapshot]);
+
+  // Pipeline-specific window globals
+  const spawnFullChain = useCallback(() => {
+    flow.setNodes((prev) => {
+      const existingIds = new Set(prev.map((n) => n.id));
+      const toAdd: Node[] = [];
+      for (const stageId of STAGE_ORDER.slice(1)) {
+        if (!existingIds.has(stageId)) toAdd.push({ id: stageId, type: stageId, position: { x: 0, y: 0 }, data: { stageId } });
+      }
+      if (toAdd.length === 0) return prev;
+      const seedNode = prev.find((n) => n.id === 'seed');
+      const seedY = seedNode?.position.y ?? 0;
+      const rightmostX = prev.length > 0 ? prev.reduce((max, n) => Math.max(max, n.position.x), -Infinity) : 0;
+      return [...prev, ...toAdd.map((n, i) => ({ ...n, position: { x: rightmostX + 380 * (i + 1), y: seedY } }))];
+    });
+    setTimeout(() => {
+      flow.setEdges((prev) => {
+        const currentIds = new Set(prev.map((e) => e.id));
+        flow.setNodes((curNodes) => {
+          const allEdges = buildInitialEdges(curNodes);
+          const toAdd = allEdges.filter((e) => !currentIds.has(e.id));
+          if (toAdd.length > 0) flow.setEdges((curEdges) => [...curEdges, ...toAdd]);
+          return curNodes;
+        });
+        return prev;
+      });
+    }, 50);
+  }, [flow.setNodes, flow.setEdges]);
+
+  const spawnPackedPipeline = useCallback(() => {
+    flow.setNodes((prev) => {
+      if (prev.find((n) => n.type === 'packedPipeline')) return prev;
+      const startNode = prev.find((n) => n.id === 'start');
+      const startPos = startNode?.position ?? { x: -250, y: 0 };
+      return [...prev, { id: `packedPipeline-${Date.now()}`, type: 'packedPipeline', position: { x: startPos.x + 280, y: startPos.y }, data: { stageId: 'packedPipeline' } }];
+    });
+    setTimeout(() => {
+      flow.setEdges((prev) => {
+        flow.setNodes((curNodes) => {
+          const packed = curNodes.find((n) => n.type === 'packedPipeline');
+          if (!packed) return curNodes;
+          if (prev.some((e) => e.target === packed.id)) return curNodes;
+          const sourceId = curNodes.find((n) => n.id === 'seed')?.id ?? 'start';
+          flow.setEdges((curEdges) => [...curEdges, { id: `e-${sourceId}-packed`, source: sourceId, target: packed.id, type: 'pipeline', data: { sourceStage: sourceId, isRunning: false, isComplete: false } }]);
+          return curNodes;
+        });
+        return prev;
+      });
+    }, 50);
+  }, [flow.setNodes, flow.setEdges]);
+
+  const autoLayout = useCallback(() => {
+    flow.setNodes((prev) => {
+      flow.setEdges((prevEdges) => {
+        const { nodes: laidNodes, edges: laidEdges } = applyDagreLayout(prev, prevEdges);
+        flow.setNodes(laidNodes);
+        return laidEdges;
+      });
+      return prev;
+    });
+  }, [flow.setNodes, flow.setEdges]);
+
+  useEffect(() => {
+    const w = window as unknown as Record<string, unknown>;
+    w.__spawnFullChain = spawnFullChain;
+    w.__spawnPackedPipeline = spawnPackedPipeline;
+    w.__triggerGroupExpand = flow.expandGroup;
+    return () => { delete w.__spawnFullChain; delete w.__spawnPackedPipeline; delete w.__triggerGroupExpand; };
+  }, [spawnFullChain, spawnPackedPipeline, flow.expandGroup]);
+
   useEffect(() => {
     if (awaitingInputNodeId && awaitingInputNodeId !== prevAwaitingRef.current) {
-      const targetId = awaitingInputNodeId.startsWith('result-') ? awaitingInputNodeId : awaitingInputNodeId;
-      const node = flow.nodes.find((n) => n.id === targetId);
-      if (node) {
-        reactFlowInstance.setCenter(node.position.x + 120, node.position.y + 100, { zoom: 1, duration: 400 });
-      } else {
-        const resultNode = flow.nodes.find((n) => n.id === `result-${awaitingInputNodeId}`);
-        if (resultNode) {
-          reactFlowInstance.setCenter(resultNode.position.x + 120, resultNode.position.y + 100, { zoom: 1, duration: 400 });
-        }
-      }
+      const node = flow.nodes.find((n) => n.id === awaitingInputNodeId) ?? flow.nodes.find((n) => n.id === `result-${awaitingInputNodeId}`);
+      if (node) reactFlowInstance.setCenter(node.position.x + 120, node.position.y + 100, { zoom: 1, duration: 400 });
     }
     prevAwaitingRef.current = awaitingInputNodeId;
   }, [awaitingInputNodeId, flow.nodes, reactFlowInstance]);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement | null;
-      if (el) {
-        const tag = el.tagName.toLowerCase();
-        if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-        if (el.getAttribute('contenteditable') === 'true') return;
-      }
-      const mod = e.ctrlKey || e.metaKey;
-      if (mod && e.key === 'z' && !e.shiftKey) { e.preventDefault(); flow.undo(); }
-      if (mod && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); flow.redo(); }
-      if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); flow.deleteSelected(); }
-      if (mod && e.key === 'd') { e.preventDefault(); flow.duplicateSelected(); }
-      if (mod && e.key === 'c') { flow.copySelectedNodes(); }
-      if (mod && e.key === 'v') { flow.pasteNodes(); }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [flow]);
 
   const handleFitView = useCallback(() => {
     reactFlowInstance.fitView({ padding: 0.4 });
@@ -332,16 +376,14 @@ function FlowCanvasInner() {
   const restoredViewportRef = useRef(false);
   useEffect(() => {
     if (restoredViewportRef.current) return;
-    if (flow.savedViewport) {
+    if (initial.viewport) {
       restoredViewportRef.current = true;
-      setTimeout(() => {
-        reactFlowInstance.setViewport(flow.savedViewport!);
-      }, 100);
+      setTimeout(() => reactFlowInstance.setViewport(initial.viewport!), 100);
     } else if (flow.nodes.length > 0) {
       restoredViewportRef.current = true;
       setTimeout(() => handleFitView(), 200);
     }
-  }, [flow.savedViewport, flow.nodes.length, handleFitView]);
+  }, [initial.viewport, flow.nodes.length, handleFitView, reactFlowInstance]);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -354,15 +396,10 @@ function FlowCanvasInner() {
     saveTimerRef.current = setTimeout(() => {
       const snapshot = flow.getFlowSnapshot();
       const vp = reactFlowInstance.getViewport();
-      saveFlowState({
-        nodes: snapshot.nodes,
-        edges: snapshot.edges,
-        viewport: vp,
-        nodeData: snapshot.nodeData,
-      });
+      saveFlowState({ nodes: snapshot.nodes, edges: snapshot.edges, viewport: vp, nodeData: snapshot.nodeData });
     }, 1000);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  }, [flow.nodes, flow.edges]);
+  }, [flow.nodes, flow.edges, saveFlowState, reactFlowInstance]);
 
   const handleDrop = useCallback(
     (event: React.DragEvent) => {
@@ -506,12 +543,27 @@ function FlowCanvasInner() {
 
   const handleRunFromHere = useCallback(async () => {
     if (!ctxMenu?.stageId) return;
-    try { await runStage(ctxMenu.stageId); } catch { /* shown elsewhere */ }
+    try { await runStage(ctxMenu.stageId); } catch (e) { console.error('[FlowCanvas] runStage error:', e); }
   }, [ctxMenu, runStage]);
 
   const handleDelete = useCallback(() => {
     if (ctxMenu?.nodeId) flow.removeNode(ctxMenu.nodeId);
   }, [ctxMenu, flow]);
+
+  const handleResetNodeData = useCallback(() => {
+    if (!ctxMenu?.nodeId) return;
+    const node = flow.nodes.find((n) => n.id === ctxMenu.nodeId);
+    if (!node) return;
+    const preserveKeys = new Set(['stageId', 'viewKey']);
+    const newData: Record<string, unknown> = {};
+    for (const key of preserveKeys) {
+      const val = (node.data as Record<string, unknown>)[key];
+      if (val !== undefined) newData[key] = val;
+    }
+    reactFlowInstance.setNodes((nds) =>
+      nds.map((n) => n.id === ctxMenu.nodeId ? { ...n, data: newData } : n),
+    );
+  }, [ctxMenu, flow.nodes, reactFlowInstance]);
 
   const handleOpenImage = useCallback(async () => {
     const input = document.createElement('input');
@@ -593,7 +645,7 @@ function FlowCanvasInner() {
       const pos = ctxMenu
         ? reactFlowInstance.screenToFlowPosition({ x: ctxMenu.x, y: ctxMenu.y })
         : undefined;
-      const newId = flow.addNodeToCanvas(nodeType, pos, undefined, { skipAutoConnect: hasPendingDrag });
+      const newId = flow.addNodeToCanvas(nodeType, pos);
       if (hasPendingDrag && newId) {
         const { source, sourceHandle } = pendingConnectionRef.current!;
         setTimeout(() => {
@@ -610,62 +662,7 @@ function FlowCanvasInner() {
     [ctxMenu, flow, reactFlowInstance],
   );
 
-  const segIntersect = useCallback((ax: number, ay: number, bx: number, by: number, cx: number, cy: number, dx: number, dy: number) => {
-    const denom = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx);
-    if (Math.abs(denom) < 1e-10) return false;
-    const t = ((cx - ax) * (dy - cy) - (cy - ay) * (dx - cx)) / denom;
-    const u = ((cx - ax) * (by - ay) - (cy - ay) * (bx - ax)) / denom;
-    return t >= 0 && t <= 1 && u >= 0 && u <= 1;
-  }, []);
-
-  const handleCutMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button !== 2) return;
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    cutStartRef.current = { x, y };
-    setCutLine({ x1: x, y1: y, x2: x, y2: y });
-  }, []);
-
-  const handleCutMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!cutStartRef.current) return;
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    setCutLine({ x1: cutStartRef.current.x, y1: cutStartRef.current.y, x2: x, y2: y });
-  }, []);
-
-  const handleCutMouseUp = useCallback(() => {
-    if (!cutStartRef.current || !cutLine) {
-      cutStartRef.current = null;
-      setCutLine(null);
-      return;
-    }
-    const fp1 = reactFlowInstance.screenToFlowPosition({
-      x: cutLine.x1 + (canvasRef.current?.getBoundingClientRect().left ?? 0),
-      y: cutLine.y1 + (canvasRef.current?.getBoundingClientRect().top ?? 0),
-    });
-    const fp2 = reactFlowInstance.screenToFlowPosition({
-      x: cutLine.x2 + (canvasRef.current?.getBoundingClientRect().left ?? 0),
-      y: cutLine.y2 + (canvasRef.current?.getBoundingClientRect().top ?? 0),
-    });
-    const edgesToRemove: string[] = [];
-    for (const edge of flow.edges) {
-      const sourceNode = flow.nodes.find((n) => n.id === edge.source);
-      const targetNode = flow.nodes.find((n) => n.id === edge.target);
-      if (!sourceNode || !targetNode) continue;
-      const sx = sourceNode.position.x + (sourceNode.measured?.width ?? 200);
-      const sy = sourceNode.position.y + (sourceNode.measured?.height ?? 60) / 2;
-      const tx = targetNode.position.x;
-      const ty = targetNode.position.y + (targetNode.measured?.height ?? 60) / 2;
-      if (segIntersect(fp1.x, fp1.y, fp2.x, fp2.y, sx, sy, tx, ty)) edgesToRemove.push(edge.id);
-    }
-    for (const id of edgesToRemove) flow.removeEdge(id);
-    cutStartRef.current = null;
-    setCutLine(null);
-  }, [cutLine, flow, reactFlowInstance, segIntersect]);
+  // Cut-line handling is now provided by useCanvasSession
 
   const lineageTypeToStage: Record<string, string> = {
     Seed: 'seed',
@@ -776,7 +773,7 @@ function FlowCanvasInner() {
     );
   }, [flow.nodes]);
 
-  const nodesWithSnapClass = flow.nodes.map((n) => {
+  const nodesWithSnapClass = useMemo(() => flow.nodes.map((n) => {
     let cls = n.className ?? '';
     if (snapPreviewIds.has(n.id)) {
       cls = `${cls} snap-preview`.trim();
@@ -807,7 +804,7 @@ function FlowCanvasInner() {
     }
 
     return cls !== (n.className ?? '') ? { ...n, className: cls || undefined } : n;
-  });
+  }), [flow.nodes, snapPreviewIds, lineageHighlightStages, gateDisabledIds]);
 
   const dedupedEdges = useMemo(() => {
     const seen = new Set<string>();
@@ -882,8 +879,9 @@ function FlowCanvasInner() {
       { label: 'Save Node Preset', icon: '\uD83D\uDCE5', onClick: handleSavePreset },
       { label: 'Load Preset', icon: '\uD83D\uDCE4', onClick: handleLoadPreset },
     );
+    actions.push({ label: 'Reset Node Data', icon: '\uD83D\uDD04', onClick: handleResetNodeData, danger: true });
     return actions;
-  }, [ctxMenu, handleCopy, handleSaveJson, handleBranch, handleRunFromHere, handleSavePreset, handleLoadPreset]);
+  }, [ctxMenu, handleCopy, handleSaveJson, handleBranch, handleRunFromHere, handleSavePreset, handleLoadPreset, handleResetNodeData]);
 
   return (
     <CompatProvider errors={compatErrors}>
@@ -898,7 +896,7 @@ function FlowCanvasInner() {
         onRedo={flow.redo}
         onDuplicate={flow.duplicateSelected}
         onFitView={handleFitView}
-        onAutoLayout={flow.autoLayout}
+        onAutoLayout={autoLayout}
         onClear={() => { flow.setNodes([]); flow.setEdges([]); }}
         onExportSelectedNodesOnly={flow.exportSelectedNodesOnly}
         onExportSelectedWithConnections={flow.exportSelectedWithConnections}
@@ -912,16 +910,22 @@ function FlowCanvasInner() {
         onUpdateLayout={() => { flow.updateActiveLayout(); showToast(`Layout "${flow.activeLayoutName}" updated`); }}
         activeLayoutName={flow.activeLayoutName}
         savedLayouts={flow.savedLayoutsList}
+        onSaveSessionNamed={async (name) => { const r = await flow.saveSessionNamed(name); showToast(r.ok ? `Session "${name}" saved` : `Save failed: ${r.error}`, r.ok ? 'info' : 'error'); }}
+        onSaveCurrentSession={async () => { const r = await flow.saveCurrentSession(); showToast(r.ok ? 'Session saved' : `Save failed: ${r.error}`, r.ok ? 'info' : 'error'); }}
+        onLoadSession={async (name) => { await flow.loadSessionNamed(name); showToast(`Session "${name}" loaded`); }}
+        onDeleteSession={async (name) => { await flow.deleteSessionNamed(name); showToast(`Session "${name}" deleted`); }}
+        activeSessionName={flow.activeSessionName}
+        savedSessions={flow.savedSessionsList}
       />
       <ToastContainer />
 
       <div
         className="flow-canvas"
         ref={canvasRef}
-        onMouseDown={handleCutMouseDown}
-        onMouseMove={handleCutMouseMove}
-        onMouseUp={handleCutMouseUp}
-        onContextMenu={(e) => { if (cutStartRef.current) e.preventDefault(); }}
+        onMouseDown={(e) => flow.handleCutMouseDown(e, canvasRef)}
+        onMouseMove={(e) => flow.handleCutMouseMove(e, canvasRef)}
+        onMouseUp={() => flow.handleCutMouseUp(canvasRef)}
+        onContextMenu={(e) => { if (flow.cutLine) e.preventDefault(); }}
       >
         <ToolDock
           inspectorNodeId={inspectorNodeId}
@@ -972,7 +976,7 @@ function FlowCanvasInner() {
           proOptions={{ hideAttribution: true }}
           colorMode="dark"
         >
-          <Background variant={BackgroundVariant.Lines} gap={20} size={1} color="rgba(255,255,255,0.06)" />
+          <Background variant={BackgroundVariant.Lines} gap={40} size={1} color="rgba(255,255,255,0.06)" />
         </ReactFlow>
 
         {ctxMenu && (
@@ -988,7 +992,7 @@ function FlowCanvasInner() {
             onDelete={handleDelete}
             onDeleteSelected={flow.deleteSelected}
             onDuplicateSelected={flow.duplicateSelected}
-            onAutoLayout={flow.autoLayout}
+            onAutoLayout={autoLayout}
             onFitView={handleFitView}
             onCopy={flow.copySelectedNodes}
             onPaste={() => flow.pasteNodes()}
@@ -1010,15 +1014,7 @@ function FlowCanvasInner() {
           />
         )}
 
-        {cutLine && (
-          <svg className="cut-line-overlay">
-            <line
-              x1={cutLine.x1} y1={cutLine.y1}
-              x2={cutLine.x2} y2={cutLine.y2}
-              className="cut-line"
-            />
-          </svg>
-        )}
+        <CutLineOverlay cutLine={flow.cutLine} />
 
         {showDemo && <DemoOverlay onDismiss={() => setShowDemo(false)} />}
         <GuidedRunOverlay guidedState={guidedRunState} />

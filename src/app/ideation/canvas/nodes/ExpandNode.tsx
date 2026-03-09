@@ -25,7 +25,7 @@ export default function ExpandNode({ data, selected, id: nodeId }: NodeProps) {
   const status: NodeStatus = runningStageId === 'expand' ? 'running' : output ? (stale ? 'stale' : 'complete') : 'empty';
 
   const handleRun = useCallback(async () => {
-    try { await runStage('expand'); } catch { /* StatusBar */ }
+    try { await runStage('expand'); } catch (e) { console.error('[ExpandNode] runStage error:', e); }
   }, [runStage]);
 
   return (

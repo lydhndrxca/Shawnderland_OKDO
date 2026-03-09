@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
+import { NODE_TOOLTIPS } from './nodeTooltips';
 import './CharacterNodes.css';
 
 interface Props {
@@ -33,7 +34,7 @@ function CharDescriptionNodeInner({ id, data, selected }: Props) {
   );
 
   return (
-    <div className={`char-node ${selected ? 'selected' : ''}`}>
+    <div className={`char-node ${selected ? 'selected' : ''}`} title={NODE_TOOLTIPS.charDescription}>
       <div className="char-node-header" style={{ background: '#5c6bc0' }}>
         Character Description
       </div>

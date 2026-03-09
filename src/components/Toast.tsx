@@ -3,16 +3,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import './Toast.css';
 
+type ToastVariant = 'info' | 'error';
+
 interface ToastMessage {
   id: number;
   text: string;
+  variant: ToastVariant;
 }
 
 let _nextId = 0;
 let _listener: ((msg: ToastMessage) => void) | null = null;
 
-export function showToast(text: string, durationMs = 2500): void {
-  const msg: ToastMessage = { id: _nextId++, text };
+export function showToast(text: string, variant: ToastVariant = 'info', durationMs = 3000): void {
+  const msg: ToastMessage = { id: _nextId++, text, variant };
   _listener?.(msg);
   setTimeout(() => {
     _dismissListener?.(msg.id);
@@ -46,7 +49,7 @@ export function ToastContainer() {
   return (
     <div className="toast-container">
       {messages.map((m) => (
-        <div key={m.id} className="toast-item">
+        <div key={m.id} className={`toast-item ${m.variant === 'error' ? 'toast-error' : ''}`}>
           {m.text}
         </div>
       ))}

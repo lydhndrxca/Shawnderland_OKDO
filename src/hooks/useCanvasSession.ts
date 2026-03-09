@@ -28,6 +28,12 @@ import {
   setDefaultFromSnapshot,
   loadDefaultOrLatest,
   type LayoutSnapshot,
+  listSessions as storeListSessions,
+  saveSession as storeSaveSession,
+  loadSession as storeLoadSession,
+  deleteSession as storeDeleteSession,
+  getActiveSessionName as storeGetActiveSessionName,
+  type SessionSnapshot,
 } from '@/lib/layoutStore';
 
 export interface CutLine {
@@ -37,6 +43,11 @@ export interface CutLine {
   y2: number;
 }
 
+export interface NodeDefault {
+  style?: { width: number; height: number };
+  data?: Record<string, unknown>;
+}
+
 export interface CanvasSessionOpts {
   appKey: string;
   initialNodes?: Node[];
@@ -44,6 +55,9 @@ export interface CanvasSessionOpts {
   idPrefix?: string;
   onConnect?: (params: Connection) => boolean | void;
   persistNodeTypes?: string[];
+  nodeDefaults?: Record<string, NodeDefault>;
+  /** When set, nodes with unregistered types are silently dropped on layout restore */
+  registeredNodeTypes?: Set<string> | string[];
 }
 
 export interface CanvasSessionState {
@@ -111,6 +125,14 @@ export interface CanvasSessionState {
     edges: Array<{ id: string; source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }>;
     nodeData: Record<string, Record<string, unknown>>;
   };
+
+  saveSessionNamed: (name: string) => Promise<{ ok: boolean; error?: string }>;
+  saveCurrentSession: () => Promise<{ ok: boolean; error?: string }>;
+  loadSessionNamed: (name: string) => Promise<boolean>;
+  deleteSessionNamed: (name: string) => Promise<void>;
+  activeSessionName: string | null;
+  savedSessionsList: Array<{ name: string; savedAt: string }>;
+  refreshSessionsList: () => void;
 }
 
 interface HistorySnapshot {
@@ -139,7 +161,13 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     idPrefix = 'n',
     onConnect: validateConnect,
     persistNodeTypes = [],
+    nodeDefaults = {},
+    registeredNodeTypes,
   } = opts;
+
+  const validTypes: Set<string> | null = registeredNodeTypes
+    ? (registeredNodeTypes instanceof Set ? registeredNodeTypes : new Set(registeredNodeTypes))
+    : null;
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -224,16 +252,19 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
   const addNodeToCanvas = useCallback(
     (nodeType: string, position?: { x: number; y: number }, extraData?: Record<string, unknown>) => {
       const id = `${idPrefix}-${nextId.current++}`;
+      const defaults = nodeDefaults[nodeType];
+      const defaultData = defaults?.data ?? {};
       const newNode: Node = {
         id,
         type: nodeType,
         position: position ?? { x: 200, y: 200 },
-        data: { stageId: nodeType, ...extraData },
+        data: { stageId: nodeType, ...defaultData, ...extraData },
+        ...(defaults?.style ? { style: { width: defaults.style.width, height: defaults.style.height } } : {}),
       };
       setNodes((prev) => [...prev, newNode]);
       return id;
     },
-    [setNodes, idPrefix],
+    [setNodes, idPrefix, nodeDefaults],
   );
 
   const removeNode = useCallback(
@@ -275,6 +306,7 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
 
   // ── Edge-cutting (right-click drag) ─────────────────────────────
   const cutStartRef = useRef<{ x: number; y: number } | null>(null);
+  const cutLineRef = useRef<CutLine | null>(null);
 
   const handleCutMouseDown = useCallback((e: React.MouseEvent, canvasRef: React.RefObject<HTMLDivElement | null>) => {
     if (e.button !== 2) return;
@@ -283,7 +315,9 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     cutStartRef.current = { x, y };
-    setCutLine({ x1: x, y1: y, x2: x, y2: y });
+    const line = { x1: x, y1: y, x2: x, y2: y };
+    cutLineRef.current = line;
+    setCutLine(line);
   }, []);
 
   const handleCutMouseMove = useCallback((e: React.MouseEvent, canvasRef: React.RefObject<HTMLDivElement | null>) => {
@@ -292,24 +326,28 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     if (!rect) return;
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    setCutLine({ x1: cutStartRef.current.x, y1: cutStartRef.current.y, x2: x, y2: y });
+    const line = { x1: cutStartRef.current.x, y1: cutStartRef.current.y, x2: x, y2: y };
+    cutLineRef.current = line;
+    setCutLine(line);
   }, []);
 
   const handleCutMouseUp = useCallback((canvasRef: React.RefObject<HTMLDivElement | null>) => {
-    if (!cutStartRef.current || !cutLine) {
+    const cl = cutLineRef.current;
+    if (!cutStartRef.current || !cl) {
       cutStartRef.current = null;
+      cutLineRef.current = null;
       setCutLine(null);
       return;
     }
 
     const rect = canvasRef.current?.getBoundingClientRect();
     const fp1 = reactFlow.screenToFlowPosition({
-      x: cutLine.x1 + (rect?.left ?? 0),
-      y: cutLine.y1 + (rect?.top ?? 0),
+      x: cl.x1 + (rect?.left ?? 0),
+      y: cl.y1 + (rect?.top ?? 0),
     });
     const fp2 = reactFlow.screenToFlowPosition({
-      x: cutLine.x2 + (rect?.left ?? 0),
-      y: cutLine.y2 + (rect?.top ?? 0),
+      x: cl.x2 + (rect?.left ?? 0),
+      y: cl.y2 + (rect?.top ?? 0),
     });
 
     const toRemove: string[] = [];
@@ -328,8 +366,9 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     for (const id of toRemove) removeEdge(id);
 
     cutStartRef.current = null;
+    cutLineRef.current = null;
     setCutLine(null);
-  }, [cutLine, edges, nodes, reactFlow, removeEdge]);
+  }, [edges, nodes, reactFlow, removeEdge]);
 
   // ── Grouping ────────────────────────────────────────────────────
   const createGroup = useCallback((nodeIds: string[], name: string) => {
@@ -401,7 +440,7 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
   }, [nodes, edges]);
 
   const pasteNodes = useCallback((position?: { x: number; y: number }) => {
-    if (!clipboardRef.current) return;
+    if (!clipboardRef.current?.nodes?.length) return;
     const { nodes: clipNodes, edges: clipEdges } = clipboardRef.current;
     const idMap = new Map<string, string>();
     const offset = position ? { x: position.x - clipNodes[0].position.x, y: position.y - clipNodes[0].position.y } : { x: 40, y: 40 };
@@ -596,23 +635,28 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
   const restoreSnapshot = useCallback((saved: LayoutSnapshot): boolean => {
     try {
       const nd = saved.nodeData ?? {};
-      const restoredNodes: Node[] = saved.nodes.map((n) => ({
-        id: n.id,
-        type: n.type,
-        position: n.position,
-        data: { stageId: n.type, ...nd[n.id] },
-        draggable: nd[n.id]?.__pinned ? false : undefined,
-        style: n.style as Record<string, unknown> | undefined,
-      }));
-      const restoredEdges: Edge[] = saved.edges.map((e) => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        sourceHandle: e.sourceHandle,
-        targetHandle: e.targetHandle,
-        type: 'pipeline',
-        data: { isComplete: true },
-      }));
+      const restoredNodes: Node[] = saved.nodes
+        .filter((n) => !validTypes || !n.type || validTypes.has(n.type))
+        .map((n) => ({
+          id: n.id,
+          type: n.type,
+          position: n.position,
+          data: { stageId: n.type, ...nd[n.id] },
+          draggable: nd[n.id]?.__pinned ? false : undefined,
+          style: n.style as Record<string, unknown> | undefined,
+        }));
+      const validNodeIds = new Set(restoredNodes.map((n) => n.id));
+      const restoredEdges: Edge[] = saved.edges
+        .filter((e) => validNodeIds.has(e.source) && validNodeIds.has(e.target))
+        .map((e) => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          sourceHandle: e.sourceHandle,
+          targetHandle: e.targetHandle,
+          type: 'pipeline',
+          data: { isComplete: true },
+        }));
       setNodes(restoredNodes);
       setEdges(restoredEdges);
       if (saved.viewport) {
@@ -622,7 +666,7 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     } catch {
       return false;
     }
-  }, [setNodes, setEdges, reactFlow]);
+  }, [setNodes, setEdges, reactFlow, validTypes]);
 
   const loadLayout = useCallback((): boolean => {
     const raw = localStorage.getItem(`shawnderland-layout-${appKey}`);
@@ -704,6 +748,113 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     refreshLayoutsList();
   }, [appKey, refreshLayoutsList]);
 
+  // ── Session Management (saves ALL node data, not just layout) ──
+  const [savedSessionsList, setSavedSessionsList] = useState<Array<{ name: string; savedAt: string }>>([]);
+  const [activeSessionName, setActiveSessionName] = useState<string | null>(() => storeGetActiveSessionName(appKey));
+
+  const refreshSessionsList = useCallback(() => {
+    storeListSessions(appKey).then((all) => {
+      setSavedSessionsList(all.map((s) => ({ name: s.name, savedAt: s.savedAt })));
+    });
+  }, [appKey]);
+
+  useEffect(() => {
+    refreshSessionsList();
+  }, [refreshSessionsList]);
+
+  const buildSessionSnapshot = useCallback((): SessionSnapshot => {
+    const vp = reactFlow.getViewport();
+    const fullNodeData: Record<string, Record<string, unknown>> = {};
+    for (const n of nodes) {
+      const d = n.data as Record<string, unknown>;
+      const entry: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(d)) {
+        if (key !== 'stageId') entry[key] = val;
+      }
+      if (Object.keys(entry).length > 0) fullNodeData[n.id] = entry;
+    }
+    const nodesWithStyle = nodes.map((n) => {
+      const base: Record<string, unknown> = { id: n.id, position: n.position, type: n.type };
+      if (n.style && (n.style.width || n.style.height)) {
+        base.style = { width: n.style.width, height: n.style.height };
+      }
+      return base as { id: string; position: { x: number; y: number }; type?: string; style?: Record<string, unknown> };
+    });
+    return {
+      nodes: nodesWithStyle,
+      edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle })),
+      nodeData: fullNodeData,
+      fullNodeData,
+      viewport: vp,
+    };
+  }, [reactFlow, nodes, edges]);
+
+  const restoreSessionSnapshot = useCallback((saved: SessionSnapshot): boolean => {
+    try {
+      const nd = saved.fullNodeData ?? saved.nodeData ?? {};
+      const restoredNodes: Node[] = saved.nodes
+        .filter((n) => !validTypes || !n.type || validTypes.has(n.type))
+        .map((n) => ({
+          id: n.id,
+          type: n.type,
+          position: n.position,
+          data: { stageId: n.type, ...nd[n.id] },
+          draggable: nd[n.id]?.__pinned ? false : undefined,
+          style: n.style as Record<string, unknown> | undefined,
+        }));
+      const validNodeIds = new Set(restoredNodes.map((n) => n.id));
+      const restoredEdges: Edge[] = saved.edges
+        .filter((e) => validNodeIds.has(e.source) && validNodeIds.has(e.target))
+        .map((e) => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          sourceHandle: e.sourceHandle,
+          targetHandle: e.targetHandle,
+          type: 'pipeline',
+          data: { isComplete: true },
+        }));
+      setNodes(restoredNodes);
+      setEdges(restoredEdges);
+      if (saved.viewport) {
+        setTimeout(() => reactFlow.setViewport(saved.viewport!), 100);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }, [setNodes, setEdges, reactFlow, validTypes]);
+
+  const saveSessionNamed = useCallback(async (name: string): Promise<{ ok: boolean; error?: string }> => {
+    const result = await storeSaveSession(appKey, name, buildSessionSnapshot());
+    if (result.ok) {
+      setActiveSessionName(name);
+      refreshSessionsList();
+    }
+    return result;
+  }, [appKey, buildSessionSnapshot, refreshSessionsList]);
+
+  const saveCurrentSession = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+    if (!activeSessionName) return { ok: false, error: 'No active session' };
+    const result = await storeSaveSession(appKey, activeSessionName, buildSessionSnapshot());
+    if (result.ok) refreshSessionsList();
+    return result;
+  }, [appKey, activeSessionName, buildSessionSnapshot, refreshSessionsList]);
+
+  const loadSessionNamed = useCallback(async (name: string): Promise<boolean> => {
+    const snap = await storeLoadSession(appKey, name);
+    if (!snap) return false;
+    const ok = restoreSessionSnapshot(snap);
+    if (ok) setActiveSessionName(name);
+    return ok;
+  }, [appKey, restoreSessionSnapshot]);
+
+  const deleteSessionNamed = useCallback(async (name: string) => {
+    await storeDeleteSession(appKey, name);
+    if (activeSessionName === name) setActiveSessionName(null);
+    refreshSessionsList();
+  }, [appKey, activeSessionName, refreshSessionsList]);
+
   // ── Auto-load default layout on mount ──────────────────────────
   const mountedRef = useRef(false);
   useEffect(() => {
@@ -764,5 +915,12 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     savedLayoutsList,
     refreshLayoutsList,
     getFlowSnapshot,
+    saveSessionNamed,
+    saveCurrentSession,
+    loadSessionNamed,
+    deleteSessionNamed,
+    activeSessionName,
+    savedSessionsList,
+    refreshSessionsList,
   };
 }

@@ -401,3 +401,86 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ── Processing Edge Animation (bright animated flowing dashes) ── */
+
+@keyframes edge-flow {
+  from { stroke-dashoffset: 24; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes edge-glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(0, 200, 255, 0.6)) drop-shadow(0 0 8px rgba(108, 99, 255, 0.4)); }
+  50% { filter: drop-shadow(0 0 8px rgba(0, 200, 255, 0.9)) drop-shadow(0 0 16px rgba(108, 99, 255, 0.6)); }
+}
+
+.react-flow__edge.edge-processing .react-flow__edge-path {
+  stroke: #00c8ff !important;
+  stroke-width: 4 !important;
+  stroke-dasharray: 10 5 !important;
+  animation:
+    edge-flow 0.4s linear infinite,
+    edge-glow-pulse 1.5s ease-in-out infinite;
+}
+
+.react-flow__edge.edge-processing .react-flow__edge-interaction {
+  stroke-width: 20 !important;
+}
+
+/* ── Processing Node Animation (bright rotating border + pulse) ── */
+
+@keyframes node-processing-rotate {
+  from { --processing-angle: 0deg; }
+  to { --processing-angle: 360deg; }
+}
+
+@keyframes node-glow-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgba(0, 200, 255, 0.4),
+      0 0 25px rgba(108, 99, 255, 0.25),
+      0 0 50px rgba(0, 200, 255, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 15px rgba(0, 200, 255, 0.7),
+      0 0 35px rgba(108, 99, 255, 0.4),
+      0 0 60px rgba(0, 200, 255, 0.2);
+  }
+}
+
+@property --processing-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.react-flow__node.node-processing {
+  outline: none !important;
+  border-radius: 8px;
+  position: relative;
+  z-index: 10;
+  animation: node-glow-pulse 1.5s ease-in-out infinite;
+}
+
+.react-flow__node.node-processing::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 12px;
+  padding: 3px;
+  background: conic-gradient(
+    from var(--processing-angle),
+    #00c8ff,
+    var(--accent) 15%,
+    transparent 40%,
+    transparent 60%,
+    var(--accent) 85%,
+    #00c8ff
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: node-processing-rotate 1.5s linear infinite;
+  pointer-events: none;
+}

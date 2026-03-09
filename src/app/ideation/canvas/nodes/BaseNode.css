@@ -16,8 +16,37 @@
 }
 
 .base-node.status-running {
-  border-color: var(--accent);
+  border-color: #00c8ff;
   animation: exec-glow 1.5s ease-in-out infinite;
+  position: relative;
+  z-index: 10;
+}
+
+.base-node.status-running::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 12px;
+  padding: 3px;
+  background: conic-gradient(
+    from var(--processing-angle, 0deg),
+    #00c8ff,
+    var(--accent) 15%,
+    transparent 40%,
+    transparent 60%,
+    var(--accent) 85%,
+    #00c8ff
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: base-node-rotate 1.5s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes base-node-rotate {
+  from { --processing-angle: 0deg; }
+  to { --processing-angle: 360deg; }
 }
 
 .base-node.status-path-complete {
@@ -26,8 +55,18 @@
 }
 
 @keyframes exec-glow {
-  0%, 100% { box-shadow: 0 0 8px rgba(108, 99, 255, 0.3); }
-  50% { box-shadow: 0 0 24px rgba(108, 99, 255, 0.6), 0 0 48px rgba(108, 99, 255, 0.15); }
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgba(0, 200, 255, 0.4),
+      0 0 25px rgba(108, 99, 255, 0.25),
+      0 0 50px rgba(0, 200, 255, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 15px rgba(0, 200, 255, 0.7),
+      0 0 35px rgba(108, 99, 255, 0.4),
+      0 0 60px rgba(0, 200, 255, 0.2);
+  }
 }
 
 .base-node-header {

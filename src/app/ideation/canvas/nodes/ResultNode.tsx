@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState, useCallback, useRef } from 'react';
+import { memo, useState, useCallback, useRef, useEffect } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { Play, Sprout, Copy } from 'lucide-react';
@@ -369,6 +369,7 @@ export default memo(function ResultNode({ data, id: nodeId }: NodeProps) {
   const { setNodes, getNode } = useReactFlow();
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (copyTimerRef.current) clearTimeout(copyTimerRef.current); }, []);
 
   const label = meta ? `${meta.label} Results` : 'Results';
   const color = meta?.color ?? '#80cbc4';

@@ -1,11 +1,11 @@
 "use client";
 
-import { memo, useCallback, useState, useRef, useMemo } from 'react';
-import { Handle, Position, useEdges, useNodes } from '@xyflow/react';
+import { memo, useCallback, useState, useRef, useMemo, useEffect } from 'react';
+import { Handle, Position, useEdges, useNodes, useReactFlow } from '@xyflow/react';
 import { VIDEO_MODELS, ASPECT_RATIOS, type ModelOption } from './modelCatalog';
 import { recordVeoUsage } from '@/lib/ideation/engine/provider/costTracker';
 import { logGeneration, buildLineageContext, type SessionSnapshot } from '@/lib/ideation/engine/generationLog';
-import { buildModelUrl, buildOperationUrl } from '@/lib/ideation/engine/apiConfig';
+import { proxyGenerate, proxyPollOperation } from '@/lib/ideation/engine/aiProxy';
 import './VideoOutputNode.css';
 
 function extractUpstreamContext(nodeId: string, allNodes: ReturnType<typeof useNodes>, allEdges: ReturnType<typeof useEdges>): string {
@@ -37,17 +37,32 @@ interface VideoOutputNodeProps {
 }
 
 function VideoOutputNodeInner({ id, selected }: VideoOutputNodeProps) {
+  const { setNodes } = useReactFlow();
   const allNodes = useNodes();
   const allEdges = useEdges();
-  const [model, setModel] = useState<ModelOption>(VIDEO_MODELS[0]);
-  const [aspectRatio, setAspectRatio] = useState('16:9');
+  const [model, setModelLocal] = useState<ModelOption>(VIDEO_MODELS[0]);
+  const [aspectRatio, setAspectRatioLocal] = useState('16:9');
   const [prompt, setPrompt] = useState('');
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [pollStatus, setPollStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(false);
   const pollRef = useRef(false);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  const setModel = useCallback((m: ModelOption) => {
+    setModelLocal(m);
+    setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, selectedModelId: m.id } } : n));
+  }, [id, setNodes]);
+
+  const setAspectRatio = useCallback((ar: string) => {
+    setAspectRatioLocal(ar);
+    setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, aspectRatio: ar } } : n));
+  }, [id, setNodes]);
 
   const upstreamContext = useMemo(() => extractUpstreamContext(id, allNodes, allEdges), [id, allNodes, allEdges]);
   const hasUpstream = upstreamContext.trim().length > 0;
@@ -70,31 +85,20 @@ function VideoOutputNodeInner({ id, selected }: VideoOutputNodeProps) {
     pollRef.current = true;
 
     try {
-      const url = buildModelUrl(model.modelId, 'predictLongRunning');
-      const body = {
+      const json = await proxyGenerate(model.modelId, 'predictLongRunning', {
         instances: [{ prompt: effectivePrompt }],
         parameters: { aspectRatio },
-      };
+      }, 60_000) as { name?: string; predictions?: Array<{ bytesBase64Encoded: string; mimeType?: string }> };
 
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`Veo API error ${res.status}: ${errText.slice(0, 300)}`);
-      }
-
-      const json = await res.json();
       const operationName = json?.name;
 
       if (!operationName) {
         if (json?.predictions?.[0]?.bytesBase64Encoded) {
+          if (!mountedRef.current) return;
           const b64 = json.predictions[0].bytesBase64Encoded;
           const mime = json.predictions[0].mimeType || 'video/mp4';
           setVideoSrc(`data:${mime};base64,${b64}`);
+          setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, videoBase64: b64, videoMimeType: mime } } : n));
           recordVeoUsage(model.modelId, 6);
           const w = window as unknown as Record<string, unknown>;
           const sid = (w.__sessionId as string) ?? 'unknown';
@@ -107,7 +111,6 @@ function VideoOutputNodeInner({ id, selected }: VideoOutputNodeProps) {
       }
 
       setPollStatus('Video generating... polling for results');
-      const pollUrl = buildOperationUrl(operationName);
       let attempts = 0;
       const maxAttempts = 60;
 
@@ -116,22 +119,27 @@ function VideoOutputNodeInner({ id, selected }: VideoOutputNodeProps) {
         attempts++;
         setPollStatus(`Generating video... (${attempts * 5}s elapsed)`);
 
-        const pollRes = await fetch(pollUrl);
-        if (!pollRes.ok) continue;
-
-        const pollJson = await pollRes.json();
-        if (pollJson.done) {
-          const video = pollJson.response?.predictions?.[0];
+        let pollJson: Record<string, unknown>;
+        try {
+          pollJson = await proxyPollOperation(operationName);
+        } catch {
+          continue;
+        }
+        if ((pollJson as { done?: boolean }).done) {
+          const resp = pollJson as { response?: { predictions?: Array<{ bytesBase64Encoded?: string; mimeType?: string }> }; error?: { message?: string } };
+          const video = resp.response?.predictions?.[0];
           if (video?.bytesBase64Encoded) {
+            if (!mountedRef.current) return;
             const mime = video.mimeType || 'video/mp4';
             setVideoSrc(`data:${mime};base64,${video.bytesBase64Encoded}`);
+            setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, videoBase64: video.bytesBase64Encoded, videoMimeType: mime } } : n));
             recordVeoUsage(model.modelId, 6);
             const w2 = window as unknown as Record<string, unknown>;
             const sid2 = (w2.__sessionId as string) ?? 'unknown';
             const snap2 = w2.__sessionSnapshot as SessionSnapshot | undefined;
             logGeneration({ sessionId: sid2, category: 'video', source: 'VideoOutputNode', model: model.modelId, prompt: prompt.trim(), output: { durationSec: 6, aspectRatio }, lineage: snap2 ? buildLineageContext(snap2) : undefined });
-          } else if (pollJson.error) {
-            throw new Error(`Video generation failed: ${pollJson.error.message || JSON.stringify(pollJson.error)}`);
+          } else if (resp.error) {
+            throw new Error(`Video generation failed: ${resp.error.message || JSON.stringify(resp.error)}`);
           } else {
             throw new Error('Video generation completed but no video data returned');
           }
@@ -144,17 +152,19 @@ function VideoOutputNodeInner({ id, selected }: VideoOutputNodeProps) {
         throw new Error('Video generation timed out after 5 minutes. Try a simpler prompt.');
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-      setPollStatus(null);
+      if (mountedRef.current) {
+        setError(e instanceof Error ? e.message : String(e));
+        setPollStatus(null);
+      }
     } finally {
-      setGenerating(false);
+      if (mountedRef.current) setGenerating(false);
       pollRef.current = false;
     }
-  }, [buildEffectivePrompt, model, aspectRatio]);
+  }, [buildEffectivePrompt, model, aspectRatio, id, setNodes]);
 
   return (
     <div
-      className={`video-output-node ${selected ? 'selected' : ''} ${expanded ? 'expanded' : ''}`}
+      className={`video-output-node ${selected ? 'selected' : ''}`}
       title="Generate videos from your idea using Veo models"
     >
       <div className="video-output-header">
@@ -168,8 +178,8 @@ function VideoOutputNodeInner({ id, selected }: VideoOutputNodeProps) {
             className="video-output-select nodrag"
             value={model.id}
             onChange={(e) => {
-              const m = VIDEO_MODELS.find((vm) => vm.id === e.target.value);
-              if (m) setModel(m);
+              const m2 = VIDEO_MODELS.find((vm) => vm.id === e.target.value);
+              if (m2) setModel(m2);
             }}
           >
             {VIDEO_MODELS.map((m) => (
@@ -229,7 +239,7 @@ function VideoOutputNodeInner({ id, selected }: VideoOutputNodeProps) {
         {error && <div className="video-output-error">{error}</div>}
 
         {videoSrc && (
-          <div className="video-output-preview-wrap" onClick={() => setExpanded(!expanded)}>
+          <div className="video-output-preview-wrap">
             <video
               src={videoSrc}
               className="video-output-preview"

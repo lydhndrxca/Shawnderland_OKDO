@@ -29,6 +29,11 @@ const ConceptLabShell = dynamic(
   { ssr: false }
 );
 
+const GlobalSettingsPage = dynamic(
+  () => import("./GlobalSettingsPage"),
+  { ssr: false }
+);
+
 function HomeContent() {
   return <HomePage />;
 }
@@ -106,6 +111,7 @@ function getToolPrefix(path: string): string {
 
 function resolveRoute(path: string): React.ReactNode {
   if (path === "/") return <HomeContent />;
+  if (path === "/settings") return <GlobalSettingsPage />;
   if (path === "/ideation") return <IdeationContent />;
   if (path === "/sprite-lab") return <ToolLandingContent toolId="sprite-lab" />;
   if (path === "/ui-lab") return <UILabContent />;

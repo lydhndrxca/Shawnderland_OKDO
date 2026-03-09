@@ -17,7 +17,7 @@ export default function ConvergeNode({ data, selected }: NodeProps) {
   const status: NodeStatus = runningStageId === 'converge' ? 'running' : output ? (stale ? 'stale' : 'complete') : 'empty';
 
   const handleRun = useCallback(async () => {
-    try { await runStage('converge'); } catch { /* StatusBar */ }
+    try { await runStage('converge'); } catch (e) { console.error('[ConvergeNode] runStage error:', e); }
   }, [runStage]);
 
   return (

@@ -3,6 +3,7 @@
 import { memo, useCallback, useState } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import { generateText } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import { NODE_TOOLTIPS } from './nodeTooltips';
 import './CharacterNodes.css';
 
 interface Props {
@@ -65,7 +66,7 @@ function EnhanceDescriptionNodeInner({ id, data, selected }: Props) {
   }, [id, getNode, getEdges, setNodes]);
 
   return (
-    <div className={`char-node ${selected ? 'selected' : ''}`}>
+    <div className={`char-node ${selected ? 'selected' : ''}`} title={NODE_TOOLTIPS.charEnhanceDesc}>
       <div className="char-node-header" style={{ background: '#66bb6a' }}>
         Enhance Description
       </div>

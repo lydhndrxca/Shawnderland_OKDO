@@ -9,6 +9,7 @@ import {
   Wrench,
   Sparkles,
   Home,
+  Settings,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -74,6 +75,22 @@ export function Sidebar({
               )}
               <Home className="h-5 w-5 shrink-0" />
               Home
+            </WorkspaceLink>
+
+            <WorkspaceLink
+              href="/settings"
+              className={cn(
+                "relative flex items-center gap-3 rounded-lg px-4 py-3 text-base font-medium transition-all",
+                activePath === "/settings"
+                  ? "bg-primary/10 text-foreground"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+              )}
+            >
+              {activePath === "/settings" && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[3px] rounded-r-full bg-primary" />
+              )}
+              <Settings className="h-5 w-5 shrink-0" />
+              Settings
             </WorkspaceLink>
 
             <div className="my-3 h-px bg-border" />

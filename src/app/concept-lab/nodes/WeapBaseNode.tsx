@@ -17,6 +17,7 @@ import {
 } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { resolveNodeInfluences } from '@/lib/ideation/engine/conceptlab/resolveInfluences';
 import { ImageContextMenu } from '@/components/ImageContextMenu';
+import { getGlobalSettings } from '@/lib/globalSettings';
 import './ConceptLabNodes.css';
 
 interface WeapBaseNodeProps {
@@ -131,6 +132,23 @@ function WeapBaseNodeInner({ id, data, selected }: WeapBaseNodeProps) {
         editInstructions,
         generatedImage: result[0],
       });
+
+      const dir = getGlobalSettings().outputDir;
+      if (dir && result[0]) {
+        fetch('/api/character-save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            base64: result[0].base64,
+            mimeType: result[0].mimeType,
+            charName: description?.split(' ').slice(0, 3).join('_') || 'weapon',
+            viewName: 'main',
+            outputDir: dir,
+            appKey: 'concept-lab',
+            contentType: 'weapons',
+          }),
+        }).catch(() => {});
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

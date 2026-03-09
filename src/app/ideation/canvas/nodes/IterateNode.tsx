@@ -17,7 +17,7 @@ export default function IterateNode({ data, selected }: NodeProps) {
   const status: NodeStatus = runningStageId === 'iterate' ? 'running' : output ? (stale ? 'stale' : 'complete') : 'empty';
 
   const handleRun = useCallback(async () => {
-    try { await runStage('iterate'); } catch { /* StatusBar */ }
+    try { await runStage('iterate'); } catch (e) { console.error('[IterateNode] runStage error:', e); }
   }, [runStage]);
 
   const suggestions = output?.nextPromptSuggestions

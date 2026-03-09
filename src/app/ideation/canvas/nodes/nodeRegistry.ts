@@ -117,7 +117,7 @@ export type CharGeneratorNodeType =
   | 'charEdit' | 'charHistory'
   | 'charReset' | 'charSendPS' | 'charShowXML' | 'charQuickGen' | 'charProject'
   | 'charGate' | 'charMainViewer' | 'charFrontViewer' | 'charBackViewer' | 'charSideViewer'
-  | 'charPose' | 'charStyle' | 'charImageBucket';
+  | 'charStyle' | 'charImageBucket' | 'charRandomize' | 'charCustomView';
 export type AnyNodeType = StageId | OutputNodeType | InputNodeType | InfluenceNodeType | PromptInjectionNodeType | UtilityNodeType | ControlNodeType | ResultNodeType | GroupNodeType | PackedPipelineNodeType | ConceptLabNodeType | CharGeneratorNodeType;
 
 export interface OutputNodeMeta {
@@ -438,7 +438,7 @@ export function isValidConnection(source: string, target: string): boolean {
     'charEdit', 'charHistory',
     'charReset', 'charSendPS', 'charShowXML', 'charQuickGen', 'charProject',
     'charGate', 'charMainViewer', 'charFrontViewer', 'charBackViewer', 'charSideViewer',
-    'charPose', 'charStyle', 'charImageBucket',
+    'charStyle', 'charImageBucket', 'charRandomize', 'charCustomView',
   ];
   const sourceIsCharGen = CHAR_GEN_TYPES.includes(source);
   const targetIsCharGen = CHAR_GEN_TYPES.includes(target);
@@ -468,8 +468,9 @@ export const NODE_DEFAULT_STYLE: Record<string, { width: number; height: number 
   charFrontViewer: { width: 300, height: 400 },
   charBackViewer: { width: 300, height: 400 },
   charSideViewer: { width: 300, height: 400 },
-  charGate: { width: 120, height: 60 },
-  charPose: { width: 240, height: 160 },
-  charStyle: { width: 260, height: 300 },
+  charGate: { width: 160, height: 80 },
+  charStyle: { width: 360, height: 400 },
   charImageBucket: { width: 240, height: 180 },
+  charRandomize: { width: 180, height: 100 },
+  charCustomView: { width: 400, height: 500 },
 };

@@ -35,7 +35,7 @@ export default function NormalizeNode({ data, selected, id: nodeId }: NodeProps)
   const [draftAnswer, setDraftAnswer] = useState('');
 
   const handleRun = useCallback(async () => {
-    try { await runStage('normalize'); } catch { /* StatusBar */ }
+    try { await runStage('normalize'); } catch (e) { console.error('[NormalizeNode] runStage error:', e); }
   }, [runStage]);
 
   const handleClickQuestion = useCallback((idx: number) => {

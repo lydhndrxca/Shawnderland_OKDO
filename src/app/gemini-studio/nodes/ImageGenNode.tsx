@@ -7,7 +7,7 @@ import {
   ASPECT_RATIOS,
   type ModelOption,
 } from '@/app/ideation/canvas/nodes/modelCatalog';
-import { buildModelUrl } from '@/lib/ideation/engine/apiConfig';
+import { proxyGenerate } from '@/lib/ideation/engine/aiProxy';
 import { ImageContextMenu } from '@/components/ImageContextMenu';
 
 interface ImageGenNodeProps {
@@ -75,26 +75,17 @@ function ImageGenNodeInner({ id, selected }: ImageGenNodeProps) {
       const isGeminiRef = !isImagen && refImage;
 
       if (isImagen) {
-        const url = buildModelUrl(model.modelId, 'predict');
-        const body = {
+        const json = await proxyGenerate(model.modelId, 'predict', {
           instances: [{ prompt }],
           parameters: { sampleCount: count, aspectRatio },
-        };
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) throw new Error(`API error ${res.status}: ${(await res.text()).slice(0, 300)}`);
-        const json = await res.json();
+        }, 180_000) as { predictions?: Array<{ bytesBase64Encoded: string; mimeType?: string }> };
+
         const preds = json?.predictions;
         if (!preds?.length) throw new Error('No images returned');
-        const newImgs: GeneratedImg[] = preds.map(
-          (p: { bytesBase64Encoded: string; mimeType?: string }) => ({
-            base64: p.bytesBase64Encoded,
-            mimeType: p.mimeType || 'image/png',
-          }),
-        );
+        const newImgs: GeneratedImg[] = preds.map((p) => ({
+          base64: p.bytesBase64Encoded,
+          mimeType: p.mimeType || 'image/png',
+        }));
         setImages(newImgs);
         setViewIdx(0);
         setNodes((nds) =>
@@ -103,34 +94,21 @@ function ImageGenNodeInner({ id, selected }: ImageGenNodeProps) {
           ),
         );
       } else if (isGeminiRef) {
-        const url = buildModelUrl(model.modelId, 'generateContent');
         const parts: Array<Record<string, unknown>> = [];
-        parts.push({
-          inlineData: { mimeType: refImage!.mimeType, data: refImage!.base64 },
-        });
+        parts.push({ inlineData: { mimeType: refImage!.mimeType, data: refImage!.base64 } });
         parts.push({ text: prompt });
-        const body = {
+        const json = await proxyGenerate(model.modelId, 'generateContent', {
           contents: [{ parts }],
           generationConfig: { responseModalities: ['TEXT', 'IMAGE'], temperature: 0.8 },
-        };
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) throw new Error(`API error ${res.status}: ${(await res.text()).slice(0, 300)}`);
-        const json = await res.json();
+        }) as { candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { mimeType: string; data: string } }> } }> };
+
         const resParts = json?.candidates?.[0]?.content?.parts ?? [];
-        const imgParts = resParts.filter(
-          (p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData,
-        );
+        const imgParts = resParts.filter((p) => p.inlineData);
         if (!imgParts.length) throw new Error('No image returned from Gemini');
-        const newImgs: GeneratedImg[] = imgParts.map(
-          (p: { inlineData: { mimeType: string; data: string } }) => ({
-            base64: p.inlineData.data,
-            mimeType: p.inlineData.mimeType,
-          }),
-        );
+        const newImgs: GeneratedImg[] = imgParts.map((p) => ({
+          base64: p.inlineData!.data,
+          mimeType: p.inlineData!.mimeType,
+        }));
         setImages(newImgs);
         setViewIdx(0);
         setNodes((nds) =>
@@ -142,35 +120,18 @@ function ImageGenNodeInner({ id, selected }: ImageGenNodeProps) {
         const modelId = model.modelId.includes('gemini')
           ? model.modelId
           : 'gemini-2.0-flash-exp';
-        const url = buildModelUrl(modelId, 'generateContent');
-        const body = {
-          contents: [
-            {
-              parts: [
-                { text: `Generate an image: ${prompt}. Aspect ratio: ${aspectRatio}.` },
-              ],
-            },
-          ],
+        const json = await proxyGenerate(modelId, 'generateContent', {
+          contents: [{ parts: [{ text: `Generate an image: ${prompt}. Aspect ratio: ${aspectRatio}.` }] }],
           generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
-        };
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) throw new Error(`API error ${res.status}: ${(await res.text()).slice(0, 300)}`);
-        const json = await res.json();
+        }) as { candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { mimeType: string; data: string } }> } }> };
+
         const resParts = json?.candidates?.[0]?.content?.parts ?? [];
-        const imgParts = resParts.filter(
-          (p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData,
-        );
+        const imgParts = resParts.filter((p) => p.inlineData);
         if (!imgParts.length) throw new Error('No image returned from Gemini');
-        const newImgs: GeneratedImg[] = imgParts.map(
-          (p: { inlineData: { mimeType: string; data: string } }) => ({
-            base64: p.inlineData.data,
-            mimeType: p.inlineData.mimeType,
-          }),
-        );
+        const newImgs: GeneratedImg[] = imgParts.map((p) => ({
+          base64: p.inlineData!.data,
+          mimeType: p.inlineData!.mimeType,
+        }));
         setImages(newImgs);
         setViewIdx(0);
         setNodes((nds) =>

@@ -40,15 +40,15 @@ export function getBackendConfig(): BackendConfig {
     return _cachedConfig;
   }
 
-  const aiStudioKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  const aiStudioKey = process.env.GEMINI_API_KEY ?? process.env.NEXT_PUBLIC_GEMINI_API_KEY;
   if (aiStudioKey) {
     _cachedConfig = { backend: 'ai-studio', apiKey: aiStudioKey };
     return _cachedConfig;
   }
 
   throw new Error(
-    'No API key configured. Set NEXT_PUBLIC_GEMINI_API_KEY (AI Studio) or ' +
-    'NEXT_PUBLIC_VERTEX_PROJECT + NEXT_PUBLIC_VERTEX_LOCATION + NEXT_PUBLIC_VERTEX_API_KEY (Vertex AI) in .env.local',
+    'No API key configured. Set GEMINI_API_KEY (or NEXT_PUBLIC_GEMINI_API_KEY) in .env.local, ' +
+    'or NEXT_PUBLIC_VERTEX_PROJECT + NEXT_PUBLIC_VERTEX_LOCATION + NEXT_PUBLIC_VERTEX_API_KEY for Vertex AI.',
   );
 }
 

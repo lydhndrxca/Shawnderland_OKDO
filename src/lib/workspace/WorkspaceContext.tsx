@@ -82,6 +82,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    (window as unknown as Record<string, unknown>).__workspaceNavigate = navigate;
+    return () => { delete (window as unknown as Record<string, unknown>).__workspaceNavigate; };
+  }, [navigate]);
+
+  useEffect(() => {
     setVisitedSet((prev) => {
       if (prev.has(activePath)) return prev;
       const next = new Set(prev);

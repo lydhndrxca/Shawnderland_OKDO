@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useState, useRef, useEffect } from 'react';
 import { Handle, Position, useHandleConnections, useNodesData } from '@xyflow/react';
 import './TextOutputNode.css';
 
@@ -13,6 +13,8 @@ interface TextOutputNodeProps {
 function TextOutputNodeInner({ selected }: TextOutputNodeProps) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(copyTimerRef.current), []);
 
   const connections = useHandleConnections({ type: 'target' });
   const sourceNodeId = connections?.[0]?.source;
@@ -24,7 +26,8 @@ function TextOutputNodeInner({ selected }: TextOutputNodeProps) {
     if (!ideaText) return;
     navigator.clipboard.writeText(ideaText);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopied(false), 2000);
   }, [ideaText]);
 
   return (

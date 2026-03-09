@@ -1,11 +1,11 @@
 "use client";
 
-import { memo, useCallback, useState, useMemo } from 'react';
+import { memo, useCallback, useState, useMemo, useRef, useEffect } from 'react';
 import { Handle, Position, useReactFlow, useEdges, useNodes } from '@xyflow/react';
 import { IMAGE_MODELS, ASPECT_RATIOS, type ModelOption } from './modelCatalog';
 import { recordUsage, recordImagenUsage } from '@/lib/ideation/engine/provider/costTracker';
 import { logGeneration, buildLineageContext, type SessionSnapshot } from '@/lib/ideation/engine/generationLog';
-import { buildModelUrl } from '@/lib/ideation/engine/apiConfig';
+import { proxyGenerate } from '@/lib/ideation/engine/aiProxy';
 import { ImageContextMenu } from '@/components/ImageContextMenu';
 import './ImageOutputNode.css';
 
@@ -69,8 +69,12 @@ function ImageOutputNodeInner({ id, selected }: ImageOutputNodeProps) {
   const [images, setImages] = useState<Array<{ base64: string; mimeType: string }>>([]);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(false);
   const [viewIdx, setViewIdx] = useState(0);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const upstreamContext = useMemo(() => extractUpstreamContext(id, allNodes, allEdges), [id, allNodes, allEdges]);
   const hasUpstream = upstreamContext.trim().length > 0;
@@ -84,40 +88,39 @@ function ImageOutputNodeInner({ id, selected }: ImageOutputNodeProps) {
 
   const canGenerate = prompt.trim().length > 0 || hasUpstream;
 
+  const persistImages = useCallback((newImages: Array<{ base64: string; mimeType: string }>) => {
+    setImages(newImages);
+    setViewIdx(0);
+    if (newImages.length > 0) {
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === id
+            ? { ...n, data: { ...n.data, generatedImage: newImages[0], imageBase64: newImages[0].base64, mimeType: newImages[0].mimeType } }
+            : n,
+        ),
+      );
+    }
+  }, [id, setNodes]);
+
   const handleGenerate = useCallback(async () => {
     const effectivePrompt = buildEffectivePrompt();
     if (!effectivePrompt.trim()) return;
     setGenerating(true);
     setError(null);
 
-    const effectivePromptText = buildEffectivePrompt();
     try {
       if (model.endpoint === 'imagen') {
-        const url = buildModelUrl(model.modelId, 'predict');
-        const body = {
-          instances: [{ prompt: effectivePromptText }],
-          parameters: {
-            sampleCount: count,
-            aspectRatio,
-          },
-        };
+        const json = await proxyGenerate(model.modelId, 'predict', {
+          instances: [{ prompt: effectivePrompt }],
+          parameters: { sampleCount: count, aspectRatio },
+        }, 180_000) as { predictions?: Array<{ bytesBase64Encoded: string; mimeType?: string }> };
 
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
+        if (!mountedRef.current) return;
 
-        if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(`Imagen API error ${res.status}: ${errText.slice(0, 300)}`);
-        }
-
-        const json = await res.json();
         const predictions = json?.predictions;
         if (!predictions?.length) throw new Error('No images returned from Imagen');
 
-        const newImages = predictions.map((p: { bytesBase64Encoded: string; mimeType?: string }) => ({
+        const newImages = predictions.map((p) => ({
           base64: p.bytesBase64Encoded,
           mimeType: p.mimeType || 'image/png',
         }));
@@ -125,59 +128,44 @@ function ImageOutputNodeInner({ id, selected }: ImageOutputNodeProps) {
         const w = window as unknown as Record<string, unknown>;
         const sid = (w.__sessionId as string) ?? 'unknown';
         const snap = w.__sessionSnapshot as SessionSnapshot | undefined;
-        logGeneration({ sessionId: sid, category: 'image', source: 'ImageOutputNode', model: model.modelId, prompt: effectivePromptText, output: { imageCount: newImages.length, aspectRatio, mimeTypes: newImages.map((img: { mimeType: string }) => img.mimeType) }, lineage: snap ? buildLineageContext(snap) : undefined });
+        logGeneration({ sessionId: sid, category: 'image', source: 'ImageOutputNode', model: model.modelId, prompt: effectivePrompt, output: { imageCount: newImages.length, aspectRatio, mimeTypes: newImages.map((img: { mimeType: string }) => img.mimeType) }, lineage: snap ? buildLineageContext(snap) : undefined });
 
-        setImages(newImages);
-        setViewIdx(0);
+        persistImages(newImages);
       } else {
-        const url = buildModelUrl('gemini-2.0-flash-exp', 'generateContent');
-        const body = {
-          contents: [{ parts: [{ text: `Generate an image: ${effectivePromptText}. Aspect ratio: ${aspectRatio}.` }] }],
-          generationConfig: {
-            responseModalities: ['TEXT', 'IMAGE'],
-          },
-        };
+        const json = await proxyGenerate('gemini-2.0-flash-exp', 'generateContent', {
+          contents: [{ parts: [{ text: `Generate an image: ${effectivePrompt}. Aspect ratio: ${aspectRatio}.` }] }],
+          generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+        }) as { usageMetadata?: object; candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { mimeType: string; data: string } }> } }> };
 
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
+        if (!mountedRef.current) return;
 
-        if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(`Gemini image API error ${res.status}: ${errText.slice(0, 300)}`);
-        }
-
-        const json = await res.json();
-        if (json?.usageMetadata) recordUsage(json.usageMetadata, 'gemini-2.0-flash-exp');
+        if (json?.usageMetadata) recordUsage(json.usageMetadata as { promptTokenCount?: number; candidatesTokenCount?: number }, 'gemini-2.0-flash-exp');
         const parts = json?.candidates?.[0]?.content?.parts ?? [];
-        const imageParts = parts.filter((p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData);
+        const imageParts = parts.filter((p) => p.inlineData);
 
         if (imageParts.length === 0) throw new Error('No image returned from Gemini. The model may have returned text only.');
 
-        const newImages = imageParts.map((p: { inlineData: { mimeType: string; data: string } }) => ({
-          base64: p.inlineData.data,
-          mimeType: p.inlineData.mimeType,
+        const newImages = imageParts.map((p) => ({
+          base64: p.inlineData!.data,
+          mimeType: p.inlineData!.mimeType,
         }));
         const w2 = window as unknown as Record<string, unknown>;
         const sid2 = (w2.__sessionId as string) ?? 'unknown';
         const snap2 = w2.__sessionSnapshot as SessionSnapshot | undefined;
-        logGeneration({ sessionId: sid2, category: 'image', source: 'ImageOutputNode', model: 'gemini-2.0-flash-exp', prompt: effectivePromptText, output: { imageCount: newImages.length, aspectRatio, mimeTypes: newImages.map((img: { mimeType: string }) => img.mimeType) }, lineage: snap2 ? buildLineageContext(snap2) : undefined });
+        logGeneration({ sessionId: sid2, category: 'image', source: 'ImageOutputNode', model: 'gemini-2.0-flash-exp', prompt: effectivePrompt, output: { imageCount: newImages.length, aspectRatio, mimeTypes: newImages.map((img: { mimeType: string }) => img.mimeType) }, lineage: snap2 ? buildLineageContext(snap2) : undefined });
 
-        setImages(newImages);
-        setViewIdx(0);
+        persistImages(newImages);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      if (mountedRef.current) setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setGenerating(false);
+      if (mountedRef.current) setGenerating(false);
     }
-  }, [buildEffectivePrompt, model, count, aspectRatio]);
+  }, [buildEffectivePrompt, model, count, aspectRatio, persistImages]);
 
   return (
     <div
-      className={`image-output-node ${selected ? 'selected' : ''} ${expanded ? 'expanded' : ''}`}
+      className={`image-output-node ${selected ? 'selected' : ''}`}
       title="Generate images from your idea using Gemini models"
     >
       <div className="image-output-header">
@@ -263,7 +251,7 @@ function ImageOutputNodeInner({ id, selected }: ImageOutputNodeProps) {
         {error && <div className="image-output-error">{error}</div>}
 
         {images.length > 0 && (
-          <div className="image-output-gallery" onClick={() => setExpanded(!expanded)}>
+          <div className="image-output-gallery">
             <ImageContextMenu image={images[viewIdx]} alt={`generated-image-${viewIdx + 1}`}>
               <img
                 src={`data:${images[viewIdx].mimeType};base64,${images[viewIdx].base64}`}

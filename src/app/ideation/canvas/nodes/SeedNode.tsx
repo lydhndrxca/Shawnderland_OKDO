@@ -26,7 +26,7 @@ export default function SeedNode({ data, selected }: NodeProps) {
   const handleRun = useCallback(async () => {
     if (localSeed !== session.seedText) editSeed(localSeed);
     if (localContext !== (session.seedContext ?? '')) editSeedContext(localContext);
-    try { await runStage('seed'); } catch { /* shown in StatusBar */ }
+    try { await runStage('seed'); } catch (e) { console.error('[SeedNode] runStage error:', e); }
   }, [localSeed, localContext, session.seedText, session.seedContext, editSeed, editSeedContext, runStage]);
 
   const toggleStrict = useCallback(() => {

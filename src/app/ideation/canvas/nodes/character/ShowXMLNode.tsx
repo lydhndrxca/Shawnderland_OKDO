@@ -3,6 +3,7 @@
 import { memo, useCallback, useState } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import { ATTRIBUTE_GROUPS, type CharacterIdentity, type CharacterAttributes } from '@/lib/ideation/engine/conceptlab/characterPrompts';
+import { NODE_TOOLTIPS } from './nodeTooltips';
 import './CharacterNodes.css';
 
 interface Props {
@@ -84,7 +85,7 @@ function ShowXMLNodeInner({ id, data, selected }: Props) {
   }, [xml]);
 
   return (
-    <div className={`char-node ${selected ? 'selected' : ''}`}>
+    <div className={`char-node ${selected ? 'selected' : ''}`} title={NODE_TOOLTIPS.charShowXML}>
       <div className="char-node-header" style={{ background: '#8d6e63' }}>
         Show XML
       </div>

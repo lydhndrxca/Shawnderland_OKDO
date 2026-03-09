@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getGlobalSettings } from '@/lib/globalSettings';
 import './ImageContextMenu.css';
 
 interface ImageData {
@@ -112,6 +113,36 @@ export function ImageContextMenu({ image, alt, className, children, onPasteImage
     img.src = `data:${image.mimeType};base64,${image.base64}`;
   }, [image, alt, showToast]);
 
+  const saveToProject = useCallback(async () => {
+    setMenu(null);
+    const dir = getGlobalSettings().outputDir;
+    if (!dir) {
+      showToast('Set an output directory in Settings first');
+      return;
+    }
+    try {
+      const res = await fetch('/api/character-save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          base64: image.base64,
+          mimeType: image.mimeType,
+          charName: alt || 'image',
+          viewName: 'saved',
+          outputDir: dir,
+          appKey: 'generated-images',
+        }),
+      });
+      if (res.ok) {
+        showToast('Saved to project folder');
+      } else {
+        showToast('Save failed');
+      }
+    } catch {
+      showToast('Save failed');
+    }
+  }, [image, alt, showToast]);
+
   const exportBase64 = useCallback(async () => {
     setMenu(null);
     try {
@@ -186,6 +217,9 @@ export function ImageContextMenu({ image, alt, className, children, onPasteImage
           </button>
           <button className="icm-item" onClick={saveAsJpeg}>
             <span className="icm-icon">🖼</span> Save as JPEG
+          </button>
+          <button className="icm-item" onClick={saveToProject}>
+            <span className="icm-icon">📁</span> Save to Project
           </button>
           <div className="icm-sep" />
           <button className="icm-item" onClick={exportBase64}>

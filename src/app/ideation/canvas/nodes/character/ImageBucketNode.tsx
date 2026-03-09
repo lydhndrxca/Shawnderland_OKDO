@@ -1,7 +1,8 @@
 "use client";
 
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useState, useRef, useEffect } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
+import { NODE_TOOLTIPS } from './nodeTooltips';
 import './CharacterNodes.css';
 
 interface Props {
@@ -13,6 +14,8 @@ interface Props {
 function ImageBucketNodeInner({ id, data, selected }: Props) {
   const { getNode, getEdges } = useReactFlow();
   const [status, setStatus] = useState('');
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(statusTimerRef.current), []);
 
   const resolvedPath = (() => {
     const edges = getEdges();
@@ -52,14 +55,15 @@ function ImageBucketNodeInner({ id, data, selected }: Props) {
         body: JSON.stringify({ action: 'open', path: resolvedPath }),
       });
       setStatus('Opened');
-      setTimeout(() => setStatus(''), 2000);
+      clearTimeout(statusTimerRef.current);
+      statusTimerRef.current = setTimeout(() => setStatus(''), 2000);
     } catch {
       setStatus('Could not open directory');
     }
   }, [resolvedPath]);
 
   return (
-    <div className={`char-node ${selected ? 'selected' : ''}`}>
+    <div className={`char-node ${selected ? 'selected' : ''}`} title={NODE_TOOLTIPS.charImageBucket}>
       <div className="char-node-header" style={{ background: '#43a047' }}>
         Generated Images
       </div>

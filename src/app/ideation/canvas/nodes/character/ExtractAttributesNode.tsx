@@ -11,6 +11,7 @@ import {
   GENDER_OPTIONS,
 } from '@/lib/ideation/engine/conceptlab/characterPrompts';
 import { generateText, type GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import { NODE_TOOLTIPS } from './nodeTooltips';
 import './CharacterNodes.css';
 
 interface Props {
@@ -19,11 +20,12 @@ interface Props {
   selected?: boolean;
 }
 
-const DESCRIBE_IMAGE_PROMPT = `Analyze this image in full detail and write a 1-2 paragraph character appearance summary.
-Focus ONLY on visible appearance: age, race, build, face, hair (color, length, texture, style), and clothing/gear (materials, colors, condition).
+const DESCRIBE_IMAGE_PROMPT = `Analyze this image and write a 2-3 paragraph FULL-BODY character appearance summary — from head to toe — even if the image only shows part of the character.
+Focus on appearance: age, race, build, face, hair (color, length, texture, style), and clothing/gear from head to toe (materials, colors, condition, fit).
 Do NOT describe actions, pose, or what the person is doing. Do NOT mention background, setting, environment, or props outside the outfit.
 IMPORTANT: Explicitly state the body build using ONE of these exact terms: ${BUILD_OPTIONS.join(', ')}.
 Also describe body size/weight in plain language so it is unmistakable.
+CRITICAL: You must describe the ENTIRE character head-to-toe. If any part of the body is cropped, obscured, or not shown (lower body, feet, hands, back), you MUST extrapolate and describe what those parts would look like — design appropriate clothing, footwear, gloves, accessories, etc. that match the visible style, materials, era, and color palette. Write your extrapolations as confident descriptions, not guesses. NEVER say "not visible", "not shown", or "unknown".
 Return ONLY the description text, no JSON or formatting.`;
 
 function bestMatch(value: string, options: string[]): string {
@@ -140,7 +142,7 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
   }, [id, getNode, getEdges, setNodes, pushToDownstream]);
 
   return (
-    <div className={`char-node ${selected ? 'selected' : ''}`}>
+    <div className={`char-node ${selected ? 'selected' : ''}`} title={NODE_TOOLTIPS.charExtractAttrs}>
       <div className="char-node-header" style={{ background: '#ffab40' }}>
         Extract Attributes
       </div>

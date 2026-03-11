@@ -8,7 +8,6 @@
     ".": "./src/index.ts",
     "./tokens.css": "./src/tokens.css",
     "./canvas": "./src/canvas/index.ts",
-    "./canvas/BaseNode.css": "./src/canvas/BaseNode.css",
     "./canvas/PipelineEdge.css": "./src/canvas/PipelineEdge.css"
   },
   "peerDependencies": {

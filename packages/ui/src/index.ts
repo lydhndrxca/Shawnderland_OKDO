@@ -7,10 +7,4 @@ export { Card } from "./Card";
 export { PanelSection } from "./PanelSection";
 
 /* ── Canvas Kit ───────────────────────────── */
-export {
-  BaseNode,
-  PipelineEdge,
-  applyDagreLayout,
-  type NodeStatus,
-  type NodeMeta,
-} from "./canvas";
+export { PipelineEdge } from "./canvas";

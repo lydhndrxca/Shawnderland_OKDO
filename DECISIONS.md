@@ -174,3 +174,59 @@ for canvas state and calls Google AI APIs directly via `apiConfig.ts`.
 Rationale: like Tool Editor, it has no external backend — all API calls
 go directly to Google AI endpoints from the client. Making it hub-native
 avoids a separate repo and proxy overhead.
+
+## 019 — External API proxy pattern (Meshy, Hitem3D, ElevenLabs)
+
+All third-party API calls route through Next.js API routes (`/api/meshy`,
+`/api/hitem3d`, `/api/elevenlabs`). API keys are stored server-side only
+in `process.env`. Rationale:
+1. API keys are never exposed to the browser.
+2. The proxy can handle CORS, signed URL expiration (GLB download proxy),
+   and multipart form data (Hitem3D image uploads).
+3. Each integration follows the same pattern: server-side proxy route +
+   client-side library (`meshyApi.ts`, `hitem3dApi.ts`, `elevenlabsApi.ts`).
+4. Async tasks (Meshy, Hitem3D) return a task ID; the client polls the
+   proxy until completion.
+
+## 020 — Three-layer session auto-persistence
+
+Session state is persisted across three layers for reliability:
+1. **localStorage** — debounced auto-save (~2s) of canvas layout
+   (`useCanvasSession`) and session state (`SessionContext`). Fast and
+   synchronous, limited to ~5MB.
+2. **IndexedDB** — `layoutStore.ts`, `filesStore.ts`, `styleStore.ts`
+   for named layouts, file references, and style presets.
+3. **Filesystem** — `/api/session` route for named session save/load
+   to `saved-sessions/`. Handles arbitrarily large payloads (100+ MB
+   with embedded base64 images).
+
+Rationale: localStorage alone cannot handle large sessions with embedded
+images. IndexedDB handles medium-size data. The filesystem API handles
+the largest payloads and enables explicit "Save As" / "Open" workflows.
+
+On canvas load, the system first attempts to restore from the auto-save
+key in localStorage, then falls back to named layouts.
+
+## 021 — 3D generation: Meshy vs Hitem3D
+
+Both providers are integrated because they serve different niches:
+- **Meshy**: General-purpose image-to-3D. Simple API, fast turnaround.
+- **Hitem3D**: Finer control (resolution, polygon count, output format),
+  portrait-specialized models, and staged texturing (geometry first,
+  then texture separately on v1.5).
+
+Users choose the provider based on their needs. The 3D Model Viewer node
+accepts results from either provider via a `UnifiedModelResult` type.
+
+## 022 — ElevenLabs for audio generation
+
+ElevenLabs was chosen for audio capabilities (TTS, SFX, voice cloning)
+because it provides:
+1. High-quality voice synthesis with multiple models (Eleven v3, Flash v2.5).
+2. Sound effect generation from text prompts.
+3. Instant voice cloning from short audio samples.
+
+Two Gemini-powered companion nodes (Voice Designer, Dialogue Writer)
+generate text content that feeds into the ElevenLabs TTS node, creating
+a character-voice-prototyping pipeline: image → voice description →
+dialogue lines → synthesized audio.

@@ -2,175 +2,140 @@
 
 | Field | Value |
 |-------|-------|
-| Report ID | 20260306_161152 |
-| Date | 2026-03-06 16:11:52 |
-| Overall Health | **YELLOW** |
-| Primary Issue Type | Doc Lag |
+| Report ID | `20260311_001400` |
+| Date | 2026-03-11 00:14:00 |
+| Overall Health | **🔴 Red** |
+| Primary Issue Type | **Hygiene** |
+
+---
 
 ## Scoring
 
-### Red Triggers
-None.
+### RED Triggers
 
-### Yellow Triggers
-1. **Doc drift**: ARCHITECTURE.md references deleted Concept Lab nodes (`CharIdentityNode.tsx`, `CharAttributesNode.tsx`, `MultiViewerNode.tsx`, `EditImageNode.tsx` under `concept-lab/nodes/`). 16 new character nodes under `ideation/canvas/nodes/character/` are undocumented. New shared components (`CostWidget`, `Toast`, `layoutStore`) not listed.
-2. **Broken preset node types**: `ConceptLabShell.tsx` character/weapon presets reference non-existent node types `multiViewer` and `editImage` (should be `charViewer` and `charEdit`).
-3. **Dead CSS**: ~65 lines of `.cl-viewer-*` styles in `ConceptLabNodes.css` from removed `MultiViewerNode`.
-4. **GeminiStudioShell missing named layout integration**: Still uses deprecated `onSaveLayout` prop; not wired to new named layout system.
-5. **6 uncommitted files**: Export dropdown and toolbar changes not yet committed.
+| # | Trigger | Evidence |
+|---|---------|----------|
+| R1 | **Secrets found in tracked source** | `saved-sessions/test.json` contains patterns matching Google API key (`AIza…`) and AWS-style key (`AKIA…`). File is tracked via Git LFS. Serialized session data embeds the user's `NEXT_PUBLIC_GEMINI_API_KEY` value. |
+| R2 | **Output-only directory tracked in git** | `saved-sessions/` contains user-generated session data (100+ MB) committed to the repo via LFS. Verified with `git ls-files -- saved-sessions/`. |
 
-### Green Conditions Met
-- No secrets in source code
-- Entrypoint (`run.bat`, `npm run dev`) functional
-- No output-only dirs tracked in git
-- No text files over 100KB
-- Portability: Pass (deps declared, run command bootstraps)
-- No parallel systems detected (duplicates are tracked and documented)
+### YELLOW Triggers
+
+| # | Trigger | Evidence |
+|---|---------|----------|
+| Y1 | **Parallel/duplicate systems** | 5 duplication signals: `flowLayout.ts`, `BaseNode.tsx`, `PipelineEdge.tsx`, `SaveDialog.tsx`, `styleStore.ts` — each exists in 2 locations |
+| Y2 | **Doc drift** | Governance docs (ARCHITECTURE.md, SPEC.md, PROJECT.md) have not been updated for: Meshy/Hitem3D/ElevenLabs integrations, 3D gen nodes, audio nodes, Creative Director node, session auto-save, filesystem session API. README.md still missing. |
+| Y3 | **Sustained growth >15%** | +36.3% LOC growth (42,339 → 57,712) since last audit on 2026-03-06 |
+| Y4 | **Production build fails** | `next build` fails with `EPERM: scandir 'C:\Users\shawn\Application Data'` — Windows junction point issue with webpack globbing. Pre-existing, not code-related. |
 
 ---
 
 ## Top 3 Risks
 
-1. **Broken ConceptLab presets**: Character and Weapon preset buttons silently fail because they reference old node types (`multiViewer`/`editImage`). Users clicking these presets will see blank fallback nodes.
-2. **ARCHITECTURE.md structural inaccuracy**: Documentation claims character nodes live in `concept-lab/nodes/` but they were moved to `ideation/canvas/nodes/character/`. New developers following the architecture doc will be misled.
-3. **Uncommitted feature work**: 6 files with the Export dropdown overhaul are modified but not committed, risking accidental loss.
+1. **Leaked API key in saved-sessions/test.json** — The serialized session data embeds the Gemini API key. This file is committed (via LFS) and pushed to GitHub. The key should be rotated and the file cleaned from git history.
+
+2. **Session data in git** — `saved-sessions/` contains 104 MB of user session data with embedded base64 images and API keys. This should be gitignored, not committed.
+
+3. **Governance doc lag** — 3 major API integrations (Meshy, Hitem3D, ElevenLabs), ~20 new node types, session persistence overhaul, and canvas unification are undocumented in ARCHITECTURE.md, SPEC.md, and PROJECT.md.
+
+---
 
 ## Top 3 Recommended Actions
 
-1. **Fix preset node types** in `ConceptLabShell.tsx`: change `multiViewer` → `charViewer`, `editImage` → `charEdit`.
-2. **Update ARCHITECTURE.md**: Remove deleted `concept-lab/nodes/` entries, add `ideation/canvas/nodes/character/` section, add shared components section (CostWidget, Toast, layoutStore).
-3. **Commit outstanding changes**: Stage and commit the 6 modified files for the Export dropdown feature.
+1. **URGENT: Rotate the Gemini API key** and remove `saved-sessions/` from git tracking. Add `saved-sessions/` back to `.gitignore`. Use `git filter-branch` or BFG to clean history if the key is sensitive.
+
+2. **Update governance docs** — Add sections for: Meshy/Hitem3D/ElevenLabs API integrations, 3D gen node subsystem, audio node subsystem, Creative Director, session auto-persistence, filesystem session API.
+
+3. **Consolidate duplicates** — Merge `flowLayout.ts`, `BaseNode.tsx`, `PipelineEdge.tsx` to single locations. Remove orphaned `styleStore.ts` copy. Extract shared `SaveDialog` component.
 
 ---
 
 ## Findings
 
-### 1. Governance
+### Governance
 
-| Document | Status | Notes |
-|----------|--------|-------|
-| PROJECT.md | Present | Accurate high-level description |
-| SPEC.md | Present | "Node inspector" and "status bar" listed but not wired |
-| ARCHITECTURE.md | Present | **Drift** — deleted nodes listed, new nodes missing |
-| DECISIONS.md | Present | Up to date |
-| TASKS.md | Present | Active items present |
-| README.md | **Missing** | No README.md exists |
-| AGENT_RULES.md | Present | Authoritative governance contract |
+| Document | Status |
+|----------|--------|
+| PROJECT.md | ⚠️ Outdated — missing 3D, audio, ElevenLabs, Meshy, Hitem3D, Creative Director |
+| SPEC.md | ⚠️ Outdated — same gaps |
+| ARCHITECTURE.md | ⚠️ Outdated — missing new subsystems and API routes |
+| DECISIONS.md | ⚠️ Outdated — no ADRs for external API integrations or session persistence |
+| TASKS.md | ✅ Active — has current/next/later items |
+| README.md | ❌ Missing |
+| AGENT_RULES.md | ✅ Present |
 
-### 2. Drift & Bloat
+### Drift & Bloat
 
-**Doc Drift Items:**
+- **5 duplication signals** across packages/ui and src/app (flowLayout, BaseNode, PipelineEdge, SaveDialog, styleStore)
+- **saved-sessions/** tracked in git with 104 MB of LFS data containing embedded secrets
+- **packages/ui/** contains components (BaseNode, PipelineEdge, flowLayout) that appear superseded by src/app versions
 
-| # | Document | Issue | Evidence |
-|---|----------|-------|----------|
-| 1 | ARCHITECTURE.md | Lists `concept-lab/nodes/CharIdentityNode.tsx` | File deleted; lives at `ideation/canvas/nodes/character/` |
-| 2 | ARCHITECTURE.md | Lists `concept-lab/nodes/CharAttributesNode.tsx` | File deleted; lives at `ideation/canvas/nodes/character/` |
-| 3 | ARCHITECTURE.md | Lists `concept-lab/nodes/MultiViewerNode.tsx` | File deleted; replaced by `MainStageViewerNode` |
-| 4 | ARCHITECTURE.md | Lists `concept-lab/nodes/EditImageNode.tsx` | File deleted; replaced by `EditCharacterNode` |
-| 5 | ARCHITECTURE.md | Missing `ideation/canvas/nodes/character/` | 16 new character generator nodes not documented |
-| 6 | ARCHITECTURE.md | Missing shared components | `CostWidget`, `Toast`, `layoutStore` not listed |
-| 7 | SPEC.md | Lists "Node inspector" as canvas UI | `NodeInspector.tsx` exists but is never imported |
-| 8 | SPEC.md | Lists "status bar" as canvas UI | `StatusBar.tsx` exists but is never imported |
+### Doc Drift (6 items)
 
-**Code Bloat:**
+| # | Drift | Evidence |
+|---|-------|----------|
+| D1 | Meshy API integration undocumented | `src/app/api/meshy/`, `src/lib/ideation/engine/meshyApi.ts`, `src/app/ideation/canvas/nodes/threedgen/` — not in any governance doc |
+| D2 | Hitem3D API integration undocumented | `src/app/api/hitem3d/`, `src/lib/ideation/engine/hitem3dApi.ts` — not in any governance doc |
+| D3 | ElevenLabs API integration undocumented | `src/app/api/elevenlabs/`, `src/lib/ideation/engine/elevenlabsApi.ts`, `src/app/ideation/canvas/nodes/audio/` — not in any governance doc |
+| D4 | Session auto-persistence undocumented | `SessionContext.tsx` auto-save/load, `useCanvasSession.ts` auto-save, `/api/session` route — not documented |
+| D5 | Creative Director node undocumented | `CreativeDirectorNode.tsx` (603 LOC) — not in SPEC or ARCHITECTURE |
+| D6 | Canvas unification undocumented | ShawnderMind/ConceptLab sharing ToolDock categories — not documented |
 
-| Item | Path | Size |
-|------|------|------|
-| stages.css | `src/app/ideation/stages/stages.css` | 1,495 LOC |
-| orchestrator.ts | `src/lib/ideation/engine/orchestrator.ts` | 1,106 LOC |
-| useFlowSession.ts | `src/app/ideation/canvas/useFlowSession.ts` | 1,094 LOC |
-| SessionContext.tsx | `src/lib/ideation/context/SessionContext.tsx` | 1,083 LOC |
-| FlowCanvas.tsx | `src/app/ideation/canvas/FlowCanvas.tsx` | 1,029 LOC |
-
-### 3. Cleanup Candidates
+### Cleanup Candidates
 
 | # | Item | Action |
 |---|------|--------|
-| 1 | `src/app/ideation/canvas/StatusBar.tsx` + `.css` | Remove (never imported) |
-| 2 | `src/app/ideation/canvas/NodeInspector.tsx` + `.css` | Remove (never imported) |
-| 3 | Dead `.cl-viewer-*` CSS in `ConceptLabNodes.css` | Remove ~65 lines |
-| 4 | `src/lib/ideation/engine/prompts/loadPack.ts` | Evaluate — exports unused |
-| 5 | Orphaned `ContextMenu.css` | Evaluate — merge or remove |
-| 6 | Broken preset types in `ConceptLabShell.tsx` | Fix `multiViewer` → `charViewer`, `editImage` → `charEdit` |
-| 7 | `GeminiStudioShell.tsx` deprecated props | Wire to named layout system |
+| C1 | `saved-sessions/` in git | Remove from tracking, add to .gitignore, rotate API key |
+| C2 | `packages/ui/src/canvas/BaseNode.tsx` | Remove (superseded by src/app version) |
+| C3 | `packages/ui/src/canvas/PipelineEdge.tsx` | Remove (superseded by src/app version) |
+| C4 | `packages/ui/src/canvas/flowLayout.ts` | Consolidate with src/app version |
+| C5 | `src/lib/styles/styleStore.ts` OR `src/lib/styleStore.ts` | Remove duplicate |
+| C6 | `scripts/test-large-output.jpg` (533 KB) | Evaluate if test artifacts should be tracked |
+| C7 | `ContextMenu.css` | Evaluate merge into CanvasCommon.css |
+| C8 | `loadPack.ts` exports | Evaluate if unused |
 
-### 4. Growth & Trajectory
+### Growth & Trajectory
 
-**Since last audit (20260306_080757):**
+| Metric | 20260306 | 20260311 | Delta | % |
+|--------|----------|----------|-------|---|
+| Files | 303 | 366 | +63 | +20.8% |
+| LOC | 42,339 | 57,712 | +15,373 | **+36.3%** |
+| Bytes | 1,487,711 | 2,156,670 | +668,959 | +45.0% |
+| Commits | 7 | 15 | +8 | +114% |
+| Subsystems | 11 | 13 | +2 | +18.2% |
+| API routes | 6 | 11 | +5 | +83% |
 
-| Metric | Previous | Current | Delta | % Change |
-|--------|----------|---------|-------|----------|
-| Files | 291 | 303 | +12 | +4.1% |
-| LOC (src+packages) | 45,917 | 42,339 | -3,578* | -7.8% |
-| Bytes | 1,450,931 | 1,487,711 | +36,780 | +2.5% |
-| Commits | 4 | 7 | +3 | — |
+**Growth driver:** 3 major API integrations (Meshy, Hitem3D, ElevenLabs) added ~20 new node components, 3 API proxy routes, 3 client libraries, and associated CSS/types.
 
-*LOC decrease due to revised counting scope (excludes root-level governance docs and package-lock.json from src/packages count).
+### Prompt & Template Surface
 
-**Top files by growth (estimated from commit messages):**
-- `useFlowSession.ts`: +276 LOC (named layouts, export variants, UX overhaul)
-- `FlowCanvas.tsx`: +232 LOC (lineage tracking, glossary, auto-connect)
-- `orchestrator.ts`: +67 LOC (count controls, multimodal, data chains)
-- `GlobalToolbar.tsx`: Layout/Export dropdowns added
-- 16 new character node files added
+**Top 5 largest template literals:**
 
-**Growth rate**: +2.5% bytes in ~8 hours. Not sustained enough to trigger yellow growth warning.
+| Chars | File |
+|-------|------|
+| 23,523 | `src/lib/ideation/engine/orchestrator.ts` |
+| 9,214 | `src/lib/ideation/engine/provider/mockProvider.ts` |
+| 9,074 | `src/app/ideation/canvas/ToolDock.tsx` |
+| 8,567 | `src/app/concept-lab/nodes/WeapBaseNode.tsx` |
+| 7,879 | `src/lib/ideation/context/SessionContext.tsx` |
 
-### 5. Prompt & Template Surface
-
-Top template literals by size:
-
-| # | File | Description |
-|---|------|-------------|
-| 1 | `characterPrompts.ts:128` | Image format spec for character generation (~600 chars) |
-| 2 | `characterPrompts.ts:252` | Data extraction prompt for character attributes (~500 chars) |
-| 3 | `characterPrompts.ts:155` | Identity lock instructions for consistency (~400 chars) |
-| 4 | `loadPack.ts:5` | Normalize stage system prompt (~300 chars) |
-| 5 | `loadPack.ts:13` | Diverge stage system prompt (~350 chars) |
-| 6 | `loadPack.ts:23` | Critique stage system prompt (~250 chars) |
-| 7 | `loadPack.ts:28` | Mutation engine system prompt (~300 chars) |
-| 8 | `loadPack.ts:35` | Expand stage system prompt (~300 chars) |
-| 9 | `weaponPrompts.ts:129` | Weapon image analysis prompt (~400 chars) |
-| 10 | `orchestrator.ts:53` | Seed summary JSON schema prompt (~200 chars) |
-
-No near-duplicate prompts detected (all serve distinct pipeline stages).
-
-### 6. Secrets Scan
-
-**Status: Clean**
-
-All API_KEY/TOKEN references are environment variable name references, not hardcoded values. `.env` and `.env.local` are properly gitignored.
-
-### 7. Portability
-
-**Status: Pass**
-
-- `package.json` declares all runtime and dev dependencies
-- `run.bat` checks for Node.js, runs `npm install`, starts dev server
-- `.env.example` documents required environment variables
-- No manual steps required beyond copying `.env.example` → `.env.local`
+The orchestrator contains the largest prompt templates (stage prompts for normalize, diverge, critique, expand, blueprint, extract). These are well-structured but should be monitored for drift.
 
 ---
 
 ## Proposed Cleanup Plan
 
-### Priority 1 — Functional Fixes
-1. Fix broken preset node types in `ConceptLabShell.tsx`
-2. Wire `GeminiStudioShell.tsx` to named layout system
-3. Commit 6 uncommitted files
+### Immediate (this session)
+1. ~~Rotate Gemini API key~~ (user action required)
+2. Remove `saved-sessions/` from git tracking, add to `.gitignore`
+3. Strip embedded secrets from git LFS history
 
-### Priority 2 — Dead Code Removal
-4. Delete `StatusBar.tsx` + `StatusBar.css` (dead code)
-5. Delete `NodeInspector.tsx` + `NodeInspector.css` (dead code)
-6. Remove `.cl-viewer-*` CSS from `ConceptLabNodes.css`
-7. Evaluate `loadPack.ts` for removal
+### Short-term (next 2 sessions)
+4. Update ARCHITECTURE.md, SPEC.md, PROJECT.md with new integrations
+5. Add ADRs to DECISIONS.md for external API strategy and session persistence
+6. Create README.md
 
-### Priority 3 — Documentation
-8. Update ARCHITECTURE.md with current file structure
-9. Remove "Node inspector" and "status bar" claims from SPEC.md or wire them up
-10. Create README.md
-
-### Priority 4 — Technical Debt
-11. Consolidate duplicate `flowLayout.ts`
-12. Split files over 1000 LOC (SessionContext, orchestrator, useFlowSession, FlowCanvas)
-13. Evaluate orphaned `ContextMenu.css`
+### Medium-term
+7. Consolidate `flowLayout.ts`, `BaseNode.tsx`, `PipelineEdge.tsx` to single locations
+8. Remove orphaned `styleStore.ts` duplicate
+9. Extract shared `SaveDialog` component
+10. Resolve Windows production build issue (webpack glob config)

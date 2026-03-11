@@ -21,3 +21,8 @@ export { default as DetachedViewerNode } from './DetachedViewerNode';
 export { default as UpscaleNode } from './UpscaleNode';
 export { default as RestoreQualityNode } from './RestoreQualityNode';
 export { default as CreativeDirectorNode } from './CreativeDirectorNode';
+export { default as CharViewNode } from './CharViewNode';
+export { default as GateNode } from './GateNode';
+export { default as StyleNode } from './StyleNode';
+export { default as ImageBucketNode } from './ImageBucketNode';
+export { default as SaveGroupNode } from './SaveGroupNode';

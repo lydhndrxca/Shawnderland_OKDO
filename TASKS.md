@@ -27,6 +27,24 @@
 - [x] Centralize API key access via apiConfig.ts
 - [x] Create .env.example for onboarding
 - [x] Health audit: fix all yellow triggers
+- [x] Integrate Meshy API: image-to-3D nodes, GLB proxy, 3D viewer
+- [x] Integrate Hitem3D API: full parameter control, portrait models
+- [x] Integrate ElevenLabs API: TTS, SFX, voice cloning nodes
+- [x] Build Creative Director node: AI critiques with Apply Edit
+- [x] Build Voice Designer + Dialogue Writer + Voice Script nodes
+- [x] Implement Auto-Fidelity on MainStageViewer
+- [x] Rewrite Quick Generate with comprehensive Gemini prompt
+- [x] Implement three-layer session auto-persistence
+- [x] Unify ShawnderMind and ConceptLab canvas (shared node set, ToolDock)
+- [x] Add Seed node auto-infer context via Gemini
+- [x] Remove saved-sessions/ from git tracking, add to .gitignore
+- [x] Remove orphaned BaseNode.css/tsx, flowLayout.ts from packages/ui
+- [x] Remove test artifact images from git tracking
+- [x] Update ARCHITECTURE.md with all new subsystems and API integrations
+- [x] Update SPEC.md with 3D, audio, Creative Director, session persistence
+- [x] Update PROJECT.md with new features and integrations
+- [x] Add ADRs 019–022 to DECISIONS.md
+- [x] Create README.md
 
 ## Now
 
@@ -39,7 +57,6 @@
 - [ ] Build Sprite Lab sub-tool navigation and workspace pages
 - [ ] Build UI Lab remaining workspace panels
 - [ ] Add cross-tool data flow wiring on the hub canvas
-- [ ] Consolidate duplicate flowLayout.ts (use @shawnderland/ui copy)
 
 ## Later
 
@@ -47,20 +64,16 @@
 - [ ] Production build and deployment configuration
 - [ ] Add test suite (currently 0 test files)
 - [ ] Split large files (SessionContext.tsx ~1060 lines, orchestrator.ts ~1039 lines)
-
-## Health Audit Cleanup
-
-- [x] Sync ARCHITECTURE.md: remove deleted ContextMenu.tsx reference, add useCanvasSession, GlobalToolbar, CanvasContextMenu, PrepromptNode, PostPromptNode, Gemini Studio, Concept Lab standalone structure
-- [x] Sync SPEC.md: add Gemini Studio section, Preprompt/PostPrompt nodes, unified canvas features (useCanvasSession, GlobalToolbar, CanvasContextMenu)
-- [x] Sync PROJECT.md: add Gemini Studio tool, Preprompt/PostPrompt features, unified canvas features
-- [x] Sync DECISIONS.md: add ADR for useCanvasSession extraction and unified toolbar/context menu, ADR for Preprompt/PostPrompt prompt injection design
-- [ ] Evaluate ContextMenu.css: merge shared styles into CanvasCommon.css or keep as shared stylesheet
-- [ ] Consolidate duplicate flowLayout.ts (use @shawnderland/ui copy)
-- [x] Fix broken preset node types in ConceptLabShell.tsx (multiViewer → charViewer, editImage → charEdit)
-- [x] Remove dead code: StatusBar.tsx/css, NodeInspector.tsx/css (never imported)
-- [x] Remove dead .cl-viewer-* CSS from ConceptLabNodes.css (~65 lines)
-- [x] Wire GeminiStudioShell.tsx to named layout system (uses deprecated onSaveLayout)
-- [x] Update ARCHITECTURE.md: remove deleted concept-lab/nodes/ entries, add ideation/canvas/nodes/character/ and shared components
+- [ ] Evaluate ContextMenu.css: merge shared styles into CanvasCommon.css
 - [ ] Evaluate loadPack.ts exports (unused)
-- [x] Health audit report generated (report_id: 20260306_080757)
-- [x] Health audit report generated (report_id: 20260306_161152)
+- [ ] Resolve Windows production build EPERM issue (webpack glob config)
+
+## User Action Required
+
+- [ ] **URGENT: Rotate Gemini API key** — was embedded in saved-sessions/test.json (now removed from git, but key may be in git history)
+
+## Health Audit History
+
+- [x] Report 20260306_080757
+- [x] Report 20260306_161152
+- [x] Report 20260311_001400

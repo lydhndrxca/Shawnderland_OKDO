@@ -27,6 +27,13 @@ See `.env.example` for all required/optional variables.
 | `NEXT_PUBLIC_VERTEX_PROJECT` | No (Vertex AI) | GCP project ID |
 | `NEXT_PUBLIC_VERTEX_LOCATION` | No (Vertex AI) | GCP region (e.g. us-central1) |
 | `NEXT_PUBLIC_VERTEX_API_KEY` | No (Vertex AI) | Vertex AI API key |
+| `GEMINI_API_KEY` | No | Server-side Gemini key (preferred over NEXT_PUBLIC) |
+| `MESHY_API_KEY` | No | Meshy AI 3D model generation |
+| `HITEM3D_ACCESS_KEY` | No | Hitem3D 3D generation access key |
+| `HITEM3D_SECRET_KEY` | No | Hitem3D 3D generation secret key |
+| `ELEVENLABS_API_KEY` | No | ElevenLabs TTS, SFX, voice cloning |
+| `SESSIONS_DIR` | No | Filesystem session storage (default: `saved-sessions/`) |
+| `CHARACTER_OUTPUT_DIR` | No | Character image output (default: `character-output/`) |
 
 ## Dual-Backend API Configuration
 
@@ -44,8 +51,8 @@ from this module. No other file should construct API URLs directly.
 
 ```
 packages/ui/                    @shawnderland/ui design system
-  src/canvas/                   Shared BaseNode, PipelineEdge, flowLayout
-  src/                          Button, Card, Input, Select, Textarea, tokens
+  src/canvas/                   PipelineEdge (used by HubCanvas)
+  src/                          Button, Input, Select, Textarea, tokens
 
 src/app/
   page.tsx                      Root page (App Router)
@@ -102,24 +109,41 @@ src/app/
         WeaponNode.tsx/.css             ConceptLab weapon designer
         TurnaroundNode.tsx/.css         ConceptLab multi-view generator
         BaseNode.tsx/.css               Shared base node component
-      nodes/character/                  Shared character generator nodes (16)
+      nodes/character/                  Character generator nodes (~20)
         CharIdentityNode.tsx            Age, race, gender, build presets
         CharDescriptionNode.tsx         Freeform character description
-        CharAttributesNode.tsx          14 attribute groups with dropdowns
+        CharAttributesNode.tsx          14 attribute groups (text entry, click-to-highlight)
         ExtractAttributesNode.tsx       AI extraction from reference images
         EnhanceDescriptionNode.tsx      AI-enhanced description (two-way modifier)
-        GenerateCharImageNode.tsx       Main character image generation
+        GenerateCharImageNode.tsx       Main character image generation (Imagen 4)
         GenerateViewsNode.tsx           Front/back/side multi-view generation
         ReferenceCalloutNode.tsx        Reference image with annotation prompt
-        MainStageViewerNode.tsx         Multi-tab image viewer with zoom
-        EditCharacterNode.tsx           Text-based image modifications
+        MainStageViewerNode.tsx         Multi-tab image viewer with Auto-Fidelity toggle
+        EditCharacterNode.tsx           Text-based image modifications (auto-prompt from attributes)
+        CreativeDirectorNode.tsx        AI design critique with Apply Edit
         CharHistoryNode.tsx             Generation history with thumbnails
         ResetCharacterNode.tsx          Clear all character data
+        RestoreQualityNode.tsx          Describe-then-regenerate quality pipeline
         SendToPhotoshopNode.tsx         Send images to Photoshop via API
         ShowXMLNode.tsx                 View character config as XML
-        QuickGenerateNode.tsx           Auto-fill and generate a random character
+        QuickGenerateNode.tsx           Gemini-powered random character invention
         ProjectSettingsNode.tsx         Project name and output directory
         CharacterNodes.css              Shared character node styles
+        index.ts                        Barrel export
+      nodes/threedgen/                  3D generation nodes
+        MeshyImageTo3DNode.tsx          Meshy image-to-3D (single/multi-image)
+        MeshyModelViewerNode.tsx        3D viewer (Three.js/R3F) with proxy GLB loading
+        Hitem3DImageTo3DNode.tsx        Hitem3D image-to-3D with full parameter control
+        ThreeDNodes.css                 Shared 3D node styles
+        index.ts                        Barrel export
+      nodes/audio/                      Audio generation nodes
+        ElevenLabsTTSNode.tsx           Text-to-Speech with voice/model selection
+        ElevenLabsSFXNode.tsx           Sound effects from text prompts
+        ElevenLabsVoiceCloneNode.tsx    Voice cloning from audio samples
+        VoiceScriptNode.tsx             Gemini-powered speech text generation
+        VoiceDesignerNode.tsx           Gemini-powered voice description from image
+        DialogueWriterNode.tsx          Gemini-powered dialogue line generation
+        AudioNodes.css                  Shared audio node styles
         index.ts                        Barrel export
     stages/                     Stage-specific UI components
     layout/                     Shell, settings panel, save/open dialogs
@@ -165,9 +189,15 @@ src/app/
     components/                 Generate, extract, remove, plan panels
 
   api/                          Next.js API routes
+    ai-generate/route.ts        Server-side proxy for Google AI Studio
     character-save/route.ts     Save character images to local disk
+    elevenlabs/route.ts         Server-side proxy for ElevenLabs API
+    hitem3d/route.ts            Server-side proxy for Hitem3D API
+    meshy/route.ts              Server-side proxy for Meshy API (incl. GLB proxy)
+    meshy-export/route.ts       Save 3D models to local filesystem
     open-folder/route.ts        Open image output folder
     send-to-photoshop/route.ts  Send images to Adobe Photoshop
+    session/route.ts            Named session save/load (filesystem-backed)
 
 src/components/                 Hub-level shared components
   ClientShell.tsx               App shell with sidebar + workspace
@@ -218,6 +248,9 @@ src/lib/
         mockProvider.ts         Mock provider for testing
         costTracker.ts          Token/cost tracking
         types.ts                Provider interface types
+      meshyApi.ts               Meshy API client (via /api/meshy proxy)
+      hitem3dApi.ts             Hitem3D API client (via /api/hitem3d proxy)
+      elevenlabsApi.ts          ElevenLabs API client (via /api/elevenlabs proxy)
       conceptlab/
         imageGenApi.ts          Imagen 4 + Gemini image generation helpers
         characterPrompts.ts     Character attribute definitions + prompt builders
@@ -304,3 +337,86 @@ The Gemini provider selects model and generation config based on thinking tier:
 | Reference-based turnaround views | Gemini 3 Pro (`gemini-3-pro-image-preview`) | generateContent |
 | Fast iteration views | Gemini Flash Image (`gemini-2.0-flash-preview-image-generation`) | generateContent |
 | Attribute extraction / text tasks | Gemini Flash (`gemini-2.0-flash`) | generateContent |
+| Quality restoration | Gemini Flash (describe) → Imagen 4 (`REFERENCE_TYPE_SUBJECT`) | two-step |
+
+## External API Proxy Pattern
+
+All third-party API calls are routed through Next.js API routes. Keys are
+stored server-side only (`process.env`). The client calls the local proxy;
+the proxy adds authentication and forwards to the external service.
+
+| Service | Proxy Route | Client Library | Purpose |
+|---------|-------------|----------------|---------|
+| Meshy AI | `/api/meshy` | `meshyApi.ts` | Image-to-3D, multi-image-to-3D, GLB model proxy |
+| Hitem3D | `/api/hitem3d` | `hitem3dApi.ts` | Image-to-3D with portrait models, fine-grained mesh control |
+| ElevenLabs | `/api/elevenlabs` | `elevenlabsApi.ts` | TTS, sound effects, voice cloning, audio isolation |
+| Google AI | `/api/ai-generate` | `imageGenApi.ts` | Server-side Gemini/Imagen calls (image editing, generation) |
+
+### Async Polling
+
+Meshy and Hitem3D tasks return a task ID on creation. The client polls the
+proxy (which polls the upstream API) until the task reaches a terminal state
+(`success` or `failed`). Download URLs expire (1h for Hitem3D; signed URLs
+for Meshy), so the proxy includes a `proxy-model` action that downloads the
+binary (GLB/OBJ) server-side and returns it to the client as a blob.
+
+## 3D Generation Subsystem
+
+Two providers: Meshy (general-purpose) and Hitem3D (portrait-specialized).
+
+| Feature | Meshy | Hitem3D |
+|---------|-------|---------|
+| Single image input | Yes | Yes |
+| Multi-image input | Yes (2–4 views) | Yes (2–4 views with bitmap) |
+| Text-to-3D | No (image-only) | No |
+| Staged texturing | No | Yes (v1.5 only) |
+| Portrait models | No | Yes (scene-portrait v1.5/v2.0/v2.1) |
+| Resolution control | No | 512 / 1024 / 1536 / 1536pro |
+| Polygon control | No | 100k–2M slider |
+| Output formats | GLB | OBJ, GLB, STL, FBX, USDZ |
+
+The 3D viewer (`MeshyModelViewerNode`) uses Three.js / React Three Fiber /
+Drei with a `ViewerErrorBoundary` for graceful error handling. GLB models are
+fetched through the server proxy and rendered from local `blob:` URLs to
+bypass CORS and signed URL expiration.
+
+## Audio Generation Subsystem
+
+ElevenLabs provides TTS, sound effects, and voice cloning. Two Gemini-powered
+nodes (Voice Designer, Dialogue Writer) generate text content that feeds into
+the ElevenLabs TTS node.
+
+| Node | Purpose | API |
+|------|---------|-----|
+| ElevenLabs TTS | Text-to-speech with voice/model selection | ElevenLabs `/v1/text-to-speech` |
+| ElevenLabs SFX | Sound effect generation from text prompt | ElevenLabs `/v1/sound-generation` |
+| ElevenLabs Voice Clone | Clone voice from audio samples | ElevenLabs `/v1/voices/add` |
+| Voice Designer | Describe a voice from a character image | Gemini (text generation) |
+| Dialogue Writer | Write dialogue lines from a topic | Gemini (text generation) |
+| Voice Script | Generate speech text (narration/dialogue) | Gemini (text generation) |
+
+## Session Persistence
+
+Three-layer strategy:
+
+1. **localStorage** — debounced auto-save of canvas layout (`useCanvasSession`)
+   and session state (`SessionContext`). Fast, synchronous, size-limited.
+2. **IndexedDB** — `layoutStore.ts`, `filesStore.ts`, `styleStore.ts` for
+   larger data (named layouts, file references, style presets).
+3. **Filesystem** — `/api/session` route for named session save/load to
+   `saved-sessions/` directory. Handles arbitrarily large payloads.
+
+On canvas load, the system first attempts to restore from the auto-save key
+in localStorage, then falls back to the default/latest named layout.
+
+Node components that use `useState` for local editable fields implement a
+`_restoreTs` watcher pattern: when a session is loaded, the canvas sets a
+timestamp on node data, and the node's `useEffect` detects this change and
+re-syncs local state from the restored data.
+
+## Canvas Unification
+
+ShawnderMind and ConceptLab share the same node set, ToolDock categories
+(`ALL_DOCK_CATEGORIES` from `sharedNodeTypes.ts`), context menu, and canvas
+background (`BackgroundVariant.Lines`). Both applications render all node
+categories — the distinction is primarily in routing and session context.

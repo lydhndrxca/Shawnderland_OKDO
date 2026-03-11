@@ -120,18 +120,43 @@ in a node chain.
 
 ### Session Persistence
 
-Sessions can be saved with names and reopened later. Flow state (nodes,
-edges, viewport, node data) is stored in localStorage.
+Three-layer auto-persistence:
+
+1. **localStorage** — debounced auto-save of canvas layout and session state
+2. **IndexedDB** — named layouts, style presets, file references
+3. **Filesystem** — `/api/session` route for named session save/load
+
+Node components use a `_restoreTs` watcher to re-sync local state when
+sessions are loaded (handles React `useState` reuse across restores).
 
 ### Canvas UI
 
-- ToolDock (left panel) with categorized node templates: Pipeline, Inputs,
-  Modifiers, Outputs, Control, Concept Lab — with search filter
+- ToolDock (left panel) with 13 workflow-centric categories — shared with ConceptLab
 - Lock/Unlock icon for dock pinning (defaults to locked)
 - Context menu (right-click) with categories mirroring ToolDock
 - Node inspector, status bar, guided-run overlay, demo overlay
 - Custom edge styling (PipelineEdge)
 - Undo/redo, cut edges, snap-to-connect
+- Grid lines (`BackgroundVariant.Lines`) — identical in ShawnderMind and ConceptLab
+
+### Creative Director Node
+
+AI-driven design critique node that auto-generates suggestions when connected
+to a MainStageViewer. Displays all results inline (no scrolling). Supports
+multi-select critiques, "Apply Edit" per suggestion, "Bold Mode" for more
+adventurous feedback, and refresh to regenerate critiques.
+
+### Auto-Fidelity (MainStageViewer)
+
+Toggle on the MainStageViewer that detects image artifacts using Gemini
+analysis and triggers a describe-then-regenerate restoration pipeline
+(Gemini Flash description → Imagen 4 with `REFERENCE_TYPE_SUBJECT`).
+
+### Quick Generate
+
+Generates fully creative random characters using a comprehensive Gemini
+prompt (JSON output with name, description, identity, attributes). Uses
+`cancelledRef`/`mountedRef` for robust async management.
 
 ## Unified Canvas Chrome
 
@@ -249,6 +274,82 @@ available Google AI model. Has its own canvas powered by
 - Reference-based editing (image + text prompt)
 - Right-click export on generated images
 - All models routed through dual-backend `apiConfig.ts`
+
+## 3D Generation Nodes
+
+Two providers for image-to-3D model generation:
+
+### Meshy Image-to-3D
+
+- Single or multi-image input (front/back/side views)
+- Server-side proxy (`/api/meshy`) with GLB download proxy
+- Async polling with progress indicator
+- Export to local filesystem with configurable output directory
+
+### Hitem3D Image-to-3D
+
+- Full parameter control: generation type, AI model, resolution, polygon count, output format
+- Single/multi-image input with multi-view bitmap
+- Portrait-specialized models (scene-portrait v1.5/v2.0/v2.1)
+- Staged texturing (geometry first, then texture separately — v1.5 only)
+- Credit cost display based on selected options
+
+### 3D Model Viewer
+
+- Three.js / React Three Fiber / Drei rendering
+- GLB models fetched through server proxy → local `blob:` URLs
+- Orbit controls, lighting, material toggles
+- `ViewerErrorBoundary` for graceful error handling
+
+## Audio Nodes
+
+### ElevenLabs TTS
+
+- Voice and model selection with settings (stability, similarity, style)
+- Multiple output formats (MP3, PCM, Opus)
+- Inline audio playback
+
+### ElevenLabs SFX
+
+- Text prompt → sound effect generation
+- Duration and prompt influence controls
+
+### ElevenLabs Voice Clone
+
+- Upload audio samples to create cloned voices
+- Voice name and description fields
+- Lists existing voices for selection
+
+### Voice Designer (Gemini)
+
+- Analyzes character image to write a detailed voice casting description
+- Feeds into ElevenLabs TTS for voice prototyping
+
+### Dialogue Writer (Gemini)
+
+- Generates spoken dialogue lines from a topic/scenario description
+- Feeds into ElevenLabs TTS for character voice generation
+
+### Voice Script (Gemini)
+
+- Generates narration or dialogue text based on mode, tone, context
+
+## Canvas Unification
+
+ShawnderMind and ConceptLab share the same node set, ToolDock categories,
+context menu, and canvas background. Both render all 13 workflow-centric
+categories from `ALL_DOCK_CATEGORIES` in `sharedNodeTypes.ts`.
+
+## External API Integrations
+
+| Service | Route | Keys | Purpose |
+|---------|-------|------|---------|
+| Meshy AI | `/api/meshy` | `MESHY_API_KEY` | 3D model generation |
+| Hitem3D | `/api/hitem3d` | `HITEM3D_ACCESS_KEY`, `HITEM3D_SECRET_KEY` | 3D generation with portrait models |
+| ElevenLabs | `/api/elevenlabs` | `ELEVENLABS_API_KEY` | TTS, SFX, voice cloning |
+| Google AI | `/api/ai-generate` | `GEMINI_API_KEY` | Server-side image generation/editing |
+
+All keys are server-side only — the client calls local proxy routes.
 
 ## Pending
 

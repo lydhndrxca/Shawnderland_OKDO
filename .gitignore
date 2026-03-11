@@ -7,4 +7,3 @@ dist/
 .cursor/*
 !.cursor/rules/
 .repo_snapshot/
-saved-sessions/

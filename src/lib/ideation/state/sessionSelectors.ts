@@ -226,8 +226,9 @@ export function getLastSafetyInterventions(
   limit = 10,
 ): Array<{ kind: string; reason: string; stageId?: string; timestamp: string }> {
   const results: Array<{ kind: string; reason: string; stageId?: string; timestamp: string }> = [];
-  for (let i = session.events.length - 1; i >= 0 && results.length < limit; i--) {
-    const e = session.events[i];
+  const events = session.events ?? [];
+  for (let i = events.length - 1; i >= 0 && results.length < limit; i--) {
+    const e = events[i];
     if (e.type === 'SAFETY_INTERVENTION') {
       results.push({
         kind: e.data.kind as string,

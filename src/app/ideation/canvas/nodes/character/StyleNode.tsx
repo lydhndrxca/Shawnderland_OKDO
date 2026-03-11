@@ -3,6 +3,7 @@
 import { memo, useCallback, useRef, useState, useEffect } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import type { GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import { saveStyle, listStyles, deleteStyle, type SavedStyle } from '@/lib/styleStore';
 import { NODE_TOOLTIPS } from './nodeTooltips';
 import './CharacterNodes.css';
 
@@ -10,25 +11,6 @@ interface Props {
   id: string;
   data: Record<string, unknown>;
   selected?: boolean;
-}
-
-export interface StylePreset {
-  name: string;
-  styleText: string;
-  images: GeneratedImage[];
-  savedAt: string;
-}
-
-const STYLE_STORAGE_KEY = 'shawnderland-style-presets';
-
-function loadStylePresets(): StylePreset[] {
-  try {
-    return JSON.parse(localStorage.getItem(STYLE_STORAGE_KEY) || '[]');
-  } catch { return []; }
-}
-
-function saveStylePresetsToStorage(presets: StylePreset[]) {
-  localStorage.setItem(STYLE_STORAGE_KEY, JSON.stringify(presets));
 }
 
 function StyleNodeInner({ id, data, selected }: Props) {
@@ -40,8 +22,36 @@ function StyleNodeInner({ id, data, selected }: Props) {
   );
   const [collapsed, setCollapsed] = useState(false);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
-  const [showPresets, setShowPresets] = useState(false);
-  const [presets, setPresets] = useState<StylePreset[]>(() => loadStylePresets());
+
+  // Saved-style ID that this node is currently tracking (for "Save" overwrite)
+  const [activeStyleId, setActiveStyleId] = useState<string | null>(
+    (data?.activeStyleId as string) ?? null,
+  );
+
+  // Sync state when node data changes externally (e.g. session restore)
+  useEffect(() => {
+    const restoredImages = (data?.styleImages as GeneratedImage[]) ?? [];
+    const restoredName = (data?.styleLabel as string) ?? '';
+    const restoredText = (data?.styleText as string) ?? '';
+    const restoredActiveId = (data?.activeStyleId as string) ?? null;
+    if (restoredImages.length !== images.length ||
+        (restoredImages.length > 0 && restoredImages[0]?.base64?.slice(0, 40) !== images[0]?.base64?.slice(0, 40))) {
+      setImages(restoredImages);
+    }
+    if (restoredName !== styleName) setStyleName(restoredName);
+    if (restoredText !== styleText) setStyleText(restoredText);
+    if (restoredActiveId !== activeStyleId) setActiveStyleId(restoredActiveId);
+  }, [data?.styleImages, data?.styleLabel, data?.styleText, data?.activeStyleId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load dropdown state
+  const [showLoadMenu, setShowLoadMenu] = useState(false);
+  const [savedStyles, setSavedStyles] = useState<SavedStyle[]>([]);
+  const [loadingStyles, setLoadingStyles] = useState(false);
+
+  // Save-as dialog
+  const [showSaveAs, setShowSaveAs] = useState(false);
+  const [saveAsName, setSaveAsName] = useState('');
+
   const fileRef = useRef<HTMLInputElement>(null);
 
   const persist = useCallback(
@@ -75,18 +85,14 @@ function StyleNodeInner({ id, data, selected }: Props) {
           }
           loaded++;
           if (loaded === total) {
-            setImages((prev) => {
-              const merged = [...prev, ...pending];
-              persist({ styleImages: merged });
-              return merged;
-            });
+            setImages((prev) => [...prev, ...pending]);
           }
         };
         reader.readAsDataURL(file);
       }
       e.target.value = '';
     },
-    [persist],
+    [],
   );
 
   const handlePaste = useCallback(async () => {
@@ -102,11 +108,7 @@ function StyleNodeInner({ id, data, selected }: Props) {
             const parts = dataUrl.split(',');
             const mime = parts[0].match(/:(.*?);/)?.[1] ?? 'image/png';
             const img: GeneratedImage = { base64: parts[1], mimeType: mime };
-            setImages((prev) => {
-              const merged = [...prev, img];
-              persist({ styleImages: merged });
-              return merged;
-            });
+            setImages((prev) => [...prev, img]);
           };
           reader.readAsDataURL(blob);
           return;
@@ -115,52 +117,87 @@ function StyleNodeInner({ id, data, selected }: Props) {
     } catch {
       /* clipboard not available */
     }
-  }, [persist]);
+  }, []);
 
   const removeImage = useCallback(
     (idx: number) => {
-      setImages((prev) => {
-        const next = prev.filter((_, i) => i !== idx);
-        persist({ styleImages: next });
-        return next;
-      });
+      setImages((prev) => prev.filter((_, i) => i !== idx));
       if (expandedIdx === idx) setExpandedIdx(null);
     },
-    [persist, expandedIdx],
+    [expandedIdx],
   );
 
-  const handleSavePreset = useCallback(() => {
-    const name = styleName.trim() || 'Untitled Style';
-    const preset: StylePreset = {
+  // ── Save: overwrite the current style (or prompt Save As if none) ──
+  const handleSave = useCallback(async () => {
+    if (!activeStyleId) {
+      setShowSaveAs(true);
+      setSaveAsName(styleName.trim() || '');
+      return;
+    }
+    const now = new Date().toISOString();
+    const style: SavedStyle = {
+      id: activeStyleId,
+      name: styleName.trim() || 'Untitled Style',
+      styleText,
+      images: images.map((img) => ({ base64: img.base64, mimeType: img.mimeType })),
+      createdAt: now,
+      updatedAt: now,
+    };
+    await saveStyle(style);
+    window.dispatchEvent(new Event('shawnderland-styles-changed'));
+  }, [activeStyleId, styleName, styleText, images]);
+
+  // ── Save As: create a new style with a given name ──
+  const handleSaveAs = useCallback(async () => {
+    const name = saveAsName.trim() || 'Untitled Style';
+    const now = new Date().toISOString();
+    const newId = `style-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const style: SavedStyle = {
+      id: newId,
       name,
       styleText,
-      images,
-      savedAt: new Date().toISOString(),
+      images: images.map((img) => ({ base64: img.base64, mimeType: img.mimeType })),
+      createdAt: now,
+      updatedAt: now,
     };
-    setPresets((prev) => {
-      const next = [...prev.filter((p) => p.name !== name), preset];
-      saveStylePresetsToStorage(next);
-      return next;
-    });
-  }, [styleName, styleText, images]);
+    await saveStyle(style);
+    setActiveStyleId(newId);
+    setStyleName(name);
+    persist({ activeStyleId: newId, styleLabel: name });
+    setShowSaveAs(false);
+    setSaveAsName('');
+    window.dispatchEvent(new Event('shawnderland-styles-changed'));
+  }, [saveAsName, styleText, images, persist]);
 
-  const handleLoadPreset = useCallback(
-    (p: StylePreset) => {
-      setStyleText(p.styleText);
-      setStyleName(p.name);
-      setImages(p.images ?? []);
-      persist({ styleText: p.styleText, styleLabel: p.name, styleImages: p.images ?? [] });
-      setShowPresets(false);
+  // ── Load: fetch list and show dropdown ──
+  const handleToggleLoad = useCallback(async () => {
+    if (showLoadMenu) {
+      setShowLoadMenu(false);
+      return;
+    }
+    setLoadingStyles(true);
+    const styles = await listStyles();
+    setSavedStyles(styles);
+    setLoadingStyles(false);
+    setShowLoadMenu(true);
+  }, [showLoadMenu]);
+
+  const handleLoadStyle = useCallback(
+    (s: SavedStyle) => {
+      setStyleText(s.styleText);
+      setStyleName(s.name);
+      setImages(s.images.map((img) => ({ base64: img.base64, mimeType: img.mimeType })));
+      setActiveStyleId(s.id);
+      persist({ styleText: s.styleText, styleLabel: s.name, activeStyleId: s.id });
+      setShowLoadMenu(false);
     },
     [persist],
   );
 
-  const handleDeletePreset = useCallback((name: string) => {
-    setPresets((prev) => {
-      const next = prev.filter((p) => p.name !== name);
-      saveStylePresetsToStorage(next);
-      return next;
-    });
+  const handleDeleteSavedStyle = useCallback(async (styleId: string) => {
+    await deleteStyle(styleId);
+    setSavedStyles((prev) => prev.filter((s) => s.id !== styleId));
+    window.dispatchEvent(new Event('shawnderland-styles-changed'));
   }, []);
 
   const initialNameRef = useRef(styleName);
@@ -170,9 +207,16 @@ function StyleNodeInner({ id, data, selected }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [styleName]);
 
+  const imagesInitRef = useRef(true);
+  useEffect(() => {
+    if (imagesInitRef.current) { imagesInitRef.current = false; return; }
+    persist({ styleImages: images });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [images]);
+
   return (
     <div className={`style-glass-node ${selected ? 'selected' : ''}`} title={NODE_TOOLTIPS.charStyle}>
-      {/* Header — always visible, click to collapse/expand */}
+      {/* Header */}
       <div className="style-glass-header" style={{ cursor: 'pointer' }} onClick={() => setCollapsed((c) => !c)}>
         <span className="style-glass-title">Style</span>
         <span className="style-glass-count">{images.length} img{images.length !== 1 ? 's' : ''}</span>
@@ -181,7 +225,7 @@ function StyleNodeInner({ id, data, selected }: Props) {
         </span>
       </div>
 
-      {/* Name field — always visible */}
+      {/* Name field */}
       <div className="style-glass-name-row">
         <input
           className="style-glass-name-input nodrag"
@@ -191,7 +235,7 @@ function StyleNodeInner({ id, data, selected }: Props) {
         />
       </div>
 
-      {/* Floating preview popup — beside the node */}
+      {/* Floating preview popup */}
       {expandedIdx !== null && images[expandedIdx] && (
         <div className="style-popup-overlay nodrag" onClick={(e) => e.stopPropagation()}>
           <div className="style-popup-window">
@@ -214,7 +258,7 @@ function StyleNodeInner({ id, data, selected }: Props) {
 
       {!collapsed && (
         <div className="style-glass-body">
-          {/* Image grid — the main visual area, takes priority */}
+          {/* Image grid */}
           <div className="style-glass-grid-area nodrag nowheel">
             {images.length === 0 && (
               <div className="style-glass-empty">
@@ -244,22 +288,47 @@ function StyleNodeInner({ id, data, selected }: Props) {
             ))}
           </div>
 
-          {/* Bottom section — buttons, text, presets */}
+          {/* Actions */}
           <div className="style-glass-footer">
             <div className="style-glass-actions">
               <button type="button" className="style-glass-btn nodrag" onClick={handleOpenFiles}>
-                + Open
+                Open Image
               </button>
               <button type="button" className="style-glass-btn nodrag" onClick={handlePaste}>
-                Paste
-              </button>
-              <button type="button" className="style-glass-btn nodrag" onClick={handleSavePreset}>
-                Save
-              </button>
-              <button type="button" className="style-glass-btn nodrag" onClick={() => setShowPresets(!showPresets)}>
-                {showPresets ? 'Hide' : 'Load'}
+                Paste Image
               </button>
             </div>
+            <div className="style-glass-actions">
+              <button type="button" className="style-glass-btn nodrag" onClick={handleSave}>
+                Save
+              </button>
+              <button type="button" className="style-glass-btn nodrag" onClick={() => { setShowSaveAs(true); setSaveAsName(styleName.trim() || ''); }}>
+                Save As
+              </button>
+              <button type="button" className="style-glass-btn nodrag" onClick={handleToggleLoad}>
+                {showLoadMenu ? 'Hide' : 'Load'}
+              </button>
+            </div>
+
+            {/* Save As inline dialog */}
+            {showSaveAs && (
+              <div className="style-glass-saveas nodrag" onClick={(e) => e.stopPropagation()}>
+                <input
+                  className="style-glass-saveas-input nodrag"
+                  value={saveAsName}
+                  onChange={(e) => setSaveAsName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveAs(); if (e.key === 'Escape') setShowSaveAs(false); }}
+                  placeholder="Style name..."
+                  autoFocus
+                />
+                <button type="button" className="style-glass-btn nodrag" onClick={handleSaveAs}>
+                  Save
+                </button>
+                <button type="button" className="style-glass-btn nodrag" onClick={() => setShowSaveAs(false)}>
+                  Cancel
+                </button>
+              </div>
+            )}
 
             <textarea
               className="style-glass-textarea nodrag nowheel"
@@ -272,25 +341,28 @@ function StyleNodeInner({ id, data, selected }: Props) {
               rows={1}
             />
 
-            {showPresets && (
+            {/* Load dropdown — only saved styles */}
+            {showLoadMenu && (
               <div className="style-glass-preset-list nodrag nowheel">
-                {presets.length === 0 ? (
+                {loadingStyles ? (
+                  <div className="style-glass-empty" style={{ padding: 6 }}>Loading...</div>
+                ) : savedStyles.length === 0 ? (
                   <div className="style-glass-empty" style={{ padding: 6 }}>No saved styles</div>
                 ) : (
-                  presets.map((p) => (
-                    <div key={p.name} className="style-glass-preset-row">
+                  savedStyles.map((s) => (
+                    <div key={s.id} className="style-glass-preset-row">
                       <button
                         type="button"
                         className="style-glass-preset-btn nodrag"
-                        onClick={() => handleLoadPreset(p)}
+                        onClick={() => handleLoadStyle(s)}
                       >
-                        <strong>{p.name}</strong>
-                        <span>{p.images?.length ?? 0} imgs{p.styleText ? ` • ${p.styleText.slice(0, 25)}...` : ''}</span>
+                        <strong>{s.name}</strong>
+                        <span>{s.images?.length ?? 0} imgs{s.styleText ? ` \u2022 ${s.styleText.slice(0, 25)}...` : ''}</span>
                       </button>
                       <button
                         type="button"
                         className="style-glass-preset-del nodrag"
-                        onClick={() => handleDeletePreset(p.name)}
+                        onClick={() => handleDeleteSavedStyle(s.id)}
                       >
                         &times;
                       </button>

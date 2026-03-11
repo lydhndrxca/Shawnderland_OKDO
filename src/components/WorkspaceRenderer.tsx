@@ -8,7 +8,6 @@ import { SessionProvider } from "@/lib/ideation/context/SessionContext";
 import { UILabProvider } from "@/lib/ui-lab/UILabContext";
 
 const HomePage = dynamic(() => import("./HomePage"), { ssr: false });
-
 const IdeationShell = dynamic(
   () => import("@/app/ideation/layout/Shell"),
   { ssr: false }

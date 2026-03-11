@@ -1,22 +1,96 @@
 "use client";
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NodeProps } from '@xyflow/react';
+import { useReactFlow } from '@xyflow/react';
 import { Image, Video, FileText, X } from 'lucide-react';
 import BaseNode from './BaseNode';
 import type { NodeStatus } from './BaseNode';
 import { useSession } from '@/lib/ideation/context/SessionContext';
 import type { SeedMediaItem } from '@/lib/ideation/state/sessionTypes';
+import { generateText } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 
-export default function SeedNode({ data, selected }: NodeProps) {
+export default function SeedNode({ id, data, selected }: NodeProps) {
   const { session, editSeed, editSeedContext, editSeedMedia, updateSettings, runStage, runningStageId } = useSession();
+  const { setNodes } = useReactFlow();
   const d = data as Record<string, unknown>;
   const prefill = (d.prefillSeed as string) ?? '';
   const nodeSubName = (d.subName as string) ?? '';
-  const [localSeed, setLocalSeed] = useState(prefill || session.seedText);
-  const [localContext, setLocalContext] = useState(session.seedContext ?? '');
-  const [media, setMedia] = useState<SeedMediaItem[]>(session.seedMedia ?? []);
+  const [localSeed, setLocalSeed] = useState(prefill || (d.seedText as string) || session.seedText);
+  const [localContext, setLocalContext] = useState((d.seedContext as string) || (session.seedContext ?? ''));
+  const [media, setMedia] = useState<SeedMediaItem[]>((d.seedMedia as SeedMediaItem[]) || (session.seedMedia ?? []));
+  const didMountRef = useRef(false);
+  const lastRestoreTs = useRef<number>(0);
+  const userTouchedContext = useRef(!!localContext);
+
+  /* ── Re-sync local state when a session/canvas restore happens ── */
+  useEffect(() => {
+    const ts = d._restoreTs as number;
+    if (ts && ts !== lastRestoreTs.current) {
+      lastRestoreTs.current = ts;
+      const restoredSeed = (d.seedText as string) || session.seedText || '';
+      const restoredCtx = (d.seedContext as string) || (session.seedContext ?? '');
+      const restoredMedia = (d.seedMedia as SeedMediaItem[]) || (session.seedMedia ?? []);
+      setLocalSeed(restoredSeed);
+      setLocalContext(restoredCtx);
+      setMedia(restoredMedia);
+      if (restoredCtx) userTouchedContext.current = true;
+      if (restoredSeed && restoredSeed !== session.seedText) editSeed(restoredSeed);
+      if (restoredCtx && restoredCtx !== (session.seedContext ?? '')) editSeedContext(restoredCtx);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [d._restoreTs]);
+
+  /* ── Sync all editable state back to node.data for session save ── */
+  useEffect(() => {
+    if (!didMountRef.current) { didMountRef.current = true; return; }
+    setNodes((nds) => nds.map((n) =>
+      n.id === id ? { ...n, data: { ...n.data, seedText: localSeed, seedContext: localContext, seedMedia: media } } : n,
+    ));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localSeed, localContext, media]);
   const strict = session.settings?.strictAdherence ?? false;
+
+  /* ── On mount, if node.data has saved text, push it back to session context ── */
+  useEffect(() => {
+    if ((d.seedText as string) && (d.seedText as string) !== session.seedText) editSeed(d.seedText as string);
+    if ((d.seedContext as string) && (d.seedContext as string) !== (session.seedContext ?? '')) editSeedContext(d.seedContext as string);
+    if ((d.seedMedia as SeedMediaItem[])?.length && !session.seedMedia?.length) editSeedMedia(d.seedMedia as SeedMediaItem[]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* ── Auto-infer context when user types a seed but leaves context empty ── */
+  const inferTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [inferring, setInferring] = useState(false);
+
+  useEffect(() => {
+    if (localContext) userTouchedContext.current = true;
+  }, [localContext]);
+
+  useEffect(() => {
+    if (inferTimerRef.current) clearTimeout(inferTimerRef.current);
+
+    const seedTrimmed = localSeed.trim();
+    if (!seedTrimmed || seedTrimmed.length < 8 || userTouchedContext.current || localContext.trim()) return;
+
+    inferTimerRef.current = setTimeout(async () => {
+      setInferring(true);
+      try {
+        const result = await generateText(
+          `Given this idea: "${seedTrimmed}"\n\nRespond with ONLY a short context label (2-5 words) describing the domain or category this idea belongs to. Examples: "mobile app", "board game", "kitchen gadget", "SaaS platform", "children's toy", "fitness wearable". No explanation, just the label.`,
+        );
+        const cleaned = result.trim().replace(/^["']|["']$/g, '').replace(/\.$/,'');
+        if (cleaned && cleaned.length < 60 && !userTouchedContext.current) {
+          setLocalContext(cleaned);
+          editSeedContext(cleaned);
+        }
+      } catch { /* silently fail */ }
+      setInferring(false);
+    }, 1500);
+
+    return () => { if (inferTimerRef.current) clearTimeout(inferTimerRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localSeed]);
 
   const hasOutput = !!session.stageState['seed']?.output;
   const status: NodeStatus = runningStageId === 'seed' ? 'running' : hasOutput ? 'complete' : 'empty';
@@ -138,10 +212,10 @@ export default function SeedNode({ data, selected }: NodeProps) {
       <input
         className="seed-input nodrag nowheel"
         value={localContext}
-        onChange={(e) => { setLocalContext(e.target.value); editSeedContext(e.target.value); }}
-        placeholder="Context (optional) — e.g., &quot;video game console&quot;, &quot;things to do when bored&quot;"
+        onChange={(e) => { setLocalContext(e.target.value); userTouchedContext.current = true; editSeedContext(e.target.value); }}
+        placeholder={inferring ? 'Inferring context…' : 'Context (optional) — e.g., "video game console", "things to do when bored"'}
         spellCheck={false}
-        style={{ minHeight: 'auto', padding: '6px 10px', fontSize: '12px' }}
+        style={{ minHeight: 'auto', padding: '6px 10px', fontSize: '12px', opacity: inferring ? 0.6 : 1 }}
       />
 
       <div className="seed-media-bar nodrag">

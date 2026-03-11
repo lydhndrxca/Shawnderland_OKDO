@@ -4,9 +4,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Lock, Unlock } from 'lucide-react';
 import {
   STAGE_ORDER, NODE_META,
-  OUTPUT_NODE_TYPES, INPUT_NODE_TYPES, INFLUENCE_NODE_TYPES, UTILITY_NODE_TYPES, CONTROL_NODE_TYPES,
-  OUTPUT_NODE_META, INPUT_NODE_META, INFLUENCE_NODE_META, UTILITY_NODE_META, CONTROL_NODE_META,
-  CONCEPTLAB_NODE_TYPES, CONCEPTLAB_NODE_META,
+  OUTPUT_NODE_TYPES, INPUT_NODE_TYPES, INFLUENCE_NODE_TYPES, UTILITY_NODE_TYPES,
+  OUTPUT_NODE_META, INPUT_NODE_META, INFLUENCE_NODE_META, UTILITY_NODE_META,
   PROMPT_INJECTION_NODE_TYPES, PROMPT_INJECTION_NODE_META,
 } from './nodes/nodeRegistry';
 import { useSession } from '@/lib/ideation/context/SessionContext';
@@ -21,6 +20,9 @@ import type {
   CommitOutput,
   IterateOutput,
 } from '@/lib/ideation/engine/schemas';
+import { NODE_DESCRIPTIONS } from '@/lib/nodeDescriptions';
+import { ALL_DOCK_CATEGORIES } from '@/lib/sharedNodeTypes';
+import NODE_TOOLTIPS from './nodes/character/nodeTooltips';
 import './ToolDock.css';
 
 interface ToolDockProps {
@@ -69,158 +71,17 @@ const NODE_SUBTITLES: Record<string, string> = {
 };
 
 function buildCategories(): CategoryDef[] {
-  const referenceInfluences = ['textInfluence', 'documentInfluence', 'imageInfluence', 'linkInfluence', 'videoInfluence', 'imageReference'] as const;
-  const modifierInfluences = ['emotion', 'influence'] as const;
-
-  return [
-    {
-      key: 'pipeline',
-      label: 'Pipeline',
-      icon: '\u26D3',
-      items: STAGE_ORDER.map((s) => ({
-        id: s,
-        label: NODE_META[s].label,
-        color: NODE_META[s].color,
-        subtitle: STAGE_SUBTITLES[s] ?? '',
-      })),
-    },
-    {
-      key: 'inputs',
-      label: 'Inputs & References',
-      icon: '\u{1F4CE}',
-      items: referenceInfluences.map((t) => {
-        const infMeta = (INFLUENCE_NODE_META as Record<string, { label: string; color: string }>)[t];
-        const utMeta = (UTILITY_NODE_META as Record<string, { label: string; color: string }>)[t];
-        const meta = infMeta ?? utMeta;
-        return {
-          id: t,
-          label: meta.label,
-          color: meta.color,
-          subtitle: NODE_SUBTITLES[t] ?? '',
-        };
-      }),
-    },
-    {
-      key: 'modifiers',
-      label: 'Modifiers',
-      icon: '\u2699',
-      items: [
-        ...INPUT_NODE_TYPES.map((t) => ({
-          id: t,
-          label: INPUT_NODE_META[t].label,
-          color: INPUT_NODE_META[t].color,
-          subtitle: NODE_SUBTITLES[t] ?? '',
-        })),
-        ...modifierInfluences.map((t) => {
-          const meta = INFLUENCE_NODE_META[t];
-          return {
-            id: t,
-            label: meta.label,
-            color: meta.color,
-            subtitle: NODE_SUBTITLES[t] ?? '',
-          };
-        }),
-        ...PROMPT_INJECTION_NODE_TYPES.map((t) => ({
-          id: t,
-          label: PROMPT_INJECTION_NODE_META[t].label,
-          color: PROMPT_INJECTION_NODE_META[t].color,
-          subtitle: NODE_SUBTITLES[t] ?? '',
-        })),
-      ],
-    },
-    {
-      key: 'outputs',
-      label: 'Outputs',
-      icon: '\u25C8',
-      items: [
-        ...OUTPUT_NODE_TYPES.map((t) => ({
-          id: t,
-          label: OUTPUT_NODE_META[t].label,
-          color: OUTPUT_NODE_META[t].color,
-          subtitle: NODE_SUBTITLES[t] ?? '',
-        })),
-        ...UTILITY_NODE_TYPES.filter((t) => t === 'extractData').map((t) => ({
-          id: t,
-          label: UTILITY_NODE_META[t].label,
-          color: UTILITY_NODE_META[t].color,
-          subtitle: NODE_SUBTITLES[t] ?? '',
-        })),
-      ],
-    },
-    {
-      key: 'control',
-      label: 'Control',
-      icon: '\u25B6',
-      items: CONTROL_NODE_TYPES.map((t) => ({
-        id: t,
-        label: CONTROL_NODE_META[t].label,
-        color: CONTROL_NODE_META[t].color,
-        subtitle: NODE_SUBTITLES[t] ?? '',
-      })),
-    },
-    {
-      key: 'conceptlab',
-      label: 'Concept Lab',
-      icon: '\u{1F3A8}',
-      items: CONCEPTLAB_NODE_TYPES.map((t) => ({
-        id: t,
-        label: CONCEPTLAB_NODE_META[t].label,
-        color: CONCEPTLAB_NODE_META[t].color,
-        subtitle: NODE_SUBTITLES[t] ?? '',
-      })),
-    },
-    {
-      key: 'charGenerator',
-      label: 'Character Generator',
-      icon: '\u{1F464}',
-      items: [
-        { id: 'charProject', label: 'Project Settings', color: '#546e7a', subtitle: 'Project name and output dir' },
-        { id: 'charIdentity', label: 'Character Identity', color: '#7c4dff', subtitle: 'Age, race, gender, build presets' },
-        { id: 'charDescription', label: 'Character Description', color: '#5c6bc0', subtitle: 'Freeform description text' },
-        { id: 'charAttributes', label: 'Character Attributes', color: '#9c27b0', subtitle: 'Clothing/gear attribute groups' },
-        { id: 'charStyle', label: 'Style', color: '#7b1fa2', subtitle: 'Style text or reference images' },
-        { id: 'charExtractAttrs', label: 'Extract Attributes', color: '#ffab40', subtitle: 'AI image analysis' },
-        { id: 'charEnhanceDesc', label: 'Enhance Description', color: '#66bb6a', subtitle: 'AI text enhancement' },
-        { id: 'charGenerate', label: 'Generate Character', color: '#e91e63', subtitle: 'Generate all enabled views' },
-        { id: 'charGate', label: 'Gate (On/Off)', color: '#66bb6a', subtitle: 'Toggle connection on/off' },
-        { id: 'charMainViewer', label: 'Main Stage Viewer', color: '#00bfa5', subtitle: 'Large image viewer (600x700)' },
-        { id: 'charFrontViewer', label: 'Front View', color: '#42a5f5', subtitle: 'Front view (300x400)' },
-        { id: 'charBackViewer', label: 'Back View', color: '#ab47bc', subtitle: 'Back view (300x400)' },
-        { id: 'charSideViewer', label: 'Side View', color: '#ff7043', subtitle: 'Side view (300x400)' },
-        { id: 'charRefCallout', label: 'Reference Callout', color: '#26a69a', subtitle: 'Annotate reference image' },
-        { id: 'charEdit', label: 'Edit Character', color: '#29b6f6', subtitle: 'Text-based image edits' },
-        { id: 'charHistory', label: 'History', color: '#78909c', subtitle: 'Track generation history' },
-        { id: 'charReset', label: 'Reset Character', color: '#ef5350', subtitle: 'Clear all character data' },
-        { id: 'charSendPS', label: 'Send to Photoshop', color: '#1565c0', subtitle: 'Send to Adobe Photoshop' },
-        { id: 'charShowXML', label: 'Show XML', color: '#8d6e63', subtitle: 'View character XML config' },
-        { id: 'charQuickGen', label: 'Quick Generate', color: '#ffa726', subtitle: 'Random character generator' },
-        { id: 'charImageBucket', label: 'Generated Images', color: '#43a047', subtitle: 'Browse generated image directory' },
-        { id: 'charRandomize', label: 'Randomize', color: '#ff5722', subtitle: 'Randomize connected node options' },
-        { id: 'charCustomView', label: 'Custom View', color: '#7e57c2', subtitle: 'User-prompted custom angle/view' },
-      ],
-    },
-    {
-      key: 'uiElements',
-      label: 'UI Elements',
-      icon: '\u{1F532}',
-      items: [
-        { id: 'uiButton', label: 'Button', color: '#5c6bc0', subtitle: 'Resizable button placeholder' },
-        { id: 'uiTextBox', label: 'Text Box', color: '#66bb6a', subtitle: 'Resizable text input placeholder' },
-        { id: 'uiDropdown', label: 'Dropdown', color: '#ffa726', subtitle: 'Dropdown menu placeholder' },
-        { id: 'uiImage', label: 'Image', color: '#ab47bc', subtitle: 'Image placeholder' },
-        { id: 'uiGeneric', label: 'Node', color: '#607d8b', subtitle: 'Generic node with header' },
-      ],
-    },
-    {
-      key: 'uiContainers',
-      label: 'Containers',
-      icon: '\u{1F4E6}',
-      items: [
-        { id: 'uiWindow', label: 'Window', color: '#26a69a', subtitle: 'Window panel with title bar' },
-        { id: 'uiFrame', label: 'Frame', color: '#78909c', subtitle: 'Layout frame / grouping' },
-      ],
-    },
-  ];
+  return ALL_DOCK_CATEGORIES.map((cat) => ({
+    key: cat.key,
+    label: cat.label,
+    icon: cat.icon,
+    items: cat.items.map((item) => ({
+      id: item.type,
+      label: item.label,
+      color: item.color,
+      subtitle: item.desc,
+    })),
+  }));
 }
 
 export default function ToolDock({ inspectorNodeId, onCloseInspector }: ToolDockProps) {
@@ -432,10 +293,52 @@ function DetailsTab({ nodeId, onClose }: { nodeId: string | null; onClose: () =>
   }
 
   if (!meta) {
+    const w = window as unknown as { __getNodeData?: (id: string) => Record<string, unknown> | undefined; __getNodeType?: (id: string) => string | undefined };
+    const nodeType = w.__getNodeType?.(nodeId) ?? nodeId.split('-')[0];
+    const desc = NODE_DESCRIPTIONS[nodeType];
+    const tooltip = NODE_TOOLTIPS[nodeType];
+    const label = desc?.label ?? nodeType;
+
     return (
-      <div className="tool-dock-details-empty">
-        <p>No details available for this node</p>
-        <button className="details-close-btn" onClick={onClose}>&times;</button>
+      <div className="tool-dock-details">
+        <div className="details-header" style={{ borderBottomColor: desc?.color ?? '#888' }}>
+          <span className="details-dot" style={{ background: desc?.color ?? '#888' }} />
+          <span className="details-title">{label}</span>
+          <button className="details-close-btn" onClick={onClose}>&times;</button>
+        </div>
+        <div className="details-body">
+          {desc && (
+            <div className="inspector-section">
+              <p className="inspector-text" style={{ marginBottom: 12 }}>{desc.description}</p>
+              {desc.connectsTo && desc.connectsTo.length > 0 && (
+                <>
+                  <h4 style={{ fontSize: 12, marginBottom: 6, color: '#aaa' }}>Connects to</h4>
+                  <ul className="inspector-list">
+                    {desc.connectsTo.map((c, i) => <li key={i}>{c}</li>)}
+                  </ul>
+                </>
+              )}
+              {desc.connectsFrom && desc.connectsFrom.length > 0 && (
+                <>
+                  <h4 style={{ fontSize: 12, marginBottom: 6, color: '#aaa' }}>Receives from</h4>
+                  <ul className="inspector-list">
+                    {desc.connectsFrom.map((c, i) => <li key={i}>{c}</li>)}
+                  </ul>
+                </>
+              )}
+            </div>
+          )}
+          {!desc && tooltip && (
+            <div className="inspector-section">
+              <p className="inspector-text">{tooltip}</p>
+            </div>
+          )}
+          {!desc && !tooltip && (
+            <div className="inspector-section">
+              <p className="inspector-text" style={{ color: '#888' }}>No description available for this node type.</p>
+            </div>
+          )}
+        </div>
       </div>
     );
   }

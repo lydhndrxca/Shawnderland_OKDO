@@ -18,6 +18,12 @@
   height: auto !important;
 }
 
+/* Creative Director needs full width — override .char-node max-width */
+.react-flow__node-charCreativeDirector .char-node {
+  max-width: none;
+  width: 100%;
+}
+
 .char-node.selected {
   border-color: var(--accent);
   box-shadow: 0 0 16px rgba(108, 99, 255, 0.3);
@@ -213,20 +219,7 @@
   background: #1a1a2e;
 }
 
-.char-handle {
-  width: 12px !important;
-  height: 12px !important;
-  border: 2px solid var(--bg-surface);
-  border-radius: 50%;
-  transform: translate(-50%, -50%) !important;
-}
-
-.char-handle:hover {
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.3);
-  width: 12px !important;
-  height: 12px !important;
-  transform: translate(-50%, -50%) !important;
-}
+/* .char-handle — unified in CanvasCommon.css */
 
 .char-scroll-area {
   max-height: 300px;
@@ -433,9 +426,6 @@
   padding: 1px 5px;
   border-radius: 3px;
   pointer-events: none;
-  z-index: 3;
-  letter-spacing: 0.3px;
-  font-variant-numeric: tabular-nums;
 }
 
 .char-viewer-empty {
@@ -579,7 +569,7 @@
 
 .gate-node-wrap.gate-off {
   border-color: rgba(255, 255, 255, 0.1);
-  opacity: 0.6;
+  filter: brightness(0.45);
 }
 
 .gate-label-input {
@@ -628,9 +618,8 @@
 /* ── Gate Disabled (downstream of OFF gate) ── */
 
 .gate-disabled {
-  opacity: 0.35 !important;
-  filter: grayscale(0.5);
-  transition: opacity 0.3s, filter 0.3s;
+  filter: brightness(0.25) grayscale(0.5) !important;
+  transition: filter 0.3s;
 }
 
 /* ── Processing Animation (bright rotating gradient border + pulse) ── */
@@ -728,9 +717,7 @@
 
 .style-glass-node {
   position: relative;
-  background: rgba(30, 20, 50, 0.65);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(30, 20, 50, 0.92);
   border: 1px solid rgba(160, 100, 240, 0.35);
   border-radius: 8px;
   min-width: 340px;
@@ -912,9 +899,7 @@
 
 .style-popup-window {
   position: relative;
-  background: rgba(20, 14, 38, 0.92);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: rgba(20, 14, 38, 0.97);
   border: 1px solid rgba(160,100,240,0.45);
   border-radius: 8px;
   padding: 6px;
@@ -1068,4 +1053,25 @@
 
 .style-glass-preset-del:hover {
   opacity: 1;
+}
+
+/* Save As inline dialog */
+.style-glass-saveas {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 4px 0;
+}
+.style-glass-saveas-input {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-size: 11px;
+  padding: 4px 6px;
+  outline: none;
+}
+.style-glass-saveas-input:focus {
+  border-color: rgba(255,255,255,0.35);
 }

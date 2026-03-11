@@ -3,6 +3,10 @@
 import { memo, useState, useCallback, useEffect, useRef } from 'react';
 import { Handle, Position, NodeResizer, useReactFlow } from '@xyflow/react';
 import { ImageContextMenu } from '@/components/ImageContextMenu';
+import {
+  generateText,
+  restoreImageQuality,
+} from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import type { GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { NODE_TOOLTIPS } from './nodeTooltips';
 import './CharacterNodes.css';
@@ -12,6 +16,20 @@ interface Props {
   data: Record<string, unknown>;
   selected?: boolean;
 }
+
+const DETECT_PROMPT =
+  'Analyze this image for quality degradation. Look for:\n' +
+  '- Compression artifacts (blockiness, JPEG ringing, banding)\n' +
+  '- Blur or softness (loss of fine detail, smeared textures)\n' +
+  '- Noise or grain (random speckles, color noise)\n' +
+  '- Resolution loss (pixelation, upscale artifacts)\n' +
+  '- Color degradation (shifted hues, washed-out areas, posterization)\n' +
+  '- Accumulated AI generation artifacts (warped details, melted features, inconsistent textures)\n\n' +
+  'Respond with ONLY a JSON object (no markdown, no backticks):\n' +
+  '{ "degraded": true/false, "confidence": 0.0-1.0, "issues": "brief description" }\n\n' +
+  'Set "degraded" to true ONLY if the image has noticeable quality problems that would benefit from restoration. ' +
+  'Minor imperfections in an otherwise clean image should be false. ' +
+  'Be strict — only flag genuinely degraded images.';
 
 function getUpstreamImage(
   nodeId: string,
@@ -40,10 +58,32 @@ function MainStageViewerNodeInner({ id, data, selected }: Props) {
   const [localImage, setLocalImage] = useState<GeneratedImage | null>(
     (data?.localImage as GeneratedImage) ?? null,
   );
+  const [autoFidelity, setAutoFidelity] = useState<boolean>(
+    (data?.autoFidelity as boolean) ?? false,
+  );
+  const [fidelityStatus, setFidelityStatus] = useState<string | null>(null);
   const isPanning = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
   const fileRef = useRef<HTMLInputElement>(null);
   const label = (data?.viewerLabel as string) || 'Image Viewer';
+
+  const lastRestoredKeyRef = useRef<string | null>(null);
+  const fidelityRunningRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  useEffect(() => {
+    const restored = (data?.localImage as GeneratedImage) ?? null;
+    if (restored?.base64 && restored.base64.slice(0, 40) !== localImage?.base64?.slice(0, 40)) {
+      setLocalImage(restored);
+    } else if (!restored && localImage) {
+      setLocalImage(null);
+    }
+  }, [data?.localImage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const upstreamImage = getUpstreamImage(id, getNode, getEdges);
   const pushedImage = (data?.generatedImage as GeneratedImage | undefined) ?? null;
@@ -58,6 +98,94 @@ function MainStageViewerNodeInner({ id, data, selected }: Props) {
       );
     }
   }, [upstreamImage, id, data?.generatedImage, setNodes]);
+
+  const toggleAutoFidelity = useCallback(() => {
+    const next = !autoFidelity;
+    setAutoFidelity(next);
+    setNodes((nds) =>
+      nds.map((n) => n.id === id ? { ...n, data: { ...n.data, autoFidelity: next } } : n),
+    );
+    if (!next) setFidelityStatus(null);
+  }, [autoFidelity, id, setNodes]);
+
+  const runFidelityCheck = useCallback(async (image: GeneratedImage) => {
+    if (fidelityRunningRef.current) return;
+    const imageKey = image.base64.slice(0, 64);
+
+    if (lastRestoredKeyRef.current === imageKey) return;
+
+    fidelityRunningRef.current = true;
+    setFidelityStatus('Checking quality…');
+
+    try {
+      const raw = await generateText(DETECT_PROMPT, image);
+      if (!mountedRef.current) return;
+
+      let result: { degraded: boolean; confidence: number; issues: string };
+      try {
+        const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+        result = JSON.parse(jsonStr);
+      } catch {
+        const match = raw.match(/\{[\s\S]*\}/);
+        if (match) {
+          result = JSON.parse(match[0]);
+        } else {
+          console.warn('[AutoFidelity] Could not parse detection response:', raw.slice(0, 200));
+          setFidelityStatus(null);
+          return;
+        }
+      }
+
+      if (!result.degraded || result.confidence < 0.6) {
+        setFidelityStatus('Quality OK ✓');
+        setTimeout(() => { if (mountedRef.current) setFidelityStatus(null); }, 3000);
+        return;
+      }
+
+      setFidelityStatus(`Artifacts detected (${Math.round(result.confidence * 100)}%) — restoring…`);
+
+      const { image: restored } = await restoreImageQuality(image, {
+        imageWidth: imgRes?.w,
+        imageHeight: imgRes?.h,
+        onStatus: (msg) => { if (mountedRef.current) setFidelityStatus(msg); },
+      });
+      if (!mountedRef.current) return;
+
+      lastRestoredKeyRef.current = restored.base64.slice(0, 64);
+
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === id
+            ? { ...n, data: { ...n.data, generatedImage: restored } }
+            : n,
+        ),
+      );
+
+      setFidelityStatus('Auto-restored ✓');
+      setTimeout(() => { if (mountedRef.current) setFidelityStatus(null); }, 4000);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!msg.toLowerCase().includes('cancel') && !msg.toLowerCase().includes('abort')) {
+        console.error('[AutoFidelity]', e);
+        setFidelityStatus(`Error: ${msg.slice(0, 60)}`);
+        setTimeout(() => { if (mountedRef.current) setFidelityStatus(null); }, 5000);
+      }
+    } finally {
+      fidelityRunningRef.current = false;
+    }
+  }, [id, setNodes, imgRes]);
+
+  const prevImageKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!autoFidelity || !displayImage) return;
+    const key = displayImage.base64.slice(0, 64);
+    if (key === prevImageKeyRef.current) return;
+    if (key === lastRestoredKeyRef.current) return;
+    prevImageKeyRef.current = key;
+
+    const timer = setTimeout(() => { runFidelityCheck(displayImage); }, 1200);
+    return () => clearTimeout(timer);
+  }, [autoFidelity, displayImage, runFidelityCheck]);
 
   const handleResetView = useCallback(() => {
     setZoom(1);
@@ -136,17 +264,74 @@ function MainStageViewerNodeInner({ id, data, selected }: Props) {
     [id, setNodes],
   );
 
+  const isFidelityBusy = fidelityRunningRef.current;
+
   return (
-    <div className={`char-node char-viewer-node ${selected ? 'selected' : ''}`} style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }} title={NODE_TOOLTIPS.charMainViewer}>
+    <div className={`char-node char-viewer-node ${selected ? 'selected' : ''} ${(data?.generating as boolean) || isFidelityBusy ? 'char-node-processing' : ''}`} style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }} title={NODE_TOOLTIPS.charMainViewer}>
       <NodeResizer
         isVisible={!!selected}
         minWidth={300}
         minHeight={300}
         onResize={handleResize}
       />
-      <div className="char-node-header" style={{ background: '#00bfa5' }}>
-        {label}
+      <div className="char-node-header" style={{ background: '#00bfa5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>{label}</span>
+        <button
+          type="button"
+          className="nodrag"
+          onClick={toggleAutoFidelity}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '2px 8px',
+            fontSize: 9,
+            fontWeight: 700,
+            borderRadius: 4,
+            cursor: 'pointer',
+            border: autoFidelity ? '1px solid rgba(0,0,0,0.2)' : '1px solid rgba(0,0,0,0.1)',
+            background: autoFidelity ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.1)',
+            color: '#0f0f1a',
+            textTransform: 'uppercase',
+            letterSpacing: '0.3px',
+            transition: 'all 0.2s',
+          }}
+        >
+          <span style={{
+            width: 6, height: 6, borderRadius: '50%',
+            background: autoFidelity ? '#69f0ae' : 'rgba(0,0,0,0.3)',
+            transition: 'background 0.2s',
+          }} />
+          Auto-Fidelity
+        </button>
       </div>
+
+      {fidelityStatus && (
+        <div style={{
+          padding: '3px 12px',
+          fontSize: 9,
+          fontWeight: 600,
+          background: fidelityStatus.includes('regenerat') || fidelityStatus.includes('Analyz') || fidelityStatus.includes('Regenerat') || fidelityStatus.includes('Upscal')
+            ? 'rgba(255, 111, 0, 0.15)'
+            : fidelityStatus.includes('✓')
+              ? 'rgba(105, 240, 174, 0.1)'
+              : fidelityStatus.includes('Error')
+                ? 'rgba(244, 67, 54, 0.1)'
+                : 'rgba(255,255,255,0.04)',
+          color: fidelityStatus.includes('regenerat') || fidelityStatus.includes('Analyz') || fidelityStatus.includes('Regenerat') || fidelityStatus.includes('Upscal')
+            ? '#ff9800'
+            : fidelityStatus.includes('✓')
+              ? '#69f0ae'
+              : fidelityStatus.includes('Error')
+                ? '#f44336'
+                : 'var(--text-muted)',
+          borderBottom: '1px solid rgba(255,255,255,0.04)',
+          textAlign: 'center',
+        }}>
+          {fidelityStatus}
+        </div>
+      )}
+
       <div
         className="char-viewer-canvas nodrag nowheel"
         onWheel={handleWheel}

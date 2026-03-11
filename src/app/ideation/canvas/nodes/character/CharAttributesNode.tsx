@@ -12,17 +12,7 @@ interface Props {
   selected?: boolean;
 }
 
-const CUSTOM_VALUE = '__custom__';
-
-const POSE_PRESETS = [
-  { label: 'Relaxed A-stance, hands at sides', value: 'Pose — relaxed A-stance, hands at sides' },
-  { label: 'T-pose (classic game)', value: 'Pose — classic T-pose, arms straight out' },
-  { label: 'Hands at sides', value: 'Pose — standing straight, hands at sides' },
-  { label: 'Action stance with weapon', value: 'Pose — action stance, weapon drawn' },
-  { label: 'Custom (AI decides)', value: '__ai_custom__' },
-];
-
-const ALL_POSE_OPTIONS = [...POSE_COMMON, ...POSE_RARE];
+const ALL_KEYS = [...ATTRIBUTE_GROUPS.map((g) => g.key), 'pose'];
 
 function CharAttributesNodeInner({ id, data, selected }: Props) {
   const { setNodes } = useReactFlow();
@@ -33,8 +23,10 @@ function CharAttributesNodeInner({ id, data, selected }: Props) {
   const [locked, setLocked] = useState<Record<string, boolean>>(
     (data?.lockedAttrs as Record<string, boolean>) ?? { pose: true },
   );
-  const [customText, setCustomText] = useState<Record<string, string>>({});
-  const [showDropdown, setShowDropdown] = useState<Record<string, boolean>>({});
+  const [changedFields, setChangedFields] = useState<Set<string>>(
+    new Set((data?.changedFields as string[]) ?? []),
+  );
+  const baselineRef = useRef<CharacterAttributes>({});
   const localEdit = useRef(false);
 
   useEffect(() => {
@@ -45,9 +37,11 @@ function CharAttributesNodeInner({ id, data, selected }: Props) {
     for (const k of keys) { if (ext[k] !== attributes[k]) { changed = true; break; } }
     if (changed) {
       setAttributes(ext);
-      setCustomText({});
+      baselineRef.current = { ...ext };
+      setChangedFields(new Set());
+      persistChangedFields([]);
     }
-  }, [data?.attributes]);
+  }, [data?.attributes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const extLocked = (data?.lockedAttrs as Record<string, boolean>) ?? {};
@@ -57,6 +51,12 @@ function CharAttributesNodeInner({ id, data, selected }: Props) {
       return merged;
     });
   }, [data?.lockedAttrs]);
+
+  useEffect(() => {
+    if (Object.keys(baselineRef.current).length === 0 && Object.keys(attributes).length > 0) {
+      baselineRef.current = { ...attributes };
+    }
+  }, [attributes]);
 
   const persistAttrs = useCallback(
     (attrs: CharacterAttributes) => {
@@ -76,6 +76,15 @@ function CharAttributesNodeInner({ id, data, selected }: Props) {
     [id, setNodes],
   );
 
+  const persistChangedFields = useCallback(
+    (fields: string[]) => {
+      setNodes((nds) =>
+        nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, changedFields: fields } } : n)),
+      );
+    },
+    [id, setNodes],
+  );
+
   const toggleLock = useCallback(
     (key: string) => {
       setLocked((prev) => {
@@ -89,33 +98,34 @@ function CharAttributesNodeInner({ id, data, selected }: Props) {
 
   const setAttr = useCallback(
     (key: string, val: string) => {
-      if (val === CUSTOM_VALUE) return;
       localEdit.current = true;
       const next = { ...attributes, [key]: val };
       setAttributes(next);
       persistAttrs(next);
+
+      const baseline = baselineRef.current[key] ?? '';
+      setChangedFields((prev) => {
+        const n = new Set(prev);
+        if (val !== baseline && val.trim() !== '') n.add(key);
+        else n.delete(key);
+        persistChangedFields([...n]);
+        return n;
+      });
     },
-    [attributes, persistAttrs],
+    [attributes, persistAttrs, persistChangedFields],
   );
 
-  const setCustom = useCallback(
-    (key: string, val: string) => {
-      localEdit.current = true;
-      setCustomText((p) => ({ ...p, [key]: val }));
-      const next = { ...attributes, [key]: val };
-      setAttributes(next);
-      persistAttrs(next);
+  const toggleHighlight = useCallback(
+    (key: string) => {
+      setChangedFields((prev) => {
+        const n = new Set(prev);
+        if (n.has(key)) n.delete(key);
+        else if (attributes[key]?.trim()) n.add(key);
+        persistChangedFields([...n]);
+        return n;
+      });
     },
-    [attributes, persistAttrs],
-  );
-
-  const randomizeOne = useCallback(
-    (g: { key: string; common: string[]; rare: string[] }) => {
-      const pool = [...g.common, ...g.rare];
-      const val = pool[Math.floor(Math.random() * pool.length)];
-      setAttr(g.key, val);
-    },
-    [setAttr],
+    [attributes, persistChangedFields],
   );
 
   const randomizeAll = useCallback(() => {
@@ -130,105 +140,103 @@ function CharAttributesNodeInner({ id, data, selected }: Props) {
       next[g.key] = pool[Math.floor(Math.random() * pool.length)];
     }
     if (locked.pose) {
-      next.pose = attributes.pose ?? POSE_PRESETS[0].value;
+      next.pose = attributes.pose ?? '';
     } else {
-      const pool = ALL_POSE_OPTIONS;
+      const pool = [...POSE_COMMON, ...POSE_RARE];
       next.pose = pool[Math.floor(Math.random() * pool.length)];
     }
     setAttributes(next);
-    setCustomText({});
     persistAttrs(next);
   }, [persistAttrs, locked, attributes]);
 
   useEffect(() => {
     if (!attributes.pose) {
-      const next = { ...attributes, pose: POSE_PRESETS[0].value };
+      const next = { ...attributes, pose: 'Relaxed A-stance, hands at sides' };
       setAttributes(next);
       persistAttrs(next);
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const renderAttributeRow = (g: { key: string; label: string; common: string[]; rare: string[] }) => {
-    const currentVal = attributes[g.key] ?? '';
-    const allOpts = [...g.common, ...g.rare];
-    const isCustom = currentVal !== '' && !allOpts.includes(currentVal);
-    const forceDropdown = showDropdown[g.key];
-    const isLocked = !!locked[g.key];
+  const clearHighlights = useCallback(() => {
+    baselineRef.current = { ...attributes };
+    setChangedFields(new Set());
+    persistChangedFields([]);
+  }, [attributes, persistChangedFields]);
+
+  const renderAttributeRow = (key: string, label: string) => {
+    const currentVal = attributes[key] ?? '';
+    const isLocked = !!locked[key];
+    const isChanged = changedFields.has(key);
 
     return (
-      <div key={g.key} className="char-attr-group">
-        <div className="char-attr-row">
-          <span className="char-attr-label">{g.label}</span>
-          {isCustom && !forceDropdown ? (
-            <input
-              className="char-input nodrag"
-              style={{ flex: 1, margin: 0 }}
-              value={customText[g.key] ?? currentVal}
-              onChange={(e) => setCustom(g.key, e.target.value)}
-              placeholder={`Custom ${g.label.toLowerCase()}...`}
-              title={customText[g.key] ?? currentVal}
-            />
-          ) : (
-            <select
-              className="char-select nodrag"
-              value={isCustom ? CUSTOM_VALUE : currentVal}
-              onChange={(e) => {
-                if (e.target.value === CUSTOM_VALUE) {
-                  setShowDropdown((p) => ({ ...p, [g.key]: false }));
-                  return;
-                }
-                setShowDropdown((p) => ({ ...p, [g.key]: false }));
-                setAttr(g.key, e.target.value);
-              }}
-              style={{ flex: 1 }}
-            >
-              <option value="">—</option>
-              <optgroup label="Common">
-                {g.common.map((o) => (
-                  <option key={o} value={o}>{o}</option>
-                ))}
-              </optgroup>
-              <optgroup label="Rare">
-                {g.rare.map((o) => (
-                  <option key={o} value={o}>{o}</option>
-                ))}
-              </optgroup>
-              <option value={CUSTOM_VALUE}>Custom...</option>
-            </select>
-          )}
-          {isCustom && !forceDropdown && (
-            <button
-              className="char-btn-sm nodrag"
-              onClick={() => setShowDropdown((p) => ({ ...p, [g.key]: true }))}
-              title="Switch to preset dropdown"
-              style={{ fontSize: 10, padding: '1px 4px' }}
-            >
-              &#9662;
-            </button>
-          )}
-          <button className="char-btn-sm nodrag" onClick={() => randomizeOne(g)} title="Random">
-            R
-          </button>
-          <button
-            className={`char-lock-btn nodrag ${isLocked ? 'locked' : ''}`}
-            onClick={() => toggleLock(g.key)}
-            title={isLocked ? 'Locked — AI will not overwrite' : 'Unlocked — AI may overwrite'}
+      <div
+        key={key}
+        className="char-attr-group"
+        style={{
+          border: isChanged ? '1px solid rgba(255, 152, 0, 0.5)' : '1px solid transparent',
+          borderRadius: 6,
+          background: isChanged ? 'rgba(255, 152, 0, 0.06)' : undefined,
+          padding: '4px 6px',
+          transition: 'border-color 0.2s, background 0.2s',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+          <span
+            className="char-attr-label"
+            style={{ cursor: 'pointer', userSelect: 'none', minWidth: 0 }}
+            onClick={() => toggleHighlight(key)}
+            title={isChanged ? 'Click to un-highlight' : 'Click to highlight as changed'}
           >
-            {isLocked ? '\u{1F512}' : '\u{1F513}'}
-          </button>
+            {isChanged && <span style={{ color: '#ff9800', marginRight: 3 }}>●</span>}
+            {label}
+          </span>
+          <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            <button
+              className={`char-lock-btn nodrag ${isLocked ? 'locked' : ''}`}
+              onClick={() => toggleLock(key)}
+              title={isLocked ? 'Locked — click to unlock and allow editing' : 'Unlocked — click to lock'}
+              style={{ width: 18, height: 18, fontSize: 10 }}
+            >
+              {isLocked ? '\u{1F512}' : '\u{1F513}'}
+            </button>
+          </div>
         </div>
+        <textarea
+          className="char-input nodrag nowheel"
+          value={currentVal}
+          onChange={(e) => setAttr(key, e.target.value)}
+          disabled={isLocked}
+          placeholder={isLocked ? `🔒 Unlock to edit ${label.toLowerCase()}` : `Describe ${label.toLowerCase()}...`}
+          style={{
+            width: '100%',
+            minHeight: 80,
+            resize: 'vertical',
+            fontSize: 11,
+            lineHeight: 1.4,
+            padding: '5px 8px',
+            borderColor: isChanged ? 'rgba(255, 152, 0, 0.35)' : undefined,
+            opacity: isLocked ? 0.5 : 1,
+            cursor: isLocked ? 'not-allowed' : undefined,
+          }}
+          rows={4}
+        />
       </div>
     );
   };
 
-  const poseVal = attributes.pose ?? POSE_PRESETS[0].value;
-  const poseIsCustom = poseVal !== '' && !ALL_POSE_OPTIONS.includes(poseVal) && !POSE_PRESETS.some((p) => p.value === poseVal);
-  const poseLocked = !!locked.pose;
+  const changedCount = changedFields.size;
 
   return (
     <div className={`char-node ${selected ? 'selected' : ''}`} title={NODE_TOOLTIPS.charAttributes}>
       <div className="char-node-header" style={{ background: '#9c27b0', cursor: 'pointer' }} onClick={() => setMinimized((m) => !m)}>
-        Character Attributes
+        <span>
+          Character Attributes
+          {changedCount > 0 && (
+            <span style={{ marginLeft: 6, fontSize: 9, background: 'rgba(255,152,0,0.3)', padding: '1px 5px', borderRadius: 8 }}>
+              {changedCount} changed
+            </span>
+          )}
+        </span>
         <span style={{ marginLeft: 'auto', fontSize: 10, opacity: 0.7 }}>
           {minimized ? '\u25BC' : '\u25B2'} {Object.values(attributes).filter(Boolean).length}
         </span>
@@ -237,69 +245,29 @@ function CharAttributesNodeInner({ id, data, selected }: Props) {
         <div className="char-node-body" style={{ padding: '4px 10px' }}>
           <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
             {Object.values(attributes).filter(Boolean).length} attributes set
+            {changedCount > 0 && <span style={{ color: '#ff9800' }}> · {changedCount} changed</span>}
           </span>
         </div>
       )}
       {!minimized && (
-        <div className="char-node-body">
-          {ATTRIBUTE_GROUPS.map((g) => renderAttributeRow(g))}
+        <div className="char-node-body" style={{ gap: 6 }}>
+          {ATTRIBUTE_GROUPS.map((g) => renderAttributeRow(g.key, g.label))}
+          {renderAttributeRow('pose', 'Pose')}
 
-          <div className="char-attr-group" style={{ borderTop: '1px solid var(--border)', paddingTop: 6, marginTop: 4 }}>
-            <div className="char-attr-row">
-              <span className="char-attr-label">Pose</span>
-              {poseIsCustom ? (
-                <input
-                  className="char-input nodrag"
-                  style={{ flex: 1, margin: 0 }}
-                  value={poseVal}
-                  onChange={(e) => setAttr('pose', e.target.value)}
-                  placeholder="Custom pose description..."
-                />
-              ) : (
-                <select
-                  className="char-select nodrag"
-                  value={poseVal}
-                  onChange={(e) => {
-                    if (e.target.value === CUSTOM_VALUE) {
-                      setAttr('pose', '');
-                      return;
-                    }
-                    setAttr('pose', e.target.value);
-                  }}
-                  style={{ flex: 1 }}
-                >
-                  {POSE_PRESETS.map((p) => (
-                    <option key={p.value} value={p.value}>{p.label}</option>
-                  ))}
-                  <optgroup label="Common">
-                    {POSE_COMMON.filter((o) => !POSE_PRESETS.some((p) => p.value === o)).map((o) => (
-                      <option key={o} value={o}>{o}</option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Rare">
-                    {POSE_RARE.map((o) => (
-                      <option key={o} value={o}>{o}</option>
-                    ))}
-                  </optgroup>
-                  <option value={CUSTOM_VALUE}>Custom...</option>
-                </select>
-              )}
-              <button className="char-btn-sm nodrag" onClick={() => randomizeOne({ key: 'pose', common: POSE_COMMON, rare: POSE_RARE })} title="Random Pose">
-                R
-              </button>
-              <button
-                className={`char-lock-btn nodrag ${poseLocked ? 'locked' : ''}`}
-                onClick={() => toggleLock('pose')}
-                title={poseLocked ? 'Locked — AI will not overwrite' : 'Unlocked — AI may overwrite'}
-              >
-                {poseLocked ? '\u{1F512}' : '\u{1F513}'}
-              </button>
-            </div>
-          </div>
-          <div className="char-btn-row">
-            <button className="char-btn nodrag" onClick={randomizeAll}>
+          <div className="char-btn-row" style={{ display: 'flex', gap: 4 }}>
+            <button className="char-btn nodrag" onClick={randomizeAll} style={{ flex: 1 }}>
               Randomize All
             </button>
+            {changedCount > 0 && (
+              <button
+                className="char-btn nodrag"
+                onClick={clearHighlights}
+                style={{ fontSize: 10, padding: '4px 8px', color: '#ff9800', borderColor: 'rgba(255,152,0,0.3)' }}
+                title="Clear all change highlights and reset baseline"
+              >
+                Clear Changes
+              </button>
+            )}
           </div>
         </div>
       )}

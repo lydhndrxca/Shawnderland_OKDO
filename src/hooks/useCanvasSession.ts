@@ -249,17 +249,21 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
   );
 
   // ── Node CRUD ───────────────────────────────────────────────────
+  const FRAME_NODE_TYPES = new Set(['uiFrame', 'teFrame', 'group']);
+
   const addNodeToCanvas = useCallback(
     (nodeType: string, position?: { x: number; y: number }, extraData?: Record<string, unknown>) => {
       const id = `${idPrefix}-${nextId.current++}`;
       const defaults = nodeDefaults[nodeType];
       const defaultData = defaults?.data ?? {};
+      const isFrame = FRAME_NODE_TYPES.has(nodeType);
       const newNode: Node = {
         id,
         type: nodeType,
         position: position ?? { x: 200, y: 200 },
         data: { stageId: nodeType, ...defaultData, ...extraData },
         ...(defaults?.style ? { style: { width: defaults.style.width, height: defaults.style.height } } : {}),
+        ...(isFrame ? { zIndex: -1 } : {}),
       };
       setNodes((prev) => [...prev, newNode]);
       return id;
@@ -520,18 +524,14 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
 
   // ── Export / Save / Import ──────────────────────────────────────
   const getFlowSnapshot = useCallback(() => {
+    const SKIP_KEYS = new Set(['stageId', '_restoreTs']);
     const nodeData: Record<string, Record<string, unknown>> = {};
     for (const n of nodes) {
       const d = n.data as Record<string, unknown>;
       const entry: Record<string, unknown> = {};
-      if (n.type && persistNodeTypes.includes(n.type)) {
-        for (const [key, val] of Object.entries(d)) {
-          if (key !== 'stageId') entry[key] = val;
-        }
+      for (const [key, val] of Object.entries(d)) {
+        if (!SKIP_KEYS.has(key)) entry[key] = val;
       }
-      if (d.customInstructions) entry.customInstructions = d.customInstructions;
-      if (d.subName) entry.subName = d.subName;
-      if (d.__pinned) entry.__pinned = d.__pinned;
       if (Object.keys(entry).length > 0) nodeData[n.id] = entry;
     }
     return {
@@ -539,7 +539,7 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
       edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle })),
       nodeData,
     };
-  }, [nodes, edges, persistNodeTypes]);
+  }, [nodes, edges]);
 
   const saveAndCopy = useCallback((json: string, filename: string) => {
     const blob = new Blob([json], { type: 'application/json' });
@@ -553,18 +553,14 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
   }, []);
 
   const buildNodeExport = useCallback((targetNodes: Node[], includeStyle = true) => {
+    const SKIP_KEYS = new Set(['stageId', '_restoreTs']);
     const nodeData: Record<string, Record<string, unknown>> = {};
     for (const n of targetNodes) {
       const d = n.data as Record<string, unknown>;
       const entry: Record<string, unknown> = {};
-      if (n.type && persistNodeTypes.includes(n.type)) {
-        for (const [key, val] of Object.entries(d)) {
-          if (key !== 'stageId') entry[key] = val;
-        }
+      for (const [key, val] of Object.entries(d)) {
+        if (!SKIP_KEYS.has(key)) entry[key] = val;
       }
-      if (d.customInstructions) entry.customInstructions = d.customInstructions;
-      if (d.subName) entry.subName = d.subName;
-      if (d.__pinned) entry.__pinned = d.__pinned;
       if (Object.keys(entry).length > 0) nodeData[n.id] = entry;
     }
     return {
@@ -577,7 +573,7 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
       }),
       nodeData,
     };
-  }, [persistNodeTypes]);
+  }, []);
 
   const exportLayoutJSON = useCallback(() => {
     const snapshot = getFlowSnapshot();
@@ -635,16 +631,26 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
   const restoreSnapshot = useCallback((saved: LayoutSnapshot): boolean => {
     try {
       const nd = saved.nodeData ?? {};
+      const RUNTIME_KEYS = new Set(['generating', '_orthoTrigger', '_pendingSnapshot', '_restoreTs']);
+      const restoreTs = Date.now();
       const restoredNodes: Node[] = saved.nodes
         .filter((n) => !validTypes || !n.type || validTypes.has(n.type))
-        .map((n) => ({
-          id: n.id,
-          type: n.type,
-          position: n.position,
-          data: { stageId: n.type, ...nd[n.id] },
-          draggable: nd[n.id]?.__pinned ? false : undefined,
-          style: n.style as Record<string, unknown> | undefined,
-        }));
+        .map((n) => {
+          const raw = nd[n.id] ?? {};
+          const cleaned: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(raw)) {
+            if (!RUNTIME_KEYS.has(k)) cleaned[k] = v;
+          }
+          return {
+            id: n.id,
+            type: n.type,
+            position: n.position,
+            data: { stageId: n.type, ...cleaned, _restoreTs: restoreTs },
+            draggable: raw.__pinned ? false : undefined,
+            style: n.style as Record<string, unknown> | undefined,
+            ...(FRAME_NODE_TYPES.has(n.type ?? '') ? { zIndex: -1 } : {}),
+          };
+        });
       const validNodeIds = new Set(restoredNodes.map((n) => n.id));
       const restoredEdges: Edge[] = saved.edges
         .filter((e) => validNodeIds.has(e.source) && validNodeIds.has(e.target))
@@ -764,12 +770,13 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
 
   const buildSessionSnapshot = useCallback((): SessionSnapshot => {
     const vp = reactFlow.getViewport();
+    const SKIP_KEYS = new Set(['stageId', '_restoreTs']);
     const fullNodeData: Record<string, Record<string, unknown>> = {};
     for (const n of nodes) {
       const d = n.data as Record<string, unknown>;
       const entry: Record<string, unknown> = {};
       for (const [key, val] of Object.entries(d)) {
-        if (key !== 'stageId') entry[key] = val;
+        if (!SKIP_KEYS.has(key)) entry[key] = val;
       }
       if (Object.keys(entry).length > 0) fullNodeData[n.id] = entry;
     }
@@ -792,16 +799,26 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
   const restoreSessionSnapshot = useCallback((saved: SessionSnapshot): boolean => {
     try {
       const nd = saved.fullNodeData ?? saved.nodeData ?? {};
+      const RUNTIME_KEYS = new Set(['generating', '_orthoTrigger', '_pendingSnapshot', '_restoreTs']);
+      const restoreTs = Date.now();
       const restoredNodes: Node[] = saved.nodes
         .filter((n) => !validTypes || !n.type || validTypes.has(n.type))
-        .map((n) => ({
-          id: n.id,
-          type: n.type,
-          position: n.position,
-          data: { stageId: n.type, ...nd[n.id] },
-          draggable: nd[n.id]?.__pinned ? false : undefined,
-          style: n.style as Record<string, unknown> | undefined,
-        }));
+        .map((n) => {
+          const raw = nd[n.id] ?? {};
+          const cleaned: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(raw)) {
+            if (!RUNTIME_KEYS.has(k)) cleaned[k] = v;
+          }
+          return {
+            id: n.id,
+            type: n.type,
+            position: n.position,
+            data: { stageId: n.type, ...cleaned, _restoreTs: restoreTs },
+            draggable: raw.__pinned ? false : undefined,
+            style: n.style as Record<string, unknown> | undefined,
+            ...(FRAME_NODE_TYPES.has(n.type ?? '') ? { zIndex: -1 } : {}),
+          };
+        });
       const validNodeIds = new Set(restoredNodes.map((n) => n.id));
       const restoredEdges: Edge[] = saved.edges
         .filter((e) => validNodeIds.has(e.source) && validNodeIds.has(e.target))
@@ -826,24 +843,110 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
   }, [setNodes, setEdges, reactFlow, validTypes]);
 
   const saveSessionNamed = useCallback(async (name: string): Promise<{ ok: boolean; error?: string }> => {
-    const result = await storeSaveSession(appKey, name, buildSessionSnapshot());
+    const snapshot = buildSessionSnapshot();
+
+    // Log what image-bearing data is being captured
+    const nodeIds = Object.keys(snapshot.fullNodeData);
+    const imageFields: string[] = [];
+    for (const nid of nodeIds) {
+      const nd = snapshot.fullNodeData[nid];
+      if (nd.generatedImage) imageFields.push(`${nid}:generatedImage`);
+      if (nd.styleImages) imageFields.push(`${nid}:styleImages(${(nd.styleImages as unknown[]).length})`);
+      if (nd.imageBase64) imageFields.push(`${nid}:imageBase64`);
+      if (nd.localImage) imageFields.push(`${nid}:localImage`);
+      if (nd.historyEntries) imageFields.push(`${nid}:historyEntries(${(nd.historyEntries as unknown[]).length})`);
+    }
+    console.log(`[saveSessionNamed] "${name}" — ${nodeIds.length} nodes, image fields:`, imageFields);
+
+    const result = await storeSaveSession(appKey, name, snapshot);
     if (result.ok) {
       setActiveSessionName(name);
       refreshSessionsList();
     }
+
+    // Persist to filesystem so data survives browser resets
+    try {
+      const jsonBody = JSON.stringify({ name, snapshot });
+      const sizeMB = (jsonBody.length / (1024 * 1024)).toFixed(2);
+      console.log(`[saveSessionNamed] Sending ${sizeMB} MB to filesystem API...`);
+      const res = await fetch('/api/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: jsonBody,
+      });
+      if (res.ok) {
+        const resData = await res.json();
+        console.log(`[saveSessionNamed] Filesystem save OK:`, resData);
+      } else {
+        console.warn(`[saveSessionNamed] Filesystem save failed: ${res.status} ${res.statusText}`);
+      }
+    } catch (e) {
+      console.warn('[saveSessionNamed] filesystem save failed:', e);
+    }
+
     return result;
   }, [appKey, buildSessionSnapshot, refreshSessionsList]);
 
   const saveCurrentSession = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
     if (!activeSessionName) return { ok: false, error: 'No active session' };
-    const result = await storeSaveSession(appKey, activeSessionName, buildSessionSnapshot());
+    const snapshot = buildSessionSnapshot();
+    const result = await storeSaveSession(appKey, activeSessionName, snapshot);
     if (result.ok) refreshSessionsList();
+
+    try {
+      await fetch('/api/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: activeSessionName, snapshot }),
+      });
+    } catch (e) {
+      console.warn('[saveCurrentSession] filesystem save failed:', e);
+    }
+
     return result;
   }, [appKey, activeSessionName, buildSessionSnapshot, refreshSessionsList]);
 
   const loadSessionNamed = useCallback(async (name: string): Promise<boolean> => {
-    const snap = await storeLoadSession(appKey, name);
-    if (!snap) return false;
+    // Try filesystem first (survives browser resets)
+    let snap: SessionSnapshot | null = null;
+    let source = 'none';
+    try {
+      const res = await fetch(`/api/session?name=${encodeURIComponent(name)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.snapshot) {
+          snap = data.snapshot as SessionSnapshot;
+          source = 'filesystem';
+        }
+      }
+    } catch (e) {
+      console.warn('[loadSessionNamed] filesystem load failed, falling back to IndexedDB:', e);
+    }
+
+    // Fallback to IndexedDB
+    if (!snap) {
+      snap = await storeLoadSession(appKey, name);
+      if (snap) source = 'IndexedDB';
+    }
+    if (!snap) {
+      console.warn(`[loadSessionNamed] "${name}" not found in filesystem or IndexedDB`);
+      return false;
+    }
+
+    // Log what we're restoring
+    const nd = snap.fullNodeData ?? snap.nodeData ?? {};
+    const nodeIds = Object.keys(nd);
+    const imageFields: string[] = [];
+    for (const nid of nodeIds) {
+      const d = nd[nid];
+      if (d.generatedImage) imageFields.push(`${nid}:generatedImage`);
+      if (d.styleImages) imageFields.push(`${nid}:styleImages(${(d.styleImages as unknown[]).length})`);
+      if (d.imageBase64) imageFields.push(`${nid}:imageBase64`);
+      if (d.localImage) imageFields.push(`${nid}:localImage`);
+      if (d.historyEntries) imageFields.push(`${nid}:historyEntries(${(d.historyEntries as unknown[]).length})`);
+    }
+    console.log(`[loadSessionNamed] "${name}" from ${source} — ${snap.nodes.length} nodes, ${snap.edges.length} edges, image fields:`, imageFields);
+
     const ok = restoreSessionSnapshot(snap);
     if (ok) setActiveSessionName(name);
     return ok;
@@ -853,18 +956,84 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     await storeDeleteSession(appKey, name);
     if (activeSessionName === name) setActiveSessionName(null);
     refreshSessionsList();
+
+    try {
+      await fetch(`/api/session?name=${encodeURIComponent(name)}`, { method: 'DELETE' });
+    } catch (e) {
+      console.warn('[deleteSessionNamed] filesystem delete failed:', e);
+    }
   }, [appKey, activeSessionName, refreshSessionsList]);
 
-  // ── Auto-load default layout on mount ──────────────────────────
+  // ── Auto-load on mount: check auto-save first, then named layouts ──
   const mountedRef = useRef(false);
+  const isRestoringRef = useRef(false);
   useEffect(() => {
     if (mountedRef.current) return;
     mountedRef.current = true;
-    const snap = loadDefaultOrLatest(appKey);
-    if (snap) {
-      restoreSnapshot(snap);
-    }
+    isRestoringRef.current = true;
+
+    let snap: LayoutSnapshot | null = null;
+
+    // 1) Try the auto-save key (has ALL node data including text fields)
+    try {
+      const raw = localStorage.getItem(`shawnderland-layout-${appKey}`);
+      if (raw) snap = JSON.parse(raw) as LayoutSnapshot;
+    } catch { /* corrupt data, skip */ }
+
+    // 2) Fallback to named layouts / default
+    if (!snap) snap = loadDefaultOrLatest(appKey);
+
+    if (snap) restoreSnapshot(snap);
+    setTimeout(() => { isRestoringRef.current = false; }, 500);
   }, [appKey, restoreSnapshot]);
+
+  // ── Auto-save to localStorage on every change (debounced) ─────
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!mountedRef.current || isRestoringRef.current) return;
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      try {
+        const snapshot = getFlowSnapshot();
+        const vp = reactFlow.getViewport();
+        const nodesWithStyle = nodes.map((n) => {
+          const base: Record<string, unknown> = { id: n.id, position: n.position, type: n.type };
+          if (n.style && (n.style.width || n.style.height)) {
+            base.style = { width: n.style.width, height: n.style.height };
+          }
+          return base;
+        });
+        localStorage.setItem(
+          `shawnderland-layout-${appKey}`,
+          JSON.stringify({ ...snapshot, nodes: nodesWithStyle, viewport: vp }),
+        );
+      } catch { /* quota exceeded or other error — silently skip */ }
+    }, 2000);
+    return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
+  }, [nodes, edges, appKey, getFlowSnapshot, reactFlow]);
+
+  // ── Save on page unload ───────────────────────────────────────
+  useEffect(() => {
+    const handleUnload = () => {
+      try {
+        const snapshot = getFlowSnapshot();
+        const vp = reactFlow.getViewport();
+        const nodesWithStyle = nodes.map((n) => {
+          const base: Record<string, unknown> = { id: n.id, position: n.position, type: n.type };
+          if (n.style && (n.style.width || n.style.height)) {
+            base.style = { width: n.style.width, height: n.style.height };
+          }
+          return base;
+        });
+        localStorage.setItem(
+          `shawnderland-layout-${appKey}`,
+          JSON.stringify({ ...snapshot, nodes: nodesWithStyle, viewport: vp }),
+        );
+      } catch { /* best-effort */ }
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => window.removeEventListener('beforeunload', handleUnload);
+  }, [nodes, edges, appKey, getFlowSnapshot, reactFlow]);
 
   return {
     nodes,

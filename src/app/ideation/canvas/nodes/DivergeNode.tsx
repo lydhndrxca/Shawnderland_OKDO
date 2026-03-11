@@ -2,18 +2,12 @@
 
 import { useCallback } from 'react';
 import type { NodeProps } from '@xyflow/react';
-import { Handle, Position, useReactFlow } from '@xyflow/react';
+import { useReactFlow } from '@xyflow/react';
 import BaseNode from './BaseNode';
 import type { NodeStatus } from './BaseNode';
 import { useSession } from '@/lib/ideation/context/SessionContext';
 import { getStageOutput, isStageStale } from '@/lib/ideation/state/sessionSelectors';
 import type { DivergeOutput } from '@/lib/ideation/engine/schemas';
-
-const SUB_HANDLES = [
-  { id: 'practical', label: 'Practical', color: '#69f0ae' },
-  { id: 'inversion', label: 'Inversion', color: '#ff8a65' },
-  { id: 'constraint', label: 'Constraint', color: '#ce93d8' },
-] as const;
 
 export default function DivergeNode({ data, selected, id: nodeId }: NodeProps) {
   const nodeSubName = ((data as Record<string, unknown>).subName as string) ?? '';
@@ -39,7 +33,7 @@ export default function DivergeNode({ data, selected, id: nodeId }: NodeProps) {
   const lensCount = (lens: string) => output?.candidates.filter(c => c.lens === lens).length ?? 0;
 
   return (
-    <BaseNode stageId="diverge" status={status} selected={selected} onRun={handleRun} hideSourceHandle subName={nodeSubName}>
+    <BaseNode stageId="diverge" status={status} selected={selected} onRun={handleRun} subName={nodeSubName}>
       {output ? (
         <>
           <div className="base-node-stat">
@@ -84,20 +78,6 @@ export default function DivergeNode({ data, selected, id: nodeId }: NodeProps) {
         </div>
       </div>
 
-      <div className="multi-handle-group">
-        {SUB_HANDLES.map((h) => (
-          <div key={h.id} className="multi-handle-row" title={`${h.label} lens candidates`}>
-            <span className="multi-handle-label">{h.label}</span>
-            <Handle
-              type="source"
-              position={Position.Right}
-              id={h.id}
-              className="base-handle source-handle"
-              style={{ background: h.color }}
-            />
-          </div>
-        ))}
-      </div>
     </BaseNode>
   );
 }

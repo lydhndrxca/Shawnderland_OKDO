@@ -18,3 +18,6 @@ export { default as RandomizeNode } from './RandomizeNode';
 export { default as CustomViewNode } from './CustomViewNode';
 export { default as GeminiEditorNode } from './GeminiEditorNode';
 export { default as DetachedViewerNode } from './DetachedViewerNode';
+export { default as UpscaleNode } from './UpscaleNode';
+export { default as RestoreQualityNode } from './RestoreQualityNode';
+export { default as CreativeDirectorNode } from './CreativeDirectorNode';

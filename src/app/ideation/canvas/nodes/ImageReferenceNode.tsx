@@ -1,7 +1,7 @@
 "use client";
 
-import { memo, useCallback, useState } from 'react';
-import { Handle, Position } from '@xyflow/react';
+import { memo, useCallback, useEffect, useState } from 'react';
+import { Handle, Position, useReactFlow } from '@xyflow/react';
 import './ImageReferenceNode.css';
 
 interface ImageReferenceNodeProps {
@@ -10,7 +10,8 @@ interface ImageReferenceNodeProps {
   selected?: boolean;
 }
 
-function ImageReferenceNodeInner({ data, selected }: ImageReferenceNodeProps) {
+function ImageReferenceNodeInner({ id, data, selected }: ImageReferenceNodeProps) {
+  const { setNodes } = useReactFlow();
   const initialBase64 = (data?.imageBase64 as string) || '';
   const initialMime = (data?.mimeType as string) || '';
   const initialName = (data?.fileName as string) || '';
@@ -19,6 +20,29 @@ function ImageReferenceNodeInner({ data, selected }: ImageReferenceNodeProps) {
   const [mimeType, setMimeType] = useState(initialMime);
   const [fileName, setFileName] = useState(initialName);
   const [expanded, setExpanded] = useState(false);
+
+  // Sync state when node data changes externally (e.g. session restore)
+  useEffect(() => {
+    const b64 = (data?.imageBase64 as string) || '';
+    const mime = (data?.mimeType as string) || '';
+    const name = (data?.fileName as string) || '';
+    if (b64 !== imageBase64) setImageBase64(b64);
+    if (mime !== mimeType) setMimeType(mime);
+    if (name !== fileName) setFileName(name);
+  }, [data?.imageBase64, data?.mimeType, data?.fileName]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const persistImage = useCallback((b64: string, mime: string, name: string) => {
+    setImageBase64(b64);
+    setMimeType(mime);
+    setFileName(name);
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === id
+          ? { ...n, data: { ...n.data, imageBase64: b64, mimeType: mime, fileName: name } }
+          : n,
+      ),
+    );
+  }, [id, setNodes]);
 
   const handleOpen = useCallback(() => {
     const input = document.createElement('input');
@@ -32,14 +56,12 @@ function ImageReferenceNodeInner({ data, selected }: ImageReferenceNodeProps) {
         const dataUrl = reader.result as string;
         const parts = dataUrl.split(',');
         const mime = parts[0].match(/:(.*?);/)?.[1] ?? 'image/png';
-        setImageBase64(parts[1]);
-        setMimeType(mime);
-        setFileName(file.name);
+        persistImage(parts[1], mime, file.name);
       };
       reader.readAsDataURL(file);
     };
     input.click();
-  }, []);
+  }, [persistImage]);
 
   const handlePaste = useCallback(async () => {
     try {
@@ -53,9 +75,7 @@ function ImageReferenceNodeInner({ data, selected }: ImageReferenceNodeProps) {
             const dataUrl = reader.result as string;
             const parts = dataUrl.split(',');
             const mime = parts[0].match(/:(.*?);/)?.[1] ?? 'image/png';
-            setImageBase64(parts[1]);
-            setMimeType(mime);
-            setFileName('pasted-image');
+            persistImage(parts[1], mime, 'pasted-image');
           };
           reader.readAsDataURL(blob);
           return;
@@ -64,7 +84,7 @@ function ImageReferenceNodeInner({ data, selected }: ImageReferenceNodeProps) {
     } catch {
       /* clipboard access may fail */
     }
-  }, []);
+  }, [persistImage]);
 
   const hasImage = !!imageBase64;
 

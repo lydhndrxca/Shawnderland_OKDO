@@ -38,45 +38,8 @@ const EDGE_TYPES: EdgeTypes = {
 const DOCK_CATEGORIES = ALL_DOCK_CATEGORIES;
 const CTX_CATEGORIES = ALL_CTX_CATEGORIES;
 
-/* ---------- Character Preset ---------- */
-const CHAR_PRESET_NODES: Node[] = [
-  { id: 'cl-charId', type: 'charIdentity', position: { x: 60, y: 60 }, data: {} },
-  { id: 'cl-charAttr', type: 'charAttributes', position: { x: 60, y: 520 }, data: {} },
-  { id: 'cl-charViewer', type: 'charViewer', position: { x: 500, y: 60 }, data: {} },
-  { id: 'cl-charEdit', type: 'charEdit', position: { x: 500, y: 500 }, data: {} },
-  { id: 'cl-charTurn', type: 'turnaround', position: { x: 1060, y: 60 }, data: {} },
-  { id: 'cl-charEmo', type: 'emotion', position: { x: 60, y: -80 }, data: {} },
-];
-const CHAR_PRESET_EDGES: Edge[] = [
-  { id: 'ce-attr-id', type: 'pipeline', source: 'cl-charAttr', target: 'cl-charId', sourceHandle: 'attrs-out', targetHandle: 'attr-in', data: { isComplete: true } },
-  { id: 'ce-id-viewer', type: 'pipeline', source: 'cl-charId', target: 'cl-charViewer', sourceHandle: 'image-out', targetHandle: 'input', data: { isComplete: true } },
-  { id: 'ce-id-edit', type: 'pipeline', source: 'cl-charId', target: 'cl-charEdit', sourceHandle: 'image-out', targetHandle: 'image-in', data: { isComplete: true } },
-  { id: 'ce-id-turn', type: 'pipeline', source: 'cl-charId', target: 'cl-charTurn', sourceHandle: 'image-out', targetHandle: 'ref-image', data: { isComplete: true } },
-];
-
-/* ---------- Weapon Preset ---------- */
-const WEAPON_PRESET_NODES: Node[] = [
-  { id: 'cl-weapGen', type: 'weapBase', position: { x: 60, y: 60 }, data: {} },
-  { id: 'cl-weapComp', type: 'weapComponents', position: { x: 60, y: 500 }, data: {} },
-  { id: 'cl-weapViewer', type: 'charViewer', position: { x: 500, y: 60 }, data: {} },
-  { id: 'cl-weapEdit', type: 'charEdit', position: { x: 500, y: 500 }, data: {} },
-  { id: 'cl-weapTurn', type: 'turnaround', position: { x: 1060, y: 60 }, data: {} },
-  { id: 'cl-weapRef', type: 'imageReference', position: { x: 60, y: -80 }, data: {} },
-];
-const WEAPON_PRESET_EDGES: Edge[] = [
-  { id: 'we-comp-gen', type: 'pipeline', source: 'cl-weapComp', target: 'cl-weapGen', sourceHandle: 'comps-out', targetHandle: 'comp-in', data: { isComplete: true } },
-  { id: 'we-ref-gen', type: 'pipeline', source: 'cl-weapRef', target: 'cl-weapGen', sourceHandle: 'ref-out', targetHandle: 'ref-image', data: { isComplete: true } },
-  { id: 'we-gen-viewer', type: 'pipeline', source: 'cl-weapGen', target: 'cl-weapViewer', sourceHandle: 'image-out', targetHandle: 'image-in', data: { isComplete: true } },
-  { id: 'we-gen-edit', type: 'pipeline', source: 'cl-weapGen', target: 'cl-weapEdit', sourceHandle: 'image-out', targetHandle: 'image-in', data: { isComplete: true } },
-  { id: 'we-gen-turn', type: 'pipeline', source: 'cl-weapGen', target: 'cl-weapTurn', sourceHandle: 'image-out', targetHandle: 'ref-image', data: { isComplete: true } },
-];
-
-/* ---------- Props Preset (blank) ---------- */
-const PROPS_PRESET_NODES: Node[] = [
-  { id: 'cl-txt1', type: 'textInfluence', position: { x: 60, y: 200 }, data: {} },
-  { id: 'cl-img1', type: 'imageReference', position: { x: 60, y: 400 }, data: {} },
-];
-const PROPS_PRESET_EDGES: Edge[] = [];
+const DEFAULT_NODES: Node[] = [];
+const DEFAULT_EDGES: Edge[] = [];
 
 interface CtxMenuState { x: number; y: number; nodeId?: string; edgeId?: string }
 
@@ -98,8 +61,8 @@ function ConceptLabCanvas() {
 
   const cs = useCanvasSession({
     appKey: 'concept-lab',
-    initialNodes: CHAR_PRESET_NODES,
-    initialEdges: CHAR_PRESET_EDGES,
+    initialNodes: DEFAULT_NODES,
+    initialEdges: DEFAULT_EDGES,
     idPrefix: 'cl',
     nodeDefaults: NODE_DEFAULTS,
     registeredNodeTypes: registeredTypes,
@@ -179,6 +142,27 @@ function ConceptLabCanvas() {
   const onDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
+
+      // File group drop from Files tab
+      const fileGroupId = e.dataTransfer.getData('application/shawnderland-file-group');
+      if (fileGroupId) {
+        const pos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+        import('@/lib/filesStore').then(({ getGroup }) =>
+          getGroup(fileGroupId).then((group) => {
+            if (!group) return;
+            group.images.forEach((img, i) => {
+              const offset = { x: pos.x + i * 420, y: pos.y };
+              cs.addNodeToCanvas('charMainViewer', offset, {
+                generatedImage: { base64: img.base64, mimeType: img.mimeType },
+                viewKey: 'main',
+                customLabel: `${group.name} — ${img.viewName}`,
+              });
+            });
+          }),
+        );
+        return;
+      }
+
       const type = e.dataTransfer.getData('application/cl-node-type');
       if (!type) return;
       const pos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
@@ -255,11 +239,7 @@ function ConceptLabCanvas() {
   const memoNodeTypes = useMemo(() => NODE_TYPES, []);
   const memoEdgeTypes = useMemo(() => EDGE_TYPES, []);
 
-  const presetTemplates = useMemo(() => [
-    { label: 'Character Generator', icon: '\u{1F464}', nodes: CHAR_PRESET_NODES, edges: CHAR_PRESET_EDGES },
-    { label: 'Weapon Generator', icon: '\u{1F52B}', nodes: WEAPON_PRESET_NODES, edges: WEAPON_PRESET_EDGES },
-    { label: 'Props (Blank)', icon: '\u{1F4E6}', nodes: PROPS_PRESET_NODES, edges: PROPS_PRESET_EDGES },
-  ], []);
+  const presetTemplates = useMemo(() => [] as { label: string; icon: string; nodes: Node[]; edges: Edge[] }[], []);
 
   const isPinned = ctxMenu?.nodeId
     ? !!(cs.nodes.find((n) => n.id === ctxMenu.nodeId)?.data as Record<string, unknown>)?.__pinned
@@ -333,7 +313,7 @@ function ConceptLabCanvas() {
             onDrop={onDrop}
             onNodeClick={(_, node) => cs.setSelectedNodeId(node.id)}
             onNodeDoubleClick={(_, node) => {
-              if (node.type === 'geminiEditor') setEditorNodeId(node.id);
+              if (node.type === 'imageStudio') setEditorNodeId(node.id);
             }}
             onPaneClick={() => { cs.setSelectedNodeId(null); setCtxMenu(null); }}
             onPaneContextMenu={(e) => handlePaneContextMenu(e as unknown as React.MouseEvent)}

@@ -75,9 +75,4 @@
   padding: 8px 0;
 }
 
-.text-output-handle {
-  width: 10px;
-  height: 10px;
-  border: 2px solid var(--bg-surface);
-  border-radius: 50%;
-}
+/* .text-output-handle — unified in CanvasCommon.css */

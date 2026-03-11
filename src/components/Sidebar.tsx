@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Palette,
   Brain,
@@ -9,13 +10,16 @@ import {
   Wrench,
   Sparkles,
   Home,
+  FolderOpen,
   Settings,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { TOOLS } from "@/lib/registry";
 import { useWorkspace, WorkspaceLink } from "@/lib/workspace/WorkspaceContext";
+import { SidebarFilesPanel } from "./SidebarFilesPanel";
 
 const ICON_MAP: Record<
   string,
@@ -41,11 +45,12 @@ export function Sidebar({
   onToggleCollapse,
 }: SidebarProps) {
   const { activePath } = useWorkspace();
+  const [filesOpen, setFilesOpen] = useState(false);
 
   return (
     <aside
       className={cn(
-        "relative flex shrink-0 border-r border-border bg-card/50 backdrop-blur-sm transition-[width] duration-200 ease-in-out overflow-hidden",
+        "relative flex shrink-0 border-r border-border bg-card/95 transition-[width] duration-200 ease-in-out overflow-hidden",
         collapsed ? "w-[72px]" : "w-[420px]",
       )}
     >
@@ -77,6 +82,32 @@ export function Sidebar({
               Home
             </WorkspaceLink>
 
+            <button
+              type="button"
+              onClick={() => setFilesOpen((v) => !v)}
+              className={cn(
+                "relative flex items-center gap-3 rounded-lg px-4 py-3 text-base font-medium transition-all w-full text-left cursor-pointer",
+                filesOpen
+                  ? "bg-primary/10 text-foreground"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+              )}
+              style={{ border: 'none', background: filesOpen ? undefined : 'transparent' }}
+            >
+              {filesOpen && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[3px] rounded-r-full bg-primary" />
+              )}
+              <FolderOpen className="h-5 w-5 shrink-0" />
+              Files
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 ml-auto transition-transform duration-150",
+                  filesOpen ? "" : "-rotate-90",
+                )}
+                style={{ opacity: 0.5 }}
+              />
+            </button>
+            <SidebarFilesPanel open={filesOpen} />
+
             <WorkspaceLink
               href="/settings"
               className={cn(
@@ -99,7 +130,7 @@ export function Sidebar({
               Applications
             </p>
 
-            {TOOLS.map((tool) => {
+            {TOOLS.filter((t) => !t.hidden).map((tool) => {
               const Icon = ICON_MAP[tool.icon] || Layout;
               const active = activePath.startsWith(tool.href);
 

@@ -1,5 +1,35 @@
 /* Shared canvas styles used across all canvas-based applications */
 
+/* ── Unified handle (connection dot) styling ──
+   Single source of truth for every node in every canvas app.
+   12px visible dot, black outline, sits on the node edge, generous hit area. */
+
+.react-flow__handle {
+  width: 12px !important;
+  height: 12px !important;
+  border: 2px solid #0f0f1a !important;
+  border-radius: 50% !important;
+  background: #b0b0b0 !important;
+  transition: box-shadow 0.15s, background 0.15s !important;
+  z-index: 5;
+}
+
+.react-flow__handle::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+}
+
+.react-flow__handle:hover {
+  background: #fff !important;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.5) !important;
+}
+
+.react-flow__handle.connecting {
+  background: #69f0ae !important;
+}
+
 .cut-line-overlay {
   position: absolute;
   inset: 0;
@@ -12,5 +42,5 @@
   stroke-width: 2;
   stroke-dasharray: 6 4;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 4px rgba(239, 83, 80, 0.5));
+  stroke-opacity: 0.9;
 }

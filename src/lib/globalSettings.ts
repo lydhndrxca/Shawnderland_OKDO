@@ -8,12 +8,14 @@ import { useSyncExternalStore } from 'react';
 
 export interface GlobalSettings {
   outputDir: string;
+  threeDExportDir: string;
 }
 
 const STORAGE_KEY = 'shawnderland-global-settings';
 
 const DEFAULTS: GlobalSettings = {
   outputDir: '',
+  threeDExportDir: '',
 };
 
 const listeners = new Set<() => void>();

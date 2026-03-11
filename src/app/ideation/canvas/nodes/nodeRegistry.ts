@@ -108,7 +108,6 @@ export type ControlNodeType = 'start';
 export type ResultNodeType = 'resultNode';
 export type GroupNodeType = 'group';
 export type PackedPipelineNodeType = 'packedPipeline';
-export type ConceptLabNodeType = 'character' | 'weapon' | 'turnaround';
 export type CharGeneratorNodeType =
   | 'charIdentity' | 'charDescription' | 'charAttributes'
   | 'charExtractAttrs' | 'charEnhanceDesc'
@@ -117,8 +116,11 @@ export type CharGeneratorNodeType =
   | 'charEdit' | 'charHistory'
   | 'charReset' | 'charSendPS' | 'charShowXML' | 'charQuickGen' | 'charProject'
   | 'charGate' | 'charMainViewer' | 'charFrontViewer' | 'charBackViewer' | 'charSideViewer'
-  | 'charStyle' | 'charImageBucket' | 'charRandomize' | 'charCustomView';
-export type AnyNodeType = StageId | OutputNodeType | InputNodeType | InfluenceNodeType | PromptInjectionNodeType | UtilityNodeType | ControlNodeType | ResultNodeType | GroupNodeType | PackedPipelineNodeType | ConceptLabNodeType | CharGeneratorNodeType;
+  | 'charStyle' | 'charImageBucket' | 'charRandomize' | 'charCustomView'
+  | 'charSaveGroup' | 'charUpscale' | 'charRestore' | 'charCreativeDirector' | 'imageStudio' | 'geminiEditor' | 'detachedViewer';
+export type ThreeDGenNodeType = 'meshyImageTo3D' | 'meshyModelViewer' | 'hitem3dImageTo3D';
+export type AudioAINodeType = 'elTTS' | 'elSFX' | 'elVoiceClone' | 'elVoiceScript' | 'elVoiceDesigner' | 'elDialogueWriter';
+export type AnyNodeType = StageId | OutputNodeType | InputNodeType | InfluenceNodeType | PromptInjectionNodeType | UtilityNodeType | ControlNodeType | ResultNodeType | GroupNodeType | PackedPipelineNodeType | CharGeneratorNodeType | ThreeDGenNodeType | AudioAINodeType;
 
 export interface OutputNodeMeta {
   type: OutputNodeType;
@@ -240,22 +242,6 @@ export const PROMPT_INJECTION_NODE_META: Record<PromptInjectionNodeType, PromptI
 
 export const PROMPT_INJECTION_NODE_TYPES: PromptInjectionNodeType[] = ['preprompt', 'postprompt'];
 
-export interface ControlNodeMeta {
-  type: ControlNodeType;
-  label: string;
-  color: string;
-  tooltip: string;
-}
-
-export const CONTROL_NODE_META: Record<ControlNodeType, ControlNodeMeta> = {
-  start: {
-    type: 'start',
-    label: 'Start',
-    color: '#42a5f5',
-    tooltip: 'Run controller \u2014 choose Automated to run the full pipeline end-to-end, or Interactive for step-by-step guidance.',
-  },
-};
-
 export interface GroupNodeMeta {
   type: GroupNodeType;
   label: string;
@@ -269,22 +255,6 @@ export const GROUP_NODE_META: Record<GroupNodeType, GroupNodeMeta> = {
     label: 'Group',
     color: '#607d8b',
     tooltip: 'A visual collection of nodes. Double-click to expand or collapse. Select nodes and right-click to create a group.',
-  },
-};
-
-export interface PackedPipelineNodeMeta {
-  type: PackedPipelineNodeType;
-  label: string;
-  color: string;
-  tooltip: string;
-}
-
-export const PACKED_PIPELINE_NODE_META: Record<PackedPipelineNodeType, PackedPipelineNodeMeta> = {
-  packedPipeline: {
-    type: 'packedPipeline',
-    label: 'Full Pipeline',
-    color: '#4db6ac',
-    tooltip: 'A compact view of the entire pipeline. Right-click to expand into individual stages.',
   },
 };
 
@@ -330,38 +300,7 @@ export const OUTPUT_NODE_TYPES: OutputNodeType[] = ['textOutput', 'imageOutput',
 export const INPUT_NODE_TYPES: InputNodeType[] = ['count'];
 export const INFLUENCE_NODE_TYPES: InfluenceNodeType[] = ['emotion', 'influence', 'textInfluence', 'documentInfluence', 'imageInfluence', 'linkInfluence', 'videoInfluence'];
 export const UTILITY_NODE_TYPES: UtilityNodeType[] = ['imageReference', 'extractData'];
-export const CONTROL_NODE_TYPES: ControlNodeType[] = ['start'];
-export const RESULT_NODE_TYPES: ResultNodeType[] = ['resultNode'];
 export const GROUP_NODE_TYPES: GroupNodeType[] = ['group'];
-export const CONCEPTLAB_NODE_TYPES: ConceptLabNodeType[] = ['character', 'weapon', 'turnaround'];
-
-export interface ConceptLabNodeMeta {
-  type: ConceptLabNodeType;
-  label: string;
-  color: string;
-  tooltip: string;
-}
-
-export const CONCEPTLAB_NODE_META: Record<ConceptLabNodeType, ConceptLabNodeMeta> = {
-  character: {
-    type: 'character',
-    label: 'Character',
-    color: '#7c4dff',
-    tooltip: 'Design a character with detailed attribute controls. Generate full-body images with AI. Expand the side panel for clothing, gear, and identity options.',
-  },
-  weapon: {
-    type: 'weapon',
-    label: 'Weapon',
-    color: '#ff6d00',
-    tooltip: 'Design a weapon with component-level controls. Generate weapon renders with AI. Expand the side panel for receiver, barrel, stock, finish, and condition.',
-  },
-  turnaround: {
-    type: 'turnaround',
-    label: 'Turnaround',
-    color: '#00bfa5',
-    tooltip: 'Generate multi-view turnaround sheets from a Character or Weapon image. Connect a source node and generate front, back, side, and 3/4 views.',
-  },
-};
 
 export function getValidTargets(sourceStage: StageId): StageId[] {
   const idx = STAGE_ORDER.indexOf(sourceStage);
@@ -381,16 +320,7 @@ export function isValidConnection(source: string, target: string): boolean {
   const targetIsPromptInjection = PROMPT_INJECTION_NODE_TYPES.includes(target as PromptInjectionNodeType);
   const sourceIsUtility = UTILITY_NODE_TYPES.includes(source as UtilityNodeType);
   const targetIsUtility = UTILITY_NODE_TYPES.includes(target as UtilityNodeType);
-  const sourceIsResult = RESULT_NODE_TYPES.includes(source as ResultNodeType);
-  const sourceIsControl = CONTROL_NODE_TYPES.includes(source as ControlNodeType);
-  const sourceIsPacked = source === 'packedPipeline' || (source as string).startsWith('packedPipeline');
-  const targetIsPacked = target === 'packedPipeline' || (target as string).startsWith('packedPipeline');
   const sourceIsOutput = OUTPUT_NODE_TYPES.includes(source as OutputNodeType);
-  const sourceIsConceptLab = CONCEPTLAB_NODE_TYPES.includes(source as ConceptLabNodeType);
-  const targetIsConceptLab = CONCEPTLAB_NODE_TYPES.includes(target as ConceptLabNodeType);
-
-  if (sourceIsControl && targetIsPacked) return true;
-  if (sourceIsPacked && (targetIsOutput || targetIsStage)) return true;
 
   if (sourceIsStage && targetIsStage) return true;
   if (sourceIsStage && targetIsOutput) return true;
@@ -400,34 +330,21 @@ export function isValidConnection(source: string, target: string): boolean {
   if (sourceIsInfluence && targetIsStage) return true;
   if (sourceIsInfluence && targetIsOutput) return true;
   if (sourceIsInfluence && targetIsUtility) return true;
-  if (sourceIsInfluence && targetIsConceptLab) return true;
-
-  if (sourceIsControl && targetIsStage) return true;
 
   if (source === 'imageReference' && (target === 'extractData' || targetIsOutput || targetIsStage)) return true;
   if (source === 'extractData' && (targetIsStage || targetIsOutput)) return true;
   if (sourceIsUtility && targetIsUtility && source !== target) return true;
   if (sourceIsUtility && targetIsOutput) return true;
 
-  if (sourceIsResult && (targetIsStage || targetIsOutput || targetIsUtility)) return true;
   if (sourceIsOutput && (targetIsUtility || targetIsStage || targetIsOutput || targetIsPromptInjection)) return true;
 
-  // Preprompt/PostPrompt connections — can be wired inline in the flow
   if (sourceIsPromptInjection && targetIsStage) return true;
   if (sourceIsPromptInjection && targetIsOutput) return true;
   if (sourceIsPromptInjection && targetIsUtility) return true;
-  if (sourceIsPromptInjection && targetIsConceptLab) return true;
   if (sourceIsPromptInjection && targetIsPromptInjection && source !== target) return true;
   if (sourceIsStage && targetIsPromptInjection) return true;
   if (sourceIsInfluence && targetIsPromptInjection) return true;
-  if (sourceIsResult && targetIsPromptInjection) return true;
   if (sourceIsUtility && targetIsPromptInjection) return true;
-
-  // ConceptLab connections
-  if ((source === 'character' || source === 'weapon') && target === 'turnaround') return true;
-  if (sourceIsConceptLab && targetIsOutput) return true;
-  if (sourceIsConceptLab && targetIsConceptLab && source !== target) return true;
-  if (source === 'imageReference' && targetIsConceptLab) return true;
 
   // Character Generator connections — flexible chaining
   const CHAR_GEN_TYPES: string[] = [
@@ -439,6 +356,7 @@ export function isValidConnection(source: string, target: string): boolean {
     'charReset', 'charSendPS', 'charShowXML', 'charQuickGen', 'charProject',
     'charGate', 'charMainViewer', 'charFrontViewer', 'charBackViewer', 'charSideViewer',
     'charStyle', 'charImageBucket', 'charRandomize', 'charCustomView',
+    'charSaveGroup', 'charUpscale', 'charRestore', 'charCreativeDirector', 'imageStudio', 'geminiEditor', 'detachedViewer',
   ];
   const sourceIsCharGen = CHAR_GEN_TYPES.includes(source);
   const targetIsCharGen = CHAR_GEN_TYPES.includes(target);
@@ -450,17 +368,39 @@ export function isValidConnection(source: string, target: string): boolean {
   if (sourceIsInfluence && targetIsCharGen) return true;
   if (source === 'imageReference' && targetIsCharGen) return true;
   if (sourceIsPromptInjection && targetIsCharGen) return true;
-  if (sourceIsResult && targetIsCharGen) return true;
-  if (sourceIsCharGen && targetIsConceptLab) return true;
-  if (sourceIsConceptLab && targetIsCharGen) return true;
   if (sourceIsOutput && targetIsCharGen) return true;
+
+  // 3D Gen AI connections
+  const THREED_GEN_TYPES: string[] = ['meshyImageTo3D', 'meshyModelViewer', 'hitem3dImageTo3D'];
+  const sourceIs3DGen = THREED_GEN_TYPES.includes(source);
+  const targetIs3DGen = THREED_GEN_TYPES.includes(target);
+
+  if (sourceIs3DGen && targetIs3DGen && source !== target) return true;
+  if (sourceIsCharGen && targetIs3DGen) return true;
+  if (sourceIs3DGen && targetIsCharGen) return true;
+  if (sourceIs3DGen && targetIsOutput) return true;
+  if (sourceIsUtility && targetIs3DGen) return true;
+  if (sourceIsInfluence && targetIs3DGen) return true;
+
+  // Audio AI connections
+  const AUDIO_AI_TYPES: string[] = ['elTTS', 'elSFX', 'elVoiceClone', 'elVoiceScript', 'elVoiceDesigner', 'elDialogueWriter'];
+  const sourceIsAudio = AUDIO_AI_TYPES.includes(source);
+  const targetIsAudio = AUDIO_AI_TYPES.includes(target);
+
+  if (sourceIsAudio && targetIsAudio && source !== target) return true;
+  if (sourceIsCharGen && targetIsAudio) return true;
+  if (sourceIsAudio && targetIsCharGen) return true;
+  if (sourceIsAudio && targetIsOutput) return true;
+  if (sourceIsOutput && targetIsAudio) return true;
+  if (sourceIsUtility && targetIsAudio) return true;
+  if (sourceIsInfluence && targetIsAudio) return true;
+  if (sourceIsStage && targetIsAudio) return true;
+  if (sourceIsPromptInjection && targetIsAudio) return true;
 
   return false;
 }
 
 export const NODE_DEFAULT_STYLE: Record<string, { width: number; height: number }> = {
-  character: { width: 240, height: 200 },
-  weapon: { width: 240, height: 220 },
   charImageViewer: { width: 600, height: 700 },
   charViewer: { width: 600, height: 700 },
   charHistory: { width: 260, height: 500 },
@@ -473,4 +413,20 @@ export const NODE_DEFAULT_STYLE: Record<string, { width: number; height: number 
   charImageBucket: { width: 240, height: 180 },
   charRandomize: { width: 180, height: 100 },
   charCustomView: { width: 400, height: 500 },
+  charSaveGroup: { width: 280, height: 240 },
+  charUpscale: { width: 240, height: 260 },
+  charRestore: { width: 260, height: 320 },
+  charCreativeDirector: { width: 820, height: 500 },
+  imageStudio: { width: 240, height: 220 },
+  geminiEditor: { width: 240, height: 220 },
+  detachedViewer: { width: 350, height: 400 },
+  meshyImageTo3D: { width: 340, height: 620 },
+  meshyModelViewer: { width: 480, height: 640 },
+  hitem3dImageTo3D: { width: 340, height: 640 },
+  elTTS: { width: 340, height: 560 },
+  elSFX: { width: 320, height: 420 },
+  elVoiceClone: { width: 340, height: 520 },
+  elVoiceScript: { width: 340, height: 500 },
+  elVoiceDesigner: { width: 340, height: 420 },
+  elDialogueWriter: { width: 360, height: 520 },
 };

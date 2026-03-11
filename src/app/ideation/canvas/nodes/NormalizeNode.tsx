@@ -2,18 +2,13 @@
 
 import { useCallback, useState } from 'react';
 import type { NodeProps } from '@xyflow/react';
-import { Handle, Position, useReactFlow } from '@xyflow/react';
+import { useReactFlow } from '@xyflow/react';
 import BaseNode from './BaseNode';
 import type { NodeStatus } from './BaseNode';
 import { useSession } from '@/lib/ideation/context/SessionContext';
 import { getStageOutput, isStageStale } from '@/lib/ideation/state/sessionSelectors';
 import { deriveEffectiveNormalize } from '@/lib/ideation/engine/normalize';
 import type { NormalizeOutput } from '@/lib/ideation/engine/schemas';
-
-const SUB_HANDLES = [
-  { id: 'assumptions', label: 'Assumptions', color: '#64b5f6' },
-  { id: 'questions', label: 'Questions', color: '#90caf9' },
-] as const;
 
 export default function NormalizeNode({ data, selected, id: nodeId }: NodeProps) {
   const nodeSubName = ((data as Record<string, unknown>).subName as string) ?? '';
@@ -60,7 +55,7 @@ export default function NormalizeNode({ data, selected, id: nodeId }: NodeProps)
   }, [answerNormalizeQuestion]);
 
   return (
-    <BaseNode stageId="normalize" status={status} selected={selected} onRun={handleRun} hideSourceHandle subName={nodeSubName}>
+    <BaseNode stageId="normalize" status={status} selected={selected} onRun={handleRun} subName={nodeSubName}>
       {output ? (
         <>
           <div className="base-node-summary" title={output.seedSummary}>
@@ -149,20 +144,6 @@ export default function NormalizeNode({ data, selected, id: nodeId }: NodeProps)
         </div>
       </div>
 
-      <div className="multi-handle-group">
-        {SUB_HANDLES.map((h) => (
-          <div key={h.id} className="multi-handle-row" title={`${h.label} output`}>
-            <span className="multi-handle-label">{h.label}</span>
-            <Handle
-              type="source"
-              position={Position.Right}
-              id={h.id}
-              className="base-handle source-handle"
-              style={{ background: h.color }}
-            />
-          </div>
-        ))}
-      </div>
     </BaseNode>
   );
 }

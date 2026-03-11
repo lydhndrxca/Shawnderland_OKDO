@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useState, useCallback, useRef, useEffect } from 'react';
-import { Handle, Position, useReactFlow } from '@xyflow/react';
+import { Handle, Position, useReactFlow, useStore } from '@xyflow/react';
 import { generateWithGeminiRef, type GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { createProcessingAnimator } from '@/lib/processingAnimation';
 import { registerRequest, unregisterRequest } from '@/lib/activeRequests';
@@ -15,9 +15,9 @@ interface Props {
 }
 
 const EDIT_PREFIX =
-  'VISUAL EDIT TASK:\nPreserve 100% of the existing design, only apply the following modification:\n';
+  'VISUAL EDIT TASK:\nPreserve 100% of the existing design, only apply the following modifications:\n\n';
 const EDIT_SUFFIX =
-  '\nApply ONLY the above modification. Do NOT change anything else.\nBackground: Solid flat grey (#D3D3D3). No floor, no shadows, no environment.';
+  '\n\nApply ONLY the above modifications. Do NOT change anything else.\nBackground: Solid flat grey (#D3D3D3). No floor, no shadows, no environment.';
 
 type ViewKind = 'main' | 'front' | 'back' | 'side';
 
@@ -37,6 +37,27 @@ const VIEW_LABELS: Record<ViewKind, string> = {
   side: 'Side',
 };
 
+const ATTR_LABEL_MAP: Record<string, string> = {
+  headwear: 'Headwear',
+  outerwear: 'Outerwear',
+  top: 'Top / Shirt',
+  legwear: 'Legwear / Pants',
+  footwear: 'Footwear',
+  gloves: 'Gloves',
+  facegear: 'Face Gear',
+  utilityrig: 'Utility Rig / Belt',
+  backpack: 'Backpack / Bag',
+  handprop: 'Hand Prop',
+  accessories: 'Accessories',
+  coloraccents: 'Color Accents',
+  detailing: 'Detailing / Wear',
+  pose: 'Pose',
+  age: 'Age',
+  race: 'Race / Ethnicity',
+  gender: 'Gender',
+  build: 'Build / Body Type',
+};
+
 function isCancelledError(err: unknown): boolean {
   if (err instanceof Error) {
     const msg = err.message.toLowerCase();
@@ -49,14 +70,14 @@ function EditCharacterNodeInner({ id, data, selected }: Props) {
   const { getNode, getEdges, setNodes, setEdges } = useReactFlow();
   const [editText, setEditText] = useState((data?.editText as string) ?? '');
   const [generating, setGenerating] = useState(false);
+  const [computing, setComputing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState('');
   const [elapsed, setElapsed] = useState(0);
   const mountedRef = useRef(true);
-  const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
   useEffect(() => () => { mountedRef.current = false; clearInterval(timerRef.current); }, []);
 
-  // View edit toggles — persisted in node data
   const saved = (data?.viewToggles as Record<string, boolean>) ?? {};
   const [editMain, setEditMain] = useState(saved.main ?? true);
   const [editFront, setEditFront] = useState(saved.front ?? false);
@@ -76,7 +97,84 @@ function EditCharacterNodeInner({ id, data, selected }: Props) {
     [id, setNodes],
   );
 
-  // ── Detect directly connected viewers (1 hop — no gates, no BFS) ──
+  // Watch for changed fields on connected Attributes/Identity nodes
+  const changedFieldsSig = useStore(
+    useCallback(
+      (s: { edges: Array<{ source: string; target: string }>; nodeLookup: Map<string, { type?: string; data: Record<string, unknown> }> }) => {
+        let sig = '';
+        for (const e of s.edges) {
+          const peerId = e.source === id ? e.target : e.target === id ? e.source : null;
+          if (!peerId) continue;
+          const peer = s.nodeLookup.get(peerId);
+          if (!peer) continue;
+          if (peer.type === 'charAttributes') {
+            const cf = peer.data.changedFields as string[] | undefined;
+            if (cf?.length) sig += `attrs:${cf.join(',')}|`;
+          }
+          if (peer.type === 'charIdentity') {
+            const cf = peer.data.identityChangedFields as string[] | undefined;
+            if (cf?.length) sig += `ident:${cf.join(',')}|`;
+          }
+        }
+        return sig;
+      },
+      [id],
+    ),
+  );
+
+  const hasChangedFields = changedFieldsSig.length > 0;
+
+  const computeChanges = useCallback(() => {
+    setComputing(true);
+    setError(null);
+
+    const edges = getEdges();
+    const lines: string[] = [];
+
+    for (const e of edges) {
+      const peerId = e.source === id ? e.target : e.target === id ? e.source : null;
+      if (!peerId) continue;
+      const peer = getNode(peerId);
+      if (!peer?.data) continue;
+      const d = peer.data as Record<string, unknown>;
+
+      if (peer.type === 'charAttributes') {
+        const cf = (d.changedFields as string[]) ?? [];
+        const attrs = (d.attributes as Record<string, string>) ?? {};
+        for (const key of cf) {
+          const val = attrs[key];
+          if (!val?.trim()) continue;
+          const label = ATTR_LABEL_MAP[key] ?? key;
+          lines.push(`${label}: Change to "${val}"`);
+        }
+      }
+
+      if (peer.type === 'charIdentity') {
+        const cf = (d.identityChangedFields as string[]) ?? [];
+        const ident = (d.identity as Record<string, string>) ?? {};
+        for (const key of cf) {
+          const val = ident[key];
+          if (!val?.trim()) continue;
+          const label = ATTR_LABEL_MAP[key] ?? key;
+          lines.push(`${label}: Change to "${val}"`);
+        }
+      }
+    }
+
+    if (lines.length === 0) {
+      setError('No changed fields found. Highlight fields in Attributes or Identity nodes first.');
+      setComputing(false);
+      return;
+    }
+
+    const prompt = lines.join('\n');
+    setEditText(prompt);
+    setNodes((nds) =>
+      nds.map((n) => n.id === id ? { ...n, data: { ...n.data, editText: prompt } } : n),
+    );
+    setComputing(false);
+  }, [id, getNode, getEdges, setNodes]);
+
   const edges = getEdges();
   const connectedViewers = new Map<ViewKind, { nodeId: string; image: GeneratedImage | null }>();
   const historyIds: string[] = [];
@@ -101,7 +199,6 @@ function EditCharacterNodeInner({ id, data, selected }: Props) {
   const sideEntry = connectedViewers.get('side');
   const mainImage = mainEntry?.image ?? null;
 
-  // ── Apply edits ──
   const handleApply = useCallback(async () => {
     if (!mainImage || !editText.trim() || generating) return;
 
@@ -115,7 +212,6 @@ function EditCharacterNodeInner({ id, data, selected }: Props) {
       if (mountedRef.current) setElapsed(Math.floor((Date.now() - t0) / 1000));
     }, 1000);
 
-    // Session-level controller — Cancel All aborts this
     const session = registerRequest();
     const anim = createProcessingAnimator(setNodes, setEdges, getEdges);
 
@@ -127,7 +223,6 @@ function EditCharacterNodeInner({ id, data, selected }: Props) {
       const prompt = editText.trim();
       const fullPrompt = EDIT_PREFIX + prompt + EDIT_SUFFIX;
 
-      // ── 1) Main Stage ──
       if (editMain && mainEntry && mainImage) {
         anim.markNodes([mainEntry.nodeId], true);
         setStatus('Editing main stage...');
@@ -146,7 +241,6 @@ function EditCharacterNodeInner({ id, data, selected }: Props) {
           }),
         );
 
-        // History — main stage edits only
         if (historyIds.length > 0) {
           const snap = { image: img, label: prompt.slice(0, 50) || 'Edit' };
           setTimeout(() => {
@@ -165,7 +259,6 @@ function EditCharacterNodeInner({ id, data, selected }: Props) {
 
       if (!mountedRef.current || session.signal.aborted) return;
 
-      // ── 2) Front / Back / Side — each references Main Stage for character context ──
       const viewJobs: [ViewKind, typeof frontEntry, boolean][] = [
         ['front', frontEntry, editFront],
         ['back', backEntry, editBack],
@@ -223,7 +316,6 @@ function EditCharacterNodeInner({ id, data, selected }: Props) {
     getEdges, setNodes, setEdges,
   ]);
 
-  // ── Toggle data ──
   const toggles: [ViewKind, boolean, React.Dispatch<React.SetStateAction<boolean>>, typeof mainEntry][] = [
     ['main', editMain, setEditMain, mainEntry],
     ['front', editFront, setEditFront, frontEntry],
@@ -243,6 +335,25 @@ function EditCharacterNodeInner({ id, data, selected }: Props) {
         Edit Character
       </div>
       <div className="char-node-body">
+        {/* Compute Changes button */}
+        <button
+          type="button"
+          className="char-btn nodrag"
+          onClick={computeChanges}
+          disabled={!hasChangedFields || generating || computing}
+          style={{
+            width: '100%',
+            padding: '6px 0',
+            fontSize: 11,
+            fontWeight: 700,
+            background: hasChangedFields ? 'rgba(255, 152, 0, 0.12)' : undefined,
+            borderColor: hasChangedFields ? 'rgba(255, 152, 0, 0.4)' : undefined,
+            color: hasChangedFields ? '#ff9800' : undefined,
+          }}
+        >
+          {computing ? 'Computing...' : hasChangedFields ? 'Compute Changes from Attributes' : 'No changed fields detected'}
+        </button>
+
         <textarea
           className="char-textarea nodrag nowheel"
           value={editText}
@@ -254,11 +365,11 @@ function EditCharacterNodeInner({ id, data, selected }: Props) {
               ),
             );
           }}
-          placeholder="Describe changes to apply..."
-          rows={3}
+          placeholder="Edit instructions auto-fill here, or type manually..."
+          rows={5}
+          style={{ fontSize: 11, lineHeight: 1.5 }}
         />
 
-        {/* View toggle buttons */}
         <div style={{ display: 'flex', gap: 3, margin: '6px 0' }} className="nodrag">
           {toggles.map(([kind, active, setter, entry]) => {
             const linked = !!entry;
@@ -327,6 +438,12 @@ function EditCharacterNodeInner({ id, data, selected }: Props) {
         {!mainEntry && !generating && (
           <div style={{ fontSize: 10, color: '#ff9800', marginTop: 4 }}>
             Connect directly to Main Stage viewer
+          </div>
+        )}
+
+        {!hasChangedFields && !generating && !error && (
+          <div style={{ fontSize: 9, color: 'var(--text-muted)', textAlign: 'center', marginTop: 2, lineHeight: 1.4 }}>
+            Highlight fields in Attributes or Identity nodes, then click "Compute Changes" to auto-fill
           </div>
         )}
       </div>

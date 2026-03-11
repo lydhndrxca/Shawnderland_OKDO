@@ -123,6 +123,7 @@ export const TOOLS: ToolRegistryEntry[] = [
     ],
     startCommand: "cd Walter_Storyboarding && run.bat",
     mode: "electron-only",
+    hidden: true,
   },
 ];
 

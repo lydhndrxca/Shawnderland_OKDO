@@ -29,7 +29,7 @@ function pickRandom<T>(arr: T[]): T {
 function RandomizeNodeInner({ id, data, selected }: Props) {
   const { setNodes, getEdges, getNode } = useReactFlow();
   const [status, setStatus] = useState('');
-  const statusTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(statusTimerRef.current), []);
 
   const handleRandomize = useCallback(() => {

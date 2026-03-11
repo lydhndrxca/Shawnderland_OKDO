@@ -11,6 +11,7 @@ export interface ToolRegistryEntry {
   features: string[];
   startCommand: string;
   mode: "web" | "desktop" | "electron-only";
+  hidden?: boolean;
 }
 
 export interface ToolResponse<T = unknown> {

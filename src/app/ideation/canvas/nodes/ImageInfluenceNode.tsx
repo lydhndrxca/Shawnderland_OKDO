@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState, useCallback } from 'react';
+import { memo, useState, useCallback, useEffect } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import './ImageInfluenceNode.css';
 
@@ -14,6 +14,16 @@ function ImageInfluenceNodeInner({ id, data, selected }: ImageInfluenceNodeProps
   const [imageBase64, setImageBase64] = useState((data.imageBase64 as string) ?? '');
   const [mimeType, setMimeType] = useState((data.mimeType as string) ?? '');
   const [fileName, setFileName] = useState((data.fileName as string) ?? '');
+
+  // Sync state when node data changes externally (e.g. session restore)
+  useEffect(() => {
+    const b64 = (data?.imageBase64 as string) || '';
+    const mime = (data?.mimeType as string) || '';
+    const name = (data?.fileName as string) || '';
+    if (b64 !== imageBase64) setImageBase64(b64);
+    if (mime !== mimeType) setMimeType(mime);
+    if (name !== fileName) setFileName(name);
+  }, [data?.imageBase64, data?.mimeType, data?.fileName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleOpen = useCallback(() => {
     const input = document.createElement('input');

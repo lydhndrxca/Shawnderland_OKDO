@@ -13,7 +13,7 @@ interface TextOutputNodeProps {
 function TextOutputNodeInner({ selected }: TextOutputNodeProps) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
-  const copyTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(copyTimerRef.current), []);
 
   const connections = useHandleConnections({ type: 'target' });

@@ -131,7 +131,7 @@ FOLLOW THE DESCRIPTION LITERALLY:
 - Body type, age, and demeanor must match the identity description.
 - Include any listed props and accessories. Do not invent extra items.
 
-VISUAL STYLE: High-fidelity documentary character photograph. Proportions must be natural and un-idealized, showing realistic weight distribution without underlying muscular definition. Soft, even studio lighting (diffused softbox), gentle contrast, clean shadows. Visible skin pores and fabric weave. RENDER fabrics as heavy, lived-in materials that sag and wrinkle naturally under the character's weight. Pose: casual standing, slight 3/4 to camera.
+VISUAL STYLE: Photorealistic character portrait. Proportions must be natural and un-idealized, showing realistic weight distribution without underlying muscular definition. Soft, even studio lighting (diffused softbox), gentle contrast, clean shadows. Visible skin pores and fabric weave. RENDER fabrics as heavy, lived-in materials that sag and wrinkle naturally under the character's weight. Pose: casual standing, slight 3/4 to camera.
 
 NO TEXT:
 - Do not render any text, letters, numbers, logos, labels, or watermarks.
@@ -216,7 +216,7 @@ export function buildCharacterDescription(
   parts.push('');
 
   parts.push('## VISUAL STYLE & LIGHTING');
-  parts.push('- Style: AAA game character render with subtle stylization (realistic materials, slightly idealized), full-body shot.');
+  parts.push('- Style: Photorealistic character portrait with natural proportions and realistic materials, full-body shot.');
   parts.push('- Lighting: Soft, even studio lighting with neutral color grading. Gentle contrast, no dramatic shadows or cinematic glows.');
   parts.push('- Texture: Visible skin pores and fabric weave. Render fabrics exactly as described. NO LEATHER unless specified.');
   parts.push('- Background: Flat solid grey (#D3D3D3) only. No floor, no environment.');

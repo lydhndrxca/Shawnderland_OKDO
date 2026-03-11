@@ -1,0 +1,342 @@
+/* ── 3D Gen AI Node System ── */
+
+.threed-node {
+  min-width: 280px;
+  max-width: 400px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: visible;
+  font-size: 13px;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  position: relative;
+}
+
+.threed-node.selected {
+  border-color: #00e5ff;
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.3);
+}
+
+.threed-node-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  color: #0f0f1a;
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.threed-node-body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.threed-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.threed-field-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.threed-field-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  min-width: 50px;
+  flex-shrink: 0;
+}
+
+.threed-select {
+  flex: 1;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-family: inherit;
+  outline: none;
+  min-width: 0;
+}
+
+.threed-select:focus {
+  border-color: #00e5ff;
+}
+
+.threed-input {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  min-width: 0;
+}
+
+.threed-input:focus {
+  border-color: #00e5ff;
+}
+
+.threed-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.threed-checkbox-row input[type="checkbox"] {
+  accent-color: #00e5ff;
+}
+
+.threed-btn {
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.threed-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+
+.threed-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.threed-btn.primary {
+  background: #00838f;
+  border-color: #00838f;
+  color: #fff;
+}
+
+.threed-btn.primary:hover:not(:disabled) {
+  background: #00acc1;
+  border-color: #00acc1;
+}
+
+.threed-progress-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.threed-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #00e5ff, #00bfa5);
+  transition: width 0.3s ease;
+}
+
+.threed-status {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.threed-error {
+  font-size: 11px;
+  color: #f44336;
+  padding: 4px 8px;
+  background: rgba(244, 67, 54, 0.08);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(244, 67, 54, 0.15);
+}
+
+.threed-success {
+  font-size: 10px;
+  color: #69f0ae;
+  text-align: center;
+}
+
+.threed-connected-images {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.threed-connected-thumb {
+  width: 48px;
+  height: 64px;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  position: relative;
+}
+
+.threed-connected-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.threed-connected-thumb-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  font-size: 7px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  padding: 1px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* ── 3D Viewer ── */
+
+.threed-viewer-canvas {
+  width: 100%;
+  aspect-ratio: 1;
+  min-height: 280px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: #1a1a2e;
+  position: relative;
+}
+
+.threed-viewer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 6px 0;
+}
+
+.threed-viewer-controls .threed-btn {
+  font-size: 9px;
+  padding: 3px 8px;
+}
+
+.threed-viewer-controls .threed-btn.active {
+  background: rgba(0, 229, 255, 0.2);
+  border-color: #00e5ff;
+  color: #00e5ff;
+}
+
+.threed-export-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.threed-export-row .threed-select {
+  flex: 0 0 80px;
+}
+
+.threed-export-row .threed-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.threed-viewer-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.threed-viewer-nav button {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px 8px;
+  font-size: 12px;
+  transition: background 0.1s;
+}
+
+.threed-viewer-nav button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.threed-thumbnail {
+  width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  background: #1a1a2e;
+}
+
+/* Processing animation */
+@property --threed-processing-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes threed-processing-rotate {
+  from { --threed-processing-angle: 0deg; }
+  to { --threed-processing-angle: 360deg; }
+}
+
+@keyframes threed-glow-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgba(0, 229, 255, 0.4),
+      0 0 25px rgba(0, 191, 165, 0.25);
+  }
+  50% {
+    box-shadow:
+      0 0 15px rgba(0, 229, 255, 0.7),
+      0 0 35px rgba(0, 191, 165, 0.4);
+  }
+}
+
+.threed-node-processing {
+  position: relative;
+  z-index: 10;
+  animation: threed-glow-pulse 1.5s ease-in-out infinite !important;
+}
+
+.threed-node-processing::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 12px;
+  padding: 3px;
+  background: conic-gradient(
+    from var(--threed-processing-angle),
+    #00e5ff,
+    #00bfa5 15%,
+    transparent 40%,
+    transparent 60%,
+    #00bfa5 85%,
+    #00e5ff
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: threed-processing-rotate 1.5s linear infinite;
+  pointer-events: none;
+}

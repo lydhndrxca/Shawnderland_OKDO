@@ -174,11 +174,7 @@
 }
 .char-nav-btn:hover { background: rgba(255, 255, 255, 0.08); }
 
-.char-handle {
-  width: 10px; height: 10px;
-  border: 2px solid var(--bg-surface);
-  border-radius: 50%;
-}
+/* .char-handle — unified in CanvasCommon.css */
 
 /* ── Side Panel ── */
 

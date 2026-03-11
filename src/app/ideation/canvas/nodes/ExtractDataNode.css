@@ -183,9 +183,4 @@
   overflow-y: auto;
 }
 
-.extract-data-handle {
-  width: 10px;
-  height: 10px;
-  border: 2px solid var(--bg-surface);
-  border-radius: 50%;
-}
+/* .extract-data-handle — unified in CanvasCommon.css */

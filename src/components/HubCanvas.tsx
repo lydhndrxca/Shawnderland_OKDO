@@ -43,9 +43,11 @@ export function HubCanvas() {
     [navigate]
   );
 
+  const visibleTools = useMemo(() => TOOLS.filter((t) => !t.hidden), []);
+
   const nodes: Node[] = useMemo(
     () =>
-      TOOLS.map((tool) => ({
+      visibleTools.map((tool) => ({
         id: tool.id,
         type: "tool",
         position: LAYOUT[tool.id] ?? { x: 0, y: 0 },
@@ -60,8 +62,10 @@ export function HubCanvas() {
           onOpen: onOpenTool,
         } satisfies ToolNodeData,
       })),
-    [onOpenTool]
+    [visibleTools, onOpenTool]
   );
+
+  const hiddenIds = useMemo(() => new Set(TOOLS.filter((t) => t.hidden).map((t) => t.id)), []);
 
   const edges: Edge[] = useMemo(
     () => [
@@ -105,8 +109,8 @@ export function HubCanvas() {
           isComplete: false,
         },
       },
-    ],
-    []
+    ].filter((e) => !hiddenIds.has(e.source) && !hiddenIds.has(e.target)),
+    [hiddenIds]
   );
 
   return (

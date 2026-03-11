@@ -9,5 +9,5 @@
 }
 
 .edge-dot {
-  filter: drop-shadow(0 0 4px currentColor);
+  opacity: 0.9;
 }

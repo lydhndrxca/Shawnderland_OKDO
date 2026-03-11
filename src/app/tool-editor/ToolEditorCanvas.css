@@ -35,14 +35,7 @@
   box-shadow: none !important;
 }
 
-.te-canvas-wrap .react-flow__handle {
-  border: none;
-  transition: box-shadow 0.15s !important;
-}
-
-.te-canvas-wrap .react-flow__handle:hover {
-  transform: translate(-50%, -50%) !important;
-}
+/* Handle styles unified in CanvasCommon.css */
 
 .te-canvas-wrap .flow-controls {
   background: var(--bg-surface) !important;

@@ -3,7 +3,7 @@
 import { memo, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Handle, Position, NodeResizer, useReactFlow, useStore } from '@xyflow/react';
 import { ImageContextMenu } from '@/components/ImageContextMenu';
-import { generateWithGeminiRef, type GeneratedImage, type GeminiImageModel } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import { generateWithGeminiRef, upscaleWithImagen, type GeneratedImage, type GeminiImageModel } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { registerRequest, unregisterRequest } from '@/lib/activeRequests';
 import { NODE_TOOLTIPS } from './nodeTooltips';
 import './CharacterNodes.css';
@@ -26,6 +26,21 @@ const VIEW_CONFIG: Record<ViewKey, { label: string; color: string; compactW: num
 
 const EDIT_PREFIX = 'VISUAL EDIT TASK:\nPreserve 100% of the existing design, only apply the following modification:\n';
 const EDIT_SUFFIX = '\nApply ONLY the above modification. Do NOT change anything else.\nBackground: Solid flat grey (#D3D3D3). No floor, no shadows, no environment.';
+
+const RESTORE_PROMPT =
+  'QUALITY RESTORATION — EXACT REPRODUCTION AT MAXIMUM QUALITY.\n\n' +
+  'Your task is to perfectly reproduce this image at the highest possible quality and resolution.\n\n' +
+  'CRITICAL RULES (violating any rule is a failure):\n' +
+  '• Reproduce EVERY detail exactly: character pose, expression, face, hair, clothing, accessories, colors, proportions, composition, background — change ABSOLUTELY NOTHING.\n' +
+  '• Your ONLY job is to eliminate quality degradation: compression artifacts, noise, blur, banding, blockiness, color shifts, and resolution loss.\n' +
+  '• Output a clean, crisp, sharp, artifact-free version of this EXACT image.\n' +
+  '• Match the original art style, rendering quality, and visual aesthetic at its BEST possible quality.\n' +
+  '• If the background has accumulated artifacts or noise, restore it to a clean, smooth state while preserving whatever background was intended.\n' +
+  '• Do NOT add, remove, modify, reposition, or reinterpret ANY element.\n' +
+  '• Do NOT change the camera angle, framing, cropping, or composition.\n' +
+  '• Do NOT change the lighting, color grading, or saturation.\n' +
+  '• This is NOT an edit — this is a QUALITY RESTORATION. The subject matter must be identical.\n' +
+  '• Treat the input image as a degraded version of a high-quality original. Your job is to recover that original.';
 
 const RENDER_STYLE_BLOCK = `
 RENDERING STYLE — MATCH REFERENCE EXACTLY:
@@ -180,7 +195,7 @@ function buildViewPrompt(viewKey: ViewKey, data: Record<string, unknown>): strin
 }
 
 function CharViewNodeInner({ id, data, selected }: Props) {
-  const { getNode, getNodes, getEdges, setNodes, addNodes, addEdges } = useReactFlow();
+  const { getNode, getNodes, getEdges, setNodes } = useReactFlow();
 
   const nodeType = getNode(id)?.type ?? '';
   const viewKey: ViewKey = NODE_TYPE_TO_VIEW[nodeType] ?? (data?.viewKey as ViewKey) ?? 'main';
@@ -210,7 +225,59 @@ function CharViewNodeInner({ id, data, selected }: Props) {
   const [angleRefImage, setAngleRefImage] = useState<GeneratedImage | null>(
     (data?.angleRefImage as GeneratedImage) ?? null,
   );
-  const [showCustomConfig, setShowCustomConfig] = useState(false);
+  const [showCustomConfig, setShowCustomConfig] = useState(isCustom);
+
+  // Read angle reference image from a node connected to the "angle-ref" handle
+  const connectedAngleRefSelector = useCallback(
+    (state: { nodes: Array<{ id: string; type?: string; data: Record<string, unknown> }>; edges: Array<{ source: string; target: string; targetHandle?: string | null }> }) => {
+      if (!isCustom) return null;
+      const refEdge = state.edges.find((e) => e.target === id && e.targetHandle === 'angle-ref');
+      if (!refEdge) return null;
+      const src = state.nodes.find((n) => n.id === refEdge.source);
+      if (!src?.data) return null;
+      const d = src.data as Record<string, unknown>;
+      const img = d.generatedImage as GeneratedImage | undefined;
+      if (img?.base64) return img.base64.slice(0, 120);
+      const b64 = d.imageBase64 as string | undefined;
+      if (b64) return b64.slice(0, 120);
+      return null;
+    },
+    [isCustom, id],
+  );
+  const connectedAngleRefSig = useStore(connectedAngleRefSelector);
+
+  const connectedAngleRef = useMemo<GeneratedImage | null>(() => {
+    if (!isCustom || !connectedAngleRefSig) return null;
+    const edges = getEdges();
+    const refEdge = edges.find((e: { target: string; targetHandle?: string | null }) => e.target === id && e.targetHandle === 'angle-ref');
+    if (!refEdge) return null;
+    const src = getNode(refEdge.source);
+    if (!src?.data) return null;
+    const d = src.data as Record<string, unknown>;
+    const img = d.generatedImage as GeneratedImage | undefined;
+    if (img?.base64) return img;
+    const b64 = d.imageBase64 as string | undefined;
+    if (b64) return { base64: b64, mimeType: (d.mimeType as string) || 'image/png' };
+    return null;
+  }, [isCustom, connectedAngleRefSig, id, getNode, getEdges]);
+
+  const effectiveAngleRef = connectedAngleRef ?? angleRefImage;
+
+  // Sync state when node data changes externally (e.g. session restore)
+  useEffect(() => {
+    const restoredLocal = (data?.localImage as GeneratedImage) ?? null;
+    const restoredAngle = (data?.angleRefImage as GeneratedImage) ?? null;
+    if (restoredLocal?.base64 && restoredLocal.base64.slice(0, 40) !== localImage?.base64?.slice(0, 40)) {
+      setLocalImage(restoredLocal);
+    } else if (!restoredLocal && localImage) {
+      setLocalImage(null);
+    }
+    if (restoredAngle?.base64 && restoredAngle.base64.slice(0, 40) !== angleRefImage?.base64?.slice(0, 40)) {
+      setAngleRefImage(restoredAngle);
+    } else if (!restoredAngle && angleRefImage) {
+      setAngleRefImage(null);
+    }
+  }, [data?.localImage, data?.angleRefImage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Init custom view prompt with example on first mount
   const customInitRef = useRef(false);
@@ -414,7 +481,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
   const orthoTrigger = useStore(orthoTriggerSelector);
 
   const lastTrigger = useRef<number | null>(null);
-  const autoGenInFlight = useRef(false);
+  const autoGenSessionRef = useRef<AbortController | null>(null);
   const autoGenMountedRef = useRef(true);
   const [autoGenBusy, setAutoGenBusy] = useState(false);
   useEffect(() => {
@@ -423,26 +490,30 @@ function CharViewNodeInner({ id, data, selected }: Props) {
   }, []);
 
   useEffect(() => {
-    if (isMain || !referenceImage || autoGenInFlight.current) return;
+    if (isMain || !referenceImage) return;
     if (!orthoTrigger || orthoTrigger === lastTrigger.current) return;
     lastTrigger.current = orthoTrigger;
 
     const prompt = buildViewPrompt(viewKey, data);
     if (!prompt) return;
 
-    autoGenInFlight.current = true;
+    // Cancel any in-flight auto-gen before starting new one
+    if (autoGenSessionRef.current) {
+      autoGenSessionRef.current.abort();
+      unregisterRequest(autoGenSessionRef.current);
+      autoGenSessionRef.current = null;
+    }
+
     setAutoGenBusy(true);
-    setNodes((nds) =>
-      nds.map((n) => n.id === id ? { ...n, data: { ...n.data, generating: true } } : n),
-    );
 
     console.log(`[CharView:${viewKey}] Auto-generating ${cfg.label} from Main Stage reference...`);
 
     const session = registerRequest();
+    autoGenSessionRef.current = session;
 
     const refImages: GeneratedImage | GeneratedImage[] = (() => {
-      if (isCustom && useImage && angleRefImage) {
-        return [referenceImage, angleRefImage];
+      if (isCustom && useImage && effectiveAngleRef) {
+        return [referenceImage, effectiveAngleRef];
       }
       return referenceImage;
     })();
@@ -469,15 +540,12 @@ function CharViewNodeInner({ id, data, selected }: Props) {
           console.error(`[CharView:${viewKey}] Auto-generate error:`, e);
         }
       } finally {
+        if (autoGenSessionRef.current === session) autoGenSessionRef.current = null;
         unregisterRequest(session);
-        autoGenInFlight.current = false;
         setAutoGenBusy(false);
-        setNodes((nds) =>
-          nds.map((n) => n.id === id ? { ...n, data: { ...n.data, generating: false } } : n),
-        );
       }
     })();
-  }, [isMain, isCustom, referenceImage, orthoTrigger, viewKey, cfg, id, setNodes, pushHistory, data, useImage, angleRefImage]);
+  }, [isMain, isCustom, referenceImage, orthoTrigger, viewKey, cfg, id, setNodes, pushHistory, data, useImage, effectiveAngleRef]);
 
   // ── Inline Edit ──
   const [editText, setEditText] = useState('');
@@ -604,6 +672,70 @@ function CharViewNodeInner({ id, data, selected }: Props) {
       }
     }
   }, [viewImage, editText, editBusy, viewKey, id, isMain, isCustom, customLabel, cfg, getNode, getNodes, getEdges, setNodes, pushHistory, editModel]);
+
+  // ── Restore Quality (inline) ──
+  const [restoreBusy, setRestoreBusy] = useState(false);
+  const handleRestore = useCallback(async () => {
+    const srcImage = viewImage;
+    if (!srcImage || restoreBusy || editBusy) return;
+
+    setRestoreBusy(true);
+    setEditError(null);
+    setEditElapsed(0);
+
+    const t0 = Date.now();
+    editTimerRef.current = setInterval(() => {
+      if (mountedRef.current) setEditElapsed(Math.floor((Date.now() - t0) / 1000));
+    }, 500);
+
+    const session = registerRequest();
+
+    try {
+      setEditStatus('Restoring quality (Gemini Pro)\u2026');
+      const results = await generateWithGeminiRef(RESTORE_PROMPT, srcImage, 'gemini-3-pro');
+
+      if (!mountedRef.current || session.signal.aborted) return;
+
+      let restored = results[0];
+      if (!restored) throw new Error('No image returned from restoration');
+
+      // Try upscale but don't fail the whole restore if it errors
+      try {
+        setEditStatus('Upscaling restored image\u2026');
+        restored = await upscaleWithImagen(restored, 'x2');
+      } catch (upErr) {
+        console.warn('[CharView] Upscale after restore failed (using restored image as-is):', upErr);
+      }
+      if (!mountedRef.current || session.signal.aborted) return;
+
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+      setEditStatus(`Quality restored in ${elapsed}s \u2713`);
+
+      setEditedImage(restored);
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === id ? { ...n, data: { ...n.data, generatedImage: restored } } : n,
+        ),
+      );
+      pushHistory(restored, 'Quality Restored');
+      setTimeout(() => { if (mountedRef.current) setEditStatus(null); }, 4000);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!msg.toLowerCase().includes('cancel') && !msg.toLowerCase().includes('abort')) {
+        if (mountedRef.current) {
+          setEditError(msg);
+          setEditStatus(null);
+        }
+      }
+    } finally {
+      clearInterval(editTimerRef.current);
+      unregisterRequest(session);
+      if (mountedRef.current) {
+        setRestoreBusy(false);
+        setEditElapsed(0);
+      }
+    }
+  }, [viewImage, restoreBusy, editBusy, id, setNodes, pushHistory]);
 
   // ── Standard handlers ──
   const handleResetView = useCallback(() => {
@@ -759,13 +891,12 @@ function CharViewNodeInner({ id, data, selected }: Props) {
 
     const prompt = buildViewPrompt(viewKey, data);
     if (!prompt) {
-      setEditError(isCustom ? 'Enable "Use Text" and enter a view description, or enable "Use Image" with a reference.' : 'No prompt available');
+      setEditError(isCustom ? 'Enable "Use Text" and enter a view description, or enable "Use Image" and provide/connect a reference.' : 'No prompt available');
       return;
     }
 
     setGenBusy(true);
     setEditError(null);
-    setEditStatus('Generating view…');
     setEditElapsed(0);
 
     const t0 = Date.now();
@@ -776,18 +907,17 @@ function CharViewNodeInner({ id, data, selected }: Props) {
     const session = registerRequest();
 
     try {
-      // For custom views: include angle reference image if enabled
       const refImages: GeneratedImage | GeneratedImage[] = (() => {
-        if (isCustom && useImage && angleRefImage) {
-          return [mainImg, angleRefImage];
+        if (isCustom && useImage && effectiveAngleRef) {
+          return [mainImg, effectiveAngleRef];
         }
         return mainImg;
       })();
 
       const userEdit = editText.trim();
-      let fullPrompt = isCustom && useImage && angleRefImage && !useText
+      let fullPrompt = isCustom && useImage && effectiveAngleRef && !useText
         ? `Create a custom view of this character matching the camera angle and pose shown in the second reference image. Preserve the character's identity from the first reference image exactly.\n${RENDER_STYLE_BLOCK}\nFull body head to toe, no cropping.\nBackground: Solid flat grey (#D3D3D3). No floor, no shadows, no environment.`
-        : (isCustom && useImage && angleRefImage
+        : (isCustom && useImage && effectiveAngleRef
           ? prompt + '\nUse the second reference image as a guide for the desired camera angle, pose, and framing.'
           : prompt);
       if (userEdit) {
@@ -795,14 +925,14 @@ function CharViewNodeInner({ id, data, selected }: Props) {
       }
 
       const modelLabel = editModel === 'gemini-flash-image' ? 'Flash' : 'Pro';
-      setEditStatus(`Waiting for Gemini ${modelLabel}…`);
+      setEditStatus(`Generating (Gemini ${modelLabel})…`);
+
       const results = await generateWithGeminiRef(fullPrompt, refImages, editModel);
 
       if (!mountedRef.current || session.signal.aborted) return;
+      if (!results[0]) throw new Error('No image returned');
 
       const img = results[0];
-      if (!img) throw new Error('No image returned');
-
       const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
       setEditStatus(`Done in ${elapsed}s ✓`);
       setEditedImage(img);
@@ -831,9 +961,10 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         setEditElapsed(0);
       }
     }
-  }, [isMain, isCustom, genBusy, id, cfg, customLabel, data, viewKey, viewImage, editText, getNodes, setNodes, pushHistory, editModel, useText, useImage, angleRefImage]);
+  }, [isMain, isCustom, genBusy, id, cfg, customLabel, data, viewKey, viewImage, editText, getNodes, setNodes, pushHistory, editModel, useText, useImage, effectiveAngleRef]);
 
-  const anyBusy = editBusy || genBusy || autoGenBusy;
+  const externalGenerating = (data?.generating as boolean) ?? false;
+  const anyBusy = editBusy || genBusy || autoGenBusy || restoreBusy || externalGenerating;
 
   const tooltipKey = viewKey === 'front' ? 'charFrontViewer'
     : viewKey === 'back' ? 'charBackViewer'
@@ -842,27 +973,6 @@ function CharViewNodeInner({ id, data, selected }: Props) {
     : 'charMainViewer';
 
   const displayLabel = isCustom && customLabel ? customLabel : cfg.label;
-
-  const handleDetachViewer = useCallback(() => {
-    const sourceNode = getNode(id);
-    if (!sourceNode) return;
-    const newId = `detached-${id}-${Date.now()}`;
-    const offsetX = (sourceNode.style?.width as number) || 400;
-    addNodes([{
-      id: newId,
-      type: 'detachedViewer',
-      position: { x: sourceNode.position.x + offsetX + 40, y: sourceNode.position.y },
-      style: { width: 350, height: 400 },
-      data: { sourceLabel: displayLabel, sourceColor: cfg.color },
-    }]);
-    addEdges([{
-      id: `edge-${id}-${newId}`,
-      source: id,
-      sourceHandle: 'output',
-      target: newId,
-      targetHandle: 'input',
-    }]);
-  }, [id, getNode, addNodes, addEdges, displayLabel, cfg.color]);
 
   return (
     <div
@@ -911,11 +1021,10 @@ function CharViewNodeInner({ id, data, selected }: Props) {
             ⚙
           </button>
         )}
-        {viewImage && (
+        {viewImage && false && (
           <button
             className="char-view-toggle nodrag"
-            onClick={handleDetachViewer}
-            title="Detach image to a floating viewer"
+            title="Reserved"
             style={{ fontSize: 11 }}
           >
             ⧉
@@ -992,29 +1101,49 @@ function CharViewNodeInner({ id, data, selected }: Props) {
           )}
 
           {useImage && (
-            <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <button
-                className="char-btn nodrag"
-                onClick={() => angleRefFileRef.current?.click()}
-                style={{ fontSize: 10, padding: '3px 8px' }}
-              >
-                {angleRefImage ? 'Change Ref Image' : 'Open Angle Reference'}
-              </button>
-              <input ref={angleRefFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAngleRefFile} />
-              {angleRefImage && (
-                <div style={{ position: 'relative', width: 32, height: 32 }}>
-                  <img
-                    src={`data:${angleRefImage.mimeType};base64,${angleRefImage.base64}`}
-                    alt="angle ref"
-                    style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 3, border: '1px solid #555' }}
-                  />
+            <div style={{ marginTop: 4 }}>
+              {connectedAngleRef ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ position: 'relative', width: 40, height: 40 }}>
+                    <img
+                      src={`data:${connectedAngleRef.mimeType};base64,${connectedAngleRef.base64}`}
+                      alt="connected angle ref"
+                      style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 3, border: '1px solid #7e57c2' }}
+                    />
+                  </div>
+                  <span style={{ fontSize: 9, color: '#bb86fc' }}>Connected via node</span>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <button
-                    onClick={() => { setAngleRefImage(null); persistCustomData({ angleRefImage: null }); }}
-                    style={{ position: 'absolute', top: -4, right: -4, width: 14, height: 14, borderRadius: '50%', background: '#f44336', color: '#fff', border: 'none', fontSize: 8, cursor: 'pointer', lineHeight: '14px', padding: 0 }}
-                    title="Remove reference image"
+                    className="char-btn nodrag"
+                    onClick={() => angleRefFileRef.current?.click()}
+                    style={{ fontSize: 10, padding: '3px 8px' }}
                   >
-                    ✕
+                    {angleRefImage ? 'Change Ref Image' : 'Open Angle Reference'}
                   </button>
+                  <input ref={angleRefFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAngleRefFile} />
+                  {angleRefImage && (
+                    <div style={{ position: 'relative', width: 32, height: 32 }}>
+                      <img
+                        src={`data:${angleRefImage.mimeType};base64,${angleRefImage.base64}`}
+                        alt="angle ref"
+                        style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 3, border: '1px solid #555' }}
+                      />
+                      <button
+                        onClick={() => { setAngleRefImage(null); persistCustomData({ angleRefImage: null }); }}
+                        style={{ position: 'absolute', top: -4, right: -4, width: 14, height: 14, borderRadius: '50%', background: '#f44336', color: '#fff', border: 'none', fontSize: 8, cursor: 'pointer', lineHeight: '14px', padding: 0 }}
+                        title="Remove reference image"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {!connectedAngleRef && !angleRefImage && (
+                <div style={{ fontSize: 9, color: '#888', marginTop: 2 }}>
+                  Or connect a node to the bottom &ldquo;Angle Ref&rdquo; handle
                 </div>
               )}
             </div>
@@ -1090,6 +1219,22 @@ function CharViewNodeInner({ id, data, selected }: Props) {
               style={{ background: anyBusy ? undefined : cfg.color, color: '#000', fontWeight: 600 }}
             >
               {genBusy ? `${editElapsed}s…` : viewImage ? 'Regenerate' : 'Generate View'}
+            </button>
+          )}
+          {viewImage && (
+            <button
+              className="char-btn nodrag"
+              onClick={handleRestore}
+              disabled={anyBusy}
+              title="Restore quality — AI redraws the image from scratch to remove accumulated artifacts and degradation"
+              style={{
+                background: anyBusy ? undefined : 'linear-gradient(135deg, #00c853, #00e5ff)',
+                color: anyBusy ? undefined : '#000',
+                fontWeight: 600,
+                fontSize: 10,
+              }}
+            >
+              {restoreBusy ? `${editElapsed}s\u2026` : 'Restore'}
             </button>
           )}
           <button className="char-btn nodrag" onClick={handleResetView}>Reset View</button>
@@ -1294,6 +1439,16 @@ function CharViewNodeInner({ id, data, selected }: Props) {
 
       <Handle type="target" position={Position.Left} id="input" className="char-handle" style={{ top: '50%' }} />
       <Handle type="source" position={Position.Right} id="output" className="char-handle" style={{ top: '50%' }} />
+      {isCustom && (
+        <Handle
+          type="target"
+          position={Position.Bottom}
+          id="angle-ref"
+          className="char-handle"
+          style={{ left: '50%' }}
+          title="Angle reference image input"
+        />
+      )}
     </div>
   );
 }

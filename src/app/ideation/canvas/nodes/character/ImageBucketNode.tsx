@@ -14,7 +14,7 @@ interface Props {
 function ImageBucketNodeInner({ id, data, selected }: Props) {
   const { getNode, getEdges } = useReactFlow();
   const [status, setStatus] = useState('');
-  const statusTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(statusTimerRef.current), []);
 
   const resolvedPath = (() => {

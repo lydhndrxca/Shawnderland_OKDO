@@ -2,7 +2,7 @@
 
 /**
  * Unified node type registry shared across ALL applications.
- * Every app (ShawnderMind, Concept Lab, Gemini Studio, Tool Editor)
+ * Every app (ShawnderMind, Concept Lab, Tool Editor)
  * imports from here so all nodes are available everywhere.
  */
 
@@ -43,14 +43,19 @@ import GroupNode from '@/app/ideation/canvas/nodes/GroupNode';
 import PackedPipelineNode from '@/app/ideation/canvas/nodes/PackedPipelineNode';
 import ResultNode from '@/app/ideation/canvas/nodes/ResultNode';
 
-// ── Concept Lab nodes ───────────────────────────────────────────
+// ── Concept Lab nodes (removed from dock, kept for runtime compatibility) ──
 import CharacterNode from '@/app/ideation/canvas/nodes/CharacterNode';
 import WeaponNode from '@/app/ideation/canvas/nodes/WeaponNode';
 import TurnaroundNode from '@/app/ideation/canvas/nodes/TurnaroundNode';
-
-// ── Concept Lab weapon detail nodes ─────────────────────────────
 import WeapBaseNode from '@/app/concept-lab/nodes/WeapBaseNode';
 import WeapComponentsNode from '@/app/concept-lab/nodes/WeapComponentsNode';
+
+// ── Gemini Studio nodes (removed from dock, kept for runtime compatibility) ──
+import PromptNode from '@/app/gemini-studio/nodes/PromptNode';
+import ImageRefNode from '@/app/gemini-studio/nodes/ImageRefNode';
+import ImageGenNode from '@/app/gemini-studio/nodes/ImageGenNode';
+import VideoGenNode from '@/app/gemini-studio/nodes/VideoGenNode';
+import OutputViewerNode from '@/app/gemini-studio/nodes/OutputViewerNode';
 
 // ── Character Generator nodes ───────────────────────────────────
 import CharIdentityNode from '@/app/ideation/canvas/nodes/character/CharIdentityNode';
@@ -63,27 +68,38 @@ import GenerateViewsNode from '@/app/ideation/canvas/nodes/character/GenerateVie
 import ReferenceCalloutNode from '@/app/ideation/canvas/nodes/character/ReferenceCalloutNode';
 import MainStageViewerNode from '@/app/ideation/canvas/nodes/character/MainStageViewerNode';
 import CharViewNode from '@/app/ideation/canvas/nodes/character/CharViewNode';
-import EditCharacterNode from '@/app/ideation/canvas/nodes/character/EditCharacterNode';
-import CharHistoryNode from '@/app/ideation/canvas/nodes/character/CharHistoryNode';
-import ResetCharacterNode from '@/app/ideation/canvas/nodes/character/ResetCharacterNode';
-import SendToPhotoshopNode from '@/app/ideation/canvas/nodes/character/SendToPhotoshopNode';
 import ShowXMLNode from '@/app/ideation/canvas/nodes/character/ShowXMLNode';
 import QuickGenerateNode from '@/app/ideation/canvas/nodes/character/QuickGenerateNode';
-import ProjectSettingsNode from '@/app/ideation/canvas/nodes/character/ProjectSettingsNode';
 import GateNode from '@/app/ideation/canvas/nodes/character/GateNode';
 import StyleNode from '@/app/ideation/canvas/nodes/character/StyleNode';
 import ImageBucketNode from '@/app/ideation/canvas/nodes/character/ImageBucketNode';
 import RandomizeNode from '@/app/ideation/canvas/nodes/character/RandomizeNode';
 import GeminiEditorNode from '@/app/ideation/canvas/nodes/character/GeminiEditorNode';
-import DetachedViewerNode from '@/app/ideation/canvas/nodes/character/DetachedViewerNode';
-// CustomViewNode is now handled by CharViewNode with viewKey='custom'
+import SaveGroupNode from '@/app/ideation/canvas/nodes/character/SaveGroupNode';
+import UpscaleNode from '@/app/ideation/canvas/nodes/character/UpscaleNode';
+import RestoreQualityNode from '@/app/ideation/canvas/nodes/character/RestoreQualityNode';
+import CreativeDirectorNode from '@/app/ideation/canvas/nodes/character/CreativeDirectorNode';
 
-// ── Gemini Studio nodes ─────────────────────────────────────────
-import PromptNode from '@/app/gemini-studio/nodes/PromptNode';
-import ImageRefNode from '@/app/gemini-studio/nodes/ImageRefNode';
-import ImageGenNode from '@/app/gemini-studio/nodes/ImageGenNode';
-import VideoGenNode from '@/app/gemini-studio/nodes/VideoGenNode';
-import OutputViewerNode from '@/app/gemini-studio/nodes/OutputViewerNode';
+// ── Character Generator nodes (removed from dock, kept for runtime compat) ──
+import EditCharacterNode from '@/app/ideation/canvas/nodes/character/EditCharacterNode';
+import CharHistoryNode from '@/app/ideation/canvas/nodes/character/CharHistoryNode';
+import ResetCharacterNode from '@/app/ideation/canvas/nodes/character/ResetCharacterNode';
+import SendToPhotoshopNode from '@/app/ideation/canvas/nodes/character/SendToPhotoshopNode';
+import ProjectSettingsNode from '@/app/ideation/canvas/nodes/character/ProjectSettingsNode';
+import DetachedViewerNode from '@/app/ideation/canvas/nodes/character/DetachedViewerNode';
+
+// ── 3D Gen AI nodes ─────────────────────────────────────────────
+import MeshyImageTo3DNode from '@/app/ideation/canvas/nodes/threedgen/MeshyImageTo3DNode';
+import MeshyModelViewerNode from '@/app/ideation/canvas/nodes/threedgen/MeshyModelViewerNode';
+import Hitem3DImageTo3DNode from '@/app/ideation/canvas/nodes/threedgen/Hitem3DImageTo3DNode';
+
+// ── Audio AI nodes (ElevenLabs) ─────────────────────────────────
+import ElevenLabsTTSNode from '@/app/ideation/canvas/nodes/audio/ElevenLabsTTSNode';
+import ElevenLabsSFXNode from '@/app/ideation/canvas/nodes/audio/ElevenLabsSFXNode';
+import ElevenLabsVoiceCloneNode from '@/app/ideation/canvas/nodes/audio/ElevenLabsVoiceCloneNode';
+import VoiceScriptNode from '@/app/ideation/canvas/nodes/audio/VoiceScriptNode';
+import VoiceDesignerNode from '@/app/ideation/canvas/nodes/audio/VoiceDesignerNode';
+import DialogueWriterNode from '@/app/ideation/canvas/nodes/audio/DialogueWriterNode';
 
 // ── Shared UI element nodes ─────────────────────────────────────
 import {
@@ -138,18 +154,25 @@ export const ALL_RAW_NODE_TYPES: NodeTypes = {
   preprompt: PrepromptNode,
   postprompt: PostPromptNode,
 
-  // Control / Layout
+  // Control / Layout (not in dock but used by pipeline at runtime)
   start: StartNode,
   group: GroupNode,
   packedPipeline: PackedPipelineNode,
   resultNode: ResultNode,
 
-  // Concept Lab
+  // Concept Lab (not in dock, kept for runtime)
   character: CharacterNode,
   weapon: WeaponNode,
   turnaround: TurnaroundNode,
   weapBase: WeapBaseNode,
   weapComponents: WeapComponentsNode,
+
+  // Gemini Studio (not in dock, kept for runtime)
+  gsPrompt: PromptNode,
+  gsImageRef: ImageRefNode,
+  gsImageGen: ImageGenNode,
+  gsVideoGen: VideoGenNode,
+  gsOutputViewer: OutputViewerNode,
 
   // Character Generator
   charIdentity: CharIdentityNode,
@@ -162,13 +185,6 @@ export const ALL_RAW_NODE_TYPES: NodeTypes = {
   charRefCallout: ReferenceCalloutNode,
   charViewer: MainStageViewerNode,
   charImageViewer: MainStageViewerNode,
-  charEdit: EditCharacterNode,
-  charHistory: CharHistoryNode,
-  charReset: ResetCharacterNode,
-  charSendPS: SendToPhotoshopNode,
-  charShowXML: ShowXMLNode,
-  charQuickGen: QuickGenerateNode,
-  charProject: ProjectSettingsNode,
   charGate: GateNode,
   charMainViewer: CharViewNode,
   charFrontViewer: CharViewNode,
@@ -179,17 +195,37 @@ export const ALL_RAW_NODE_TYPES: NodeTypes = {
   charImageBucket: ImageBucketNode,
   charRandomize: RandomizeNode,
   charCustomView: CharViewNode,
+  charShowXML: ShowXMLNode,
+  charQuickGen: QuickGenerateNode,
+  imageStudio: GeminiEditorNode,
   geminiEditor: GeminiEditorNode,
+  charSaveGroup: SaveGroupNode,
+  charUpscale: UpscaleNode,
+  charRestore: RestoreQualityNode,
+  charCreativeDirector: CreativeDirectorNode,
+
+  // Character Generator (removed from dock, kept for saved canvases)
+  charEdit: EditCharacterNode,
+  charHistory: CharHistoryNode,
+  charReset: ResetCharacterNode,
+  charSendPS: SendToPhotoshopNode,
+  charProject: ProjectSettingsNode,
   detachedViewer: DetachedViewerNode,
 
-  // Gemini Studio
-  gsPrompt: PromptNode,
-  gsImageRef: ImageRefNode,
-  gsImageGen: ImageGenNode,
-  gsVideoGen: VideoGenNode,
-  gsOutputViewer: OutputViewerNode,
+  // 3D Gen AI
+  meshyImageTo3D: MeshyImageTo3DNode,
+  meshyModelViewer: MeshyModelViewerNode,
+  hitem3dImageTo3D: Hitem3DImageTo3DNode,
 
-  // Shared UI elements
+  // Audio AI (ElevenLabs + Gemini)
+  elTTS: ElevenLabsTTSNode,
+  elSFX: ElevenLabsSFXNode,
+  elVoiceClone: ElevenLabsVoiceCloneNode,
+  elVoiceScript: VoiceScriptNode,
+  elVoiceDesigner: VoiceDesignerNode,
+  elDialogueWriter: DialogueWriterNode,
+
+  // Shared UI (removed from dock except Frame, kept for saved canvases)
   uiButton: UIButtonNode,
   uiTextBox: UITextBoxNode,
   uiDropdown: UIDropdownNode,
@@ -212,24 +248,33 @@ export const ALL_RAW_NODE_TYPES: NodeTypes = {
  * Default node styles (width/height) applied when a node is created.
  */
 export const NODE_DEFAULTS: Record<string, { style?: { width: number; height: number }; data?: Record<string, unknown> }> = {
-  character: { style: { width: 240, height: 200 } },
-  weapon: { style: { width: 240, height: 220 } },
   charImageViewer: { style: { width: 600, height: 700 } },
   charViewer: { style: { width: 600, height: 700 } },
-  charHistory: { style: { width: 260, height: 500 } },
   charMainViewer: { style: { width: 600, height: 700 }, data: { viewKey: 'main' } },
   charFrontViewer: { style: { width: 400, height: 720 }, data: { viewKey: 'front' } },
   charBackViewer: { style: { width: 400, height: 720 }, data: { viewKey: 'back' } },
   charSideViewer: { style: { width: 400, height: 720 }, data: { viewKey: 'side' } },
-  charIdentity: { style: { width: 360, height: 400 } },
-  charAttributes: { style: { width: 360, height: 600 } },
+  charIdentity: { style: { width: 360, height: 500 } },
+  charAttributes: { style: { width: 400, height: 1600 } },
   charGate: { style: { width: 160, height: 80 }, data: { enabled: true } },
   charStyle: { style: { width: 360, height: 400 } },
   charImageBucket: { style: { width: 240, height: 180 } },
   charRandomize: { style: { width: 180, height: 100 } },
   charCustomView: { style: { width: 400, height: 720 }, data: { viewKey: 'custom' } },
-  geminiEditor: { style: { width: 240, height: 220 } },
-  detachedViewer: { style: { width: 350, height: 400 } },
+  imageStudio: { style: { width: 240, height: 220 } },
+  charSaveGroup: { style: { width: 280, height: 240 } },
+  charUpscale: { style: { width: 240, height: 260 } },
+  charRestore: { style: { width: 260, height: 320 } },
+  charCreativeDirector: { style: { width: 820, height: 500 } },
+  meshyImageTo3D: { style: { width: 340, height: 620 } },
+  meshyModelViewer: { style: { width: 480, height: 640 } },
+  hitem3dImageTo3D: { style: { width: 340, height: 640 } },
+  elTTS: { style: { width: 340, height: 560 } },
+  elSFX: { style: { width: 320, height: 420 } },
+  elVoiceClone: { style: { width: 340, height: 520 } },
+  elVoiceScript: { style: { width: 340, height: 500 } },
+  elVoiceDesigner: { style: { width: 340, height: 420 } },
+  elDialogueWriter: { style: { width: 360, height: 520 } },
 };
 
 export interface DockNodeDef {
@@ -248,12 +293,14 @@ export interface DockCategory {
 
 /**
  * Unified dock categories containing EVERY node, used by all applications.
+ * Organized by workflow: Ideation → Character Design → 3D → Audio → Layout
  */
 export const ALL_DOCK_CATEGORIES: DockCategory[] = [
+  /* ━━ Ideation ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
   {
     key: 'pipeline',
-    label: 'Pipeline',
-    icon: '\u26D3',
+    label: 'Ideation Pipeline',
+    icon: '\u{1F4A1}',
     items: [
       { type: 'seed', label: 'Idea Seed', desc: 'Your starting idea', color: '#6c63ff' },
       { type: 'normalize', label: 'Normalize', desc: 'Break down & clarify', color: '#64b5f6' },
@@ -265,6 +312,7 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
       { type: 'iterate', label: 'Iterate', desc: 'Plan what\u2019s next', color: '#90a4ae' },
     ],
   },
+  /* ━━ Inputs / Outputs / Modifiers ━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
   {
     key: 'inputs',
     label: 'Inputs & References',
@@ -273,9 +321,9 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
       { type: 'textInfluence', label: 'Text', desc: 'Paste text as influence', color: '#7986cb' },
       { type: 'documentInfluence', label: 'Document', desc: 'Upload a document', color: '#a1887f' },
       { type: 'imageInfluence', label: 'Image', desc: 'Add image input', color: '#4db6ac' },
+      { type: 'imageReference', label: 'Image Reference', desc: 'Load or paste reference image', color: '#26a69a' },
       { type: 'linkInfluence', label: 'Link', desc: 'Add URL / link', color: '#4fc3f7' },
       { type: 'videoInfluence', label: 'Video', desc: 'Add video file', color: '#ce93d8' },
-      { type: 'imageReference', label: 'Image Reference', desc: 'Load or paste reference image', color: '#26a69a' },
     ],
   },
   {
@@ -288,6 +336,7 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
       { type: 'influence', label: 'Persona', desc: 'Apply creative persona', color: '#ab47bc' },
       { type: 'preprompt', label: 'Preprompt', desc: 'Inject text before data', color: '#66bb6a' },
       { type: 'postprompt', label: 'PostPrompt', desc: 'Inject text after data', color: '#ffa726' },
+      { type: 'charGate', label: 'Gate (On/Off)', desc: 'Toggle connection on/off', color: '#66bb6a' },
     ],
   },
   {
@@ -301,113 +350,108 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
       { type: 'extractData', label: 'Extract Data', desc: 'Read image with AI', color: '#ffab40' },
     ],
   },
+  /* ━━ Character Design ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
   {
-    key: 'control',
-    label: 'Control',
-    icon: '\u25B6',
-    items: [
-      { type: 'start', label: 'Start', desc: 'Run the pipeline', color: '#42a5f5' },
-      { type: 'resultNode', label: 'Result', desc: 'Shows pipeline output', color: '#80cbc4' },
-      { type: 'packedPipeline', label: 'Full Pipeline', desc: 'Compact full pipeline', color: '#4db6ac' },
-    ],
-  },
-  {
-    key: 'geminiStudio',
-    label: 'Gemini Studio',
-    icon: '\u2728',
-    items: [
-      { type: 'gsPrompt', label: 'Prompt', desc: 'Text prompt input', color: '#64b5f6' },
-      { type: 'gsImageRef', label: 'Image Ref', desc: 'Reference image input', color: '#4dd0e1' },
-      { type: 'gsImageGen', label: 'Image Gen', desc: 'Text-to-image generation', color: '#f06292' },
-      { type: 'gsVideoGen', label: 'Video Gen', desc: 'Text-to-video generation', color: '#ba68c8' },
-      { type: 'gsOutputViewer', label: 'Output Viewer', desc: 'View and export media', color: '#e0e0e0' },
-    ],
-  },
-  {
-    key: 'conceptlab',
-    label: 'Concept Lab',
-    icon: '\u{1F3A8}',
-    items: [
-      { type: 'character', label: 'Character', desc: 'Design a character with AI', color: '#7c4dff' },
-      { type: 'weapon', label: 'Weapon', desc: 'Design a weapon with AI', color: '#ff6d00' },
-      { type: 'turnaround', label: 'Turnaround', desc: 'Multi-view turnaround sheet', color: '#00bfa5' },
-      { type: 'weapBase', label: 'Weapon Generator', desc: 'Weapon description + generate', color: '#ff6d00' },
-      { type: 'weapComponents', label: 'Weapon Components', desc: 'Receiver, barrel, stock, grip', color: '#e65100' },
-    ],
-  },
-  {
-    key: 'charGenerator',
-    label: 'Character Generator',
+    key: 'charDefine',
+    label: 'Character \u2014 Define',
     icon: '\u{1F464}',
     items: [
-      { type: 'charProject', label: 'Project Settings', desc: 'Project name and output dir', color: '#546e7a' },
-      { type: 'charIdentity', label: 'Character Identity', desc: 'Age, race, gender, build presets', color: '#7c4dff' },
-      { type: 'charDescription', label: 'Character Description', desc: 'Freeform description text', color: '#5c6bc0' },
-      { type: 'charAttributes', label: 'Character Attributes', desc: 'Clothing/gear attribute groups', color: '#9c27b0' },
-      { type: 'charStyle', label: 'Style', desc: 'Style text or reference images', color: '#7b1fa2' },
-      { type: 'charExtractAttrs', label: 'Extract Attributes', desc: 'AI image analysis', color: '#ffab40' },
-      { type: 'charEnhanceDesc', label: 'Enhance Description', desc: 'AI text enhancement', color: '#66bb6a' },
-      { type: 'charGenerate', label: 'Generate Character', desc: 'Generate all enabled views', color: '#e91e63' },
-      { type: 'charGate', label: 'Gate (On/Off)', desc: 'Toggle connection on/off', color: '#66bb6a' },
-      { type: 'charMainViewer', label: 'Main Stage Viewer', desc: 'Large image viewer (600x700)', color: '#00bfa5' },
-      { type: 'charFrontViewer', label: 'Front View', desc: 'Front view (300x400)', color: '#42a5f5' },
-      { type: 'charBackViewer', label: 'Back View', desc: 'Back view (300x400)', color: '#ab47bc' },
-      { type: 'charSideViewer', label: 'Side View', desc: 'Side view (300x400)', color: '#ff7043' },
-      { type: 'charRefCallout', label: 'Reference Callout', desc: 'Annotate reference image', color: '#26a69a' },
-      { type: 'charEdit', label: 'Edit Character', desc: 'Text-based image edits', color: '#29b6f6' },
-      { type: 'charHistory', label: 'History', desc: 'Track generation history', color: '#78909c' },
-      { type: 'charReset', label: 'Reset Character', desc: 'Clear all character data', color: '#ef5350' },
-      { type: 'charSendPS', label: 'Send to Photoshop', desc: 'Send to Adobe Photoshop', color: '#1565c0' },
-      { type: 'charShowXML', label: 'Show XML', desc: 'View character XML config', color: '#8d6e63' },
-      { type: 'charQuickGen', label: 'Quick Generate', desc: 'Random character generator', color: '#ffa726' },
-      { type: 'charImageBucket', label: 'Generated Images', desc: 'Browse generated image directory', color: '#43a047' },
+      { type: 'charQuickGen', label: 'Quick Generate', desc: 'AI invents a full random character', color: '#ffa726' },
+      { type: 'charIdentity', label: 'Identity', desc: 'Age, race, gender, build', color: '#7c4dff' },
+      { type: 'charDescription', label: 'Description', desc: 'Freeform character description', color: '#5c6bc0' },
+      { type: 'charAttributes', label: 'Attributes', desc: 'Clothing, gear, accessories', color: '#9c27b0' },
+      { type: 'charStyle', label: 'Style', desc: 'Visual style text or reference images', color: '#7b1fa2' },
       { type: 'charRandomize', label: 'Randomize', desc: 'Randomize connected node options', color: '#ff5722' },
-      { type: 'charCustomView', label: 'Custom View', desc: 'User-prompted custom angle/view', color: '#7e57c2' },
-      { type: 'geminiEditor', label: 'Gemini Editor', desc: 'Full-screen image editor with inpainting', color: '#00bcd4' },
-      { type: 'detachedViewer', label: 'Detached Viewer', desc: 'Floating image viewer — connect to any view node', color: '#607d8b' },
     ],
   },
   {
-    key: 'styles',
-    label: 'Styles',
+    key: 'charGenerate',
+    label: 'Character \u2014 Generate',
     icon: '\u{1F3A8}',
     items: [
-      { type: 'charStyle', label: 'Style', desc: 'Blank style — add prompt or images', color: '#7b1fa2' },
+      { type: 'charGenerate', label: 'Generate Character', desc: 'Generate all enabled views', color: '#e91e63' },
+      { type: 'charExtractAttrs', label: 'Extract Attributes', desc: 'AI reads image \u2192 fills Identity/Desc/Attrs', color: '#ffab40' },
+      { type: 'charEnhanceDesc', label: 'Enhance Description', desc: 'AI enriches description text', color: '#66bb6a' },
+      { type: 'charRefCallout', label: 'Reference Callout', desc: 'Annotate reference image for generation', color: '#26a69a' },
     ],
   },
   {
-    key: 'uiElements',
-    label: 'UI Elements',
-    icon: '\u{1F532}',
+    key: 'charView',
+    label: 'Character \u2014 View',
+    icon: '\u{1F441}',
     items: [
-      { type: 'uiButton', label: 'Button', desc: 'Resizable button placeholder', color: '#5c6bc0' },
-      { type: 'uiTextBox', label: 'Text Box', desc: 'Resizable text input placeholder', color: '#66bb6a' },
-      { type: 'uiDropdown', label: 'Dropdown', desc: 'Dropdown menu placeholder', color: '#ffa726' },
-      { type: 'uiImage', label: 'Image', desc: 'Image placeholder', color: '#ab47bc' },
-      { type: 'uiGeneric', label: 'Node', desc: 'Generic node with header', color: '#607d8b' },
+      { type: 'charMainViewer', label: 'Main Stage Viewer', desc: 'Primary character image display', color: '#00bfa5' },
+      { type: 'charFrontViewer', label: 'Front View', desc: 'Front angle viewer', color: '#42a5f5' },
+      { type: 'charBackViewer', label: 'Back View', desc: 'Back angle viewer', color: '#ab47bc' },
+      { type: 'charSideViewer', label: 'Side View', desc: 'Side angle viewer', color: '#ff7043' },
+      { type: 'charCustomView', label: 'Custom View', desc: 'User-prompted custom angle', color: '#7e57c2' },
     ],
   },
   {
-    key: 'uiContainers',
-    label: 'Containers',
+    key: 'charTools',
+    label: 'Character \u2014 Tools',
+    icon: '\u{1F528}',
+    items: [
+      { type: 'charCreativeDirector', label: 'Creative Director', desc: 'AI design critique & suggestions', color: '#ff6f00' },
+      { type: 'imageStudio', label: 'Image Studio', desc: 'Full-screen editor with inpainting', color: '#00bcd4' },
+      { type: 'charUpscale', label: 'Upscale Image', desc: 'AI upscale (x2/x3/x4)', color: '#e040fb' },
+      { type: 'charRestore', label: 'Restore Quality', desc: 'AI redraw to remove artifacts', color: '#00c853' },
+      { type: 'charSaveGroup', label: 'Save Group', desc: 'Save images as named group', color: '#009688' },
+      { type: 'charShowXML', label: 'Show XML', desc: 'View character config', color: '#8d6e63' },
+    ],
+  },
+  /* ━━ 3D Generation ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  {
+    key: 'threeDGen',
+    label: '3D Generation',
+    icon: '\u{1F4A0}',
+    items: [
+      { type: 'meshyImageTo3D', label: 'Image → 3D (Meshy)', desc: 'Convert character images to 3D model via Meshy', color: '#00acc1' },
+      { type: 'hitem3dImageTo3D', label: 'Image → 3D (Hitem3D)', desc: 'High-detail 3D with portrait models & fine controls', color: '#ff6e40' },
+      { type: 'meshyModelViewer', label: '3D Model Viewer', desc: 'View, inspect & export 3D models', color: '#8e24aa' },
+    ],
+  },
+  /* ━━ Audio AI ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  {
+    key: 'audioWrite',
+    label: 'Audio \u2014 AI Writers',
+    icon: '\u{1F4DD}',
+    items: [
+      { type: 'elVoiceDesigner', label: 'Voice Designer', desc: 'Gemini analyzes character image \u2192 voice description', color: '#1976d2' },
+      { type: 'elDialogueWriter', label: 'Dialogue Writer', desc: 'Describe a topic \u2192 Gemini writes spoken lines', color: '#388e3c' },
+    ],
+  },
+  {
+    key: 'audioGen',
+    label: 'Audio \u2014 Generate',
+    icon: '\u{1F3A4}',
+    items: [
+      { type: 'elTTS', label: 'Text-to-Speech', desc: 'Generate speech with ElevenLabs voices', color: '#ff6f00' },
+      { type: 'elSFX', label: 'Sound Effects', desc: 'Generate SFX from text prompts', color: '#e65100' },
+      { type: 'elVoiceClone', label: 'Voice Clone', desc: 'Clone a voice from an audio sample', color: '#7b1fa2' },
+    ],
+  },
+  /* ━━ Layout & Dev ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  {
+    key: 'layout',
+    label: 'Layout',
     icon: '\u{1F4E6}',
     items: [
-      { type: 'uiWindow', label: 'Window', desc: 'Window panel with title bar', color: '#26a69a' },
-      { type: 'uiFrame', label: 'Frame', desc: 'Layout frame / grouping', color: '#78909c' },
+      { type: 'uiFrame', label: 'Frame', desc: 'Visual grouping container', color: '#78909c' },
     ],
   },
   {
     key: 'teElements',
     label: 'Tool Editor',
-    icon: '\u{1F6E0}',
+    icon: '\u2692',
     items: [
-      { type: 'teGeneric', label: 'TE Node', desc: 'Tool Editor generic node', color: '#607d8b' },
-      { type: 'teButton', label: 'TE Button', desc: 'Tool Editor button', color: '#42a5f5' },
-      { type: 'teTextbox', label: 'TE Text Box', desc: 'Tool Editor text input', color: '#66bb6a' },
-      { type: 'teDropdown', label: 'TE Dropdown', desc: 'Tool Editor dropdown', color: '#ffa726' },
-      { type: 'teImage', label: 'TE Image', desc: 'Tool Editor image', color: '#ab47bc' },
-      { type: 'teWindow', label: 'TE Window', desc: 'Tool Editor window', color: '#78909c' },
-      { type: 'teFrame', label: 'TE Frame', desc: 'Tool Editor frame', color: '#8d6e63' },
+      { type: 'teGeneric', label: 'TE Node', desc: 'Generic node', color: '#607d8b' },
+      { type: 'teButton', label: 'TE Button', desc: 'Button element', color: '#42a5f5' },
+      { type: 'teTextbox', label: 'TE Text Box', desc: 'Text input', color: '#66bb6a' },
+      { type: 'teDropdown', label: 'TE Dropdown', desc: 'Dropdown menu', color: '#ffa726' },
+      { type: 'teImage', label: 'TE Image', desc: 'Image display', color: '#ab47bc' },
+      { type: 'teWindow', label: 'TE Window', desc: 'Window container', color: '#78909c' },
+      { type: 'teFrame', label: 'TE Frame', desc: 'Frame container', color: '#8d6e63' },
     ],
   },
 ];

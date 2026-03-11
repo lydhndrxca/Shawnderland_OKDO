@@ -219,8 +219,51 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     return mockProvider;
   }
 
+  // ── Auto-load session from localStorage on mount ──────────────
+  const SESSION_AUTO_KEY = 'shawnderland-session-auto';
+  const sessionRestoringRef = useRef(false);
   useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SESSION_AUTO_KEY);
+      if (raw) {
+        const saved = patchRestoredSession(JSON.parse(raw) as Session);
+        sessionRestoringRef.current = true;
+        setSession(saved);
+        setTimeout(() => { sessionRestoringRef.current = false; }, 500);
+      }
+    } catch { /* corrupt auto-save, skip */ }
     setLoaded(true);
+  }, []);
+
+  // ── Auto-save session to localStorage (debounced) ────────────
+  const sessionAutoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!loaded || sessionRestoringRef.current) return;
+    if (sessionAutoSaveTimer.current) clearTimeout(sessionAutoSaveTimer.current);
+    sessionAutoSaveTimer.current = setTimeout(() => {
+      try {
+        const toSave: Record<string, unknown> = { ...session };
+        delete toSave.seedMedia;
+        delete toSave.events;
+        localStorage.setItem(SESSION_AUTO_KEY, JSON.stringify(toSave));
+      } catch (e) { console.warn('[SessionProvider] auto-save failed (likely quota):', e); }
+    }, 1500);
+    return () => { if (sessionAutoSaveTimer.current) clearTimeout(sessionAutoSaveTimer.current); };
+  }, [session, loaded]);
+
+  // ── Save session on page unload ──────────────────────────────
+  useEffect(() => {
+    const handleUnload = () => {
+      try {
+        const cur = sessionRef.current;
+        const toSave: Record<string, unknown> = { ...cur };
+        delete toSave.seedMedia;
+        delete toSave.events;
+        localStorage.setItem(SESSION_AUTO_KEY, JSON.stringify(toSave));
+      } catch { /* best-effort */ }
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => window.removeEventListener('beforeunload', handleUnload);
   }, []);
 
   const editSeed = useCallback((text: string) => {
@@ -971,32 +1014,128 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     const cur = sessionRef.current;
     const history = await getSessionHistory(cur.id);
     const toSave = { ...cur, projectName: name || cur.projectName, generationHistory: history };
-    const data = JSON.stringify(toSave);
     const safeName = name.replace(/[^a-zA-Z0-9_\- ]/g, '_').trim() || 'untitled';
-    const stored = JSON.parse(localStorage.getItem('shawndermind-sessions-index') || '{}') as Record<string, string>;
-    stored[safeName] = new Date().toISOString();
-    localStorage.setItem('shawndermind-sessions-index', JSON.stringify(stored));
-    localStorage.setItem(`shawndermind-session-${safeName}`, data);
+
+    // Save lightweight pipeline state to localStorage (backward compat)
+    try {
+      const data = JSON.stringify(toSave);
+      const stored = JSON.parse(localStorage.getItem('shawndermind-sessions-index') || '{}') as Record<string, string>;
+      stored[safeName] = new Date().toISOString();
+      localStorage.setItem('shawndermind-sessions-index', JSON.stringify(stored));
+      localStorage.setItem(`shawndermind-session-${safeName}`, data);
+    } catch (e) {
+      console.warn('[saveSessionAs] localStorage save failed (likely quota):', e);
+    }
+
+    // Save full canvas state (including all images) to IndexedDB + filesystem
+    // (The canvas hook now persists to /api/session automatically)
+    const saveCanvas = (window as unknown as Record<string, unknown>).__saveCanvasSessionNamed as
+      ((name: string) => Promise<{ ok: boolean; error?: string }>) | undefined;
+    if (saveCanvas) {
+      const result = await saveCanvas(safeName);
+      if (!result.ok) console.warn('[saveSessionAs] IndexedDB canvas save failed:', result.error);
+    }
+
+    // Also persist the pipeline session data to filesystem
+    try {
+      await fetch('/api/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: `pipeline-${safeName}`, snapshot: toSave }),
+      });
+    } catch (e) {
+      console.warn('[saveSessionAs] filesystem pipeline save failed:', e);
+    }
+
     setSession((prev) => ({ ...prev, projectName: name || prev.projectName }));
   }, []);
 
+  function patchRestoredSession(saved: Session): Session {
+    if (!saved.activeBranchId) saved.activeBranchId = 'main';
+    if (!saved.settings) saved.settings = { crossCulturalEnabled: false, proxyCultureMode: false, providerMode: 'real', thinkingTier: 'standard', strictAdherence: false };
+    if (!saved.settings.thinkingTier) saved.settings.thinkingTier = 'standard';
+    if (saved.settings.strictAdherence === undefined) saved.settings.strictAdherence = false;
+    if (saved.projectName === undefined) saved.projectName = '';
+    if (!saved.events) saved.events = [];
+    if (!saved.stageState) saved.stageState = {};
+    if (!saved.seedMedia) saved.seedMedia = [];
+    return saved;
+  }
+
   const loadSessionByName = useCallback(async (name: string) => {
     const safeName = name.replace(/[^a-zA-Z0-9_\- ]/g, '_').trim();
-    const result = localStorage.getItem(`shawndermind-session-${safeName}`);
-    if (result && typeof result === 'string') {
-      const saved = JSON.parse(result) as Session;
-      if (!saved.activeBranchId) saved.activeBranchId = 'main';
-      if (!saved.settings) saved.settings = { crossCulturalEnabled: false, proxyCultureMode: false, providerMode: 'real', thinkingTier: 'standard', strictAdherence: false };
-      if (!saved.settings.thinkingTier) saved.settings.thinkingTier = 'standard';
-      if (saved.settings.strictAdherence === undefined) saved.settings.strictAdherence = false;
-      if (saved.projectName === undefined) saved.projectName = '';
-      setSession(saved);
+
+    // Try loading pipeline state from filesystem first, then localStorage
+    let pipelineLoaded = false;
+    try {
+      const res = await fetch(`/api/session?name=${encodeURIComponent(`pipeline-${safeName}`)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.snapshot) {
+          const saved = patchRestoredSession(data.snapshot as Session);
+          setSession(saved);
+          pipelineLoaded = true;
+        }
+      }
+    } catch (e) {
+      console.warn('[loadSessionByName] filesystem pipeline load failed:', e);
+    }
+
+    if (!pipelineLoaded) {
+      const result = localStorage.getItem(`shawndermind-session-${safeName}`);
+      if (result && typeof result === 'string') {
+        const saved = patchRestoredSession(JSON.parse(result) as Session);
+        setSession(saved);
+      }
+    }
+
+    // Restore full canvas state (with images) — the canvas hook now tries
+    // filesystem first, then falls back to IndexedDB.
+    const loadCanvas = (window as unknown as Record<string, unknown>).__loadCanvasSessionNamed as
+      ((name: string) => Promise<boolean>) | undefined;
+    if (loadCanvas) {
+      const ok = await loadCanvas(safeName);
+      if (!ok) console.warn('[loadSessionByName] canvas load not found in filesystem or IndexedDB — using localStorage flowState');
     }
   }, []);
 
   const listSavedSessions = useCallback(async (): Promise<Array<{ name: string; savedAt: string }>> => {
+    const map = new Map<string, string>();
+
+    // 1. Filesystem sessions (primary — survives browser resets)
+    try {
+      const res = await fetch('/api/session');
+      if (res.ok) {
+        const data = await res.json();
+        const sessions = data?.sessions as Array<{ name: string; savedAt: string }> | undefined;
+        if (sessions) {
+          for (const s of sessions) {
+            // Canvas snapshots don't have the pipeline- prefix; pipeline ones do
+            const displayName = s.name.startsWith('pipeline-') ? s.name.slice(9) : s.name;
+            if (!map.has(displayName)) map.set(displayName, s.savedAt);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[listSavedSessions] filesystem list failed:', e);
+    }
+
+    // 2. localStorage sessions (backward compat)
     const stored = JSON.parse(localStorage.getItem('shawndermind-sessions-index') || '{}') as Record<string, string>;
-    return Object.entries(stored).map(([name, savedAt]) => ({ name, savedAt }));
+    for (const [name, savedAt] of Object.entries(stored)) {
+      if (!map.has(name)) map.set(name, savedAt);
+    }
+
+    // 3. IndexedDB canvas sessions
+    const canvasList = (window as unknown as Record<string, unknown>).__listCanvasSessions as
+      Array<{ name: string; savedAt: string }> | undefined;
+    if (canvasList) {
+      for (const s of canvasList) {
+        if (!map.has(s.name)) map.set(s.name, s.savedAt);
+      }
+    }
+
+    return Array.from(map.entries()).map(([name, savedAt]) => ({ name, savedAt }));
   }, []);
 
   const deleteSavedSession = useCallback(async (name: string) => {
@@ -1005,10 +1144,24 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     const stored = JSON.parse(localStorage.getItem('shawndermind-sessions-index') || '{}') as Record<string, string>;
     delete stored[safeName];
     localStorage.setItem('shawndermind-sessions-index', JSON.stringify(stored));
+
+    // Also delete from IndexedDB canvas sessions
+    const deleteCanvas = (window as unknown as Record<string, unknown>).__deleteCanvasSessionNamed as
+      ((name: string) => Promise<void>) | undefined;
+    if (deleteCanvas) await deleteCanvas(safeName);
+
+    // Delete from filesystem (both canvas and pipeline entries)
+    try {
+      await fetch(`/api/session?name=${encodeURIComponent(safeName)}`, { method: 'DELETE' });
+      await fetch(`/api/session?name=${encodeURIComponent(`pipeline-${safeName}`)}`, { method: 'DELETE' });
+    } catch (e) {
+      console.warn('[deleteSavedSession] filesystem delete failed:', e);
+    }
   }, []);
 
   const resetSession = useCallback(() => {
     setSession(createNewSession());
+    try { localStorage.removeItem('shawnderland-session-auto'); } catch { /* ignore */ }
   }, []);
 
   return (

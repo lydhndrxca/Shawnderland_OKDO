@@ -14,7 +14,7 @@ interface Props {
 function ResetCharacterNodeInner({ id, data, selected }: Props) {
   const { setNodes, getEdges } = useReactFlow();
   const [done, setDone] = useState(false);
-  const doneTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const doneTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(doneTimerRef.current), []);
 
   const handleReset = useCallback(() => {
@@ -42,7 +42,6 @@ function ResetCharacterNodeInner({ id, data, selected }: Props) {
           cleared.attributes = {};
         }
         if (n.type === 'charGenerate') {
-          cleared.generatedImages = [];
           cleared.generatedImage = undefined;
           cleared.characterDescription = undefined;
         }

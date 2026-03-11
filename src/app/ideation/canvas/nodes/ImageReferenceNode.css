@@ -116,9 +116,4 @@
   background: rgba(38, 166, 154, 0.1);
 }
 
-.image-ref-handle {
-  width: 10px;
-  height: 10px;
-  border: 2px solid var(--bg-surface);
-  border-radius: 50%;
-}
+/* .image-ref-handle — unified in CanvasCommon.css */

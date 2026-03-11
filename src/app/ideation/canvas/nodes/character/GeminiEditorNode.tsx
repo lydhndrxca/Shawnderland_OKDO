@@ -38,13 +38,13 @@ function GeminiEditorNodeInner({ id, data, selected }: Props) {
     <div
       className={`char-node ${selected ? 'selected' : ''}`}
       style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}
-      title={NODE_TOOLTIPS.geminiEditor}
+      title={NODE_TOOLTIPS.imageStudio}
     >
       <Handle type="target" position={Position.Left} />
       <Handle type="source" position={Position.Right} />
 
       <div className="char-node-header" style={{ background: '#00bcd4' }}>
-        Gemini Editor
+        Image Studio
       </div>
 
       <div className="char-node-body" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 8 }}>

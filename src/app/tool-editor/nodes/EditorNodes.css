@@ -81,19 +81,7 @@
   padding: 2px 4px;
 }
 
-/* handles */
-.te-node .react-flow__handle {
-  width: 10px;
-  height: 10px;
-  border: 2px solid #555;
-  background: #1e1e24;
-  border-radius: 50%;
-}
-
-.te-node .react-flow__handle:hover {
-  border-color: #fff;
-  background: #fff;
-}
+/* Handle styles unified in CanvasCommon.css */
 
 /* ── Window Node ─────────────────────── */
 .te-window-header {

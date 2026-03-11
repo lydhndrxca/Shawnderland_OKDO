@@ -59,7 +59,7 @@ function ExtractDataNodeInner({ id, selected }: ExtractDataNodeProps) {
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
-  const copyTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(copyTimerRef.current), []);
 
   const handleExtract = useCallback(async () => {

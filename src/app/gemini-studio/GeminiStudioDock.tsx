@@ -3,6 +3,9 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Lock, Unlock } from 'lucide-react';
 import type { Node, Edge } from '@xyflow/react';
+import { useReactFlow } from '@xyflow/react';
+import NODE_TOOLTIPS from '@/app/ideation/canvas/nodes/character/nodeTooltips';
+import { NODE_DESCRIPTIONS } from '@/lib/nodeDescriptions';
 import '../../app/ideation/canvas/ToolDock.css';
 
 interface DockNodeDef {
@@ -61,9 +64,7 @@ export default function GeminiStudioDock({
         .filter((cat) => cat.items.length > 0)
     : categories;
 
-  useEffect(() => {
-    if (selectedNodeId) setActiveTab('details');
-  }, [selectedNodeId]);
+  // User must manually click the Details tab — no auto-switch on node selection
 
   const cancelHideTimer = useCallback(() => {
     if (hideTimerRef.current) {
@@ -161,51 +162,9 @@ export default function GeminiStudioDock({
               </div>
             ))}
 
-            {templates.length > 0 && (
-              <div className="tool-dock-category">
-                <button
-                  className={`tool-dock-cat-header ${openCat === 'templates' || search.trim() ? 'open' : ''}`}
-                  onClick={() => setOpenCat(openCat === 'templates' ? null : 'templates')}
-                >
-                  <span className="tool-dock-cat-icon">{'\u{1F4CB}'}</span>
-                  <span className="tool-dock-cat-label">Templates</span>
-                  <span className="tool-dock-cat-count">{templates.length}</span>
-                  <span className="tool-dock-cat-chevron">{openCat === 'templates' ? '\u25BE' : '\u25B8'}</span>
-                </button>
-                {(openCat === 'templates' || search.trim()) && (
-                  <div className="tool-dock-cat-items">
-                    {templates.map((t, i) => (
-                      <div
-                        key={i}
-                        className="tool-dock-item"
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => onLoadTemplate(t.nodes, t.edges)}
-                      >
-                        <div className="tool-dock-item-text">
-                          <span className="tool-dock-item-label">{t.icon} {t.label}</span>
-                          <span className="tool-dock-item-subtitle">Click to load template</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         ) : (
-          <div className="tool-dock-details-empty">
-            {selectedNodeId ? (
-              <>
-                <p>Node selected: <strong>{selectedNodeId}</strong></p>
-                <button className="details-close-btn" onClick={onCloseInspector}>&times;</button>
-              </>
-            ) : (
-              <>
-                <span className="details-empty-icon">&#x25CE;</span>
-                <p>Select a node to view details</p>
-              </>
-            )}
-          </div>
+          <NodeDetailsPanel nodeId={selectedNodeId} onClose={onCloseInspector} />
         )}
       </div>
 
@@ -213,6 +172,68 @@ export default function GeminiStudioDock({
         <span className="strip-chevron">&#x25C0;</span>
         <span className="strip-vertical-label">Nodes / Details</span>
       </button>
+    </div>
+  );
+}
+
+function NodeDetailsPanel({ nodeId, onClose }: { nodeId: string | null; onClose: () => void }) {
+  const { getNode } = useReactFlow();
+
+  if (!nodeId) {
+    return (
+      <div className="tool-dock-details-empty">
+        <span className="details-empty-icon">&#x25CE;</span>
+        <p>Select a node to view details</p>
+      </div>
+    );
+  }
+
+  const node = getNode(nodeId);
+  const nodeType = node?.type ?? nodeId.split('-')[0];
+  const desc = NODE_DESCRIPTIONS[nodeType];
+  const tooltip = NODE_TOOLTIPS[nodeType];
+  const label = desc?.label ?? (node?.data?.label as string) ?? nodeType;
+
+  return (
+    <div className="tool-dock-details">
+      <div className="details-header" style={{ borderBottomColor: desc?.color ?? '#888' }}>
+        <span className="details-dot" style={{ background: desc?.color ?? '#888' }} />
+        <span className="details-title">{label}</span>
+        <button className="details-close-btn" onClick={onClose}>&times;</button>
+      </div>
+      <div className="details-body">
+        {desc && (
+          <div className="inspector-section">
+            <p className="inspector-text" style={{ marginBottom: 12 }}>{desc.description}</p>
+            {desc.connectsTo && desc.connectsTo.length > 0 && (
+              <>
+                <h4 style={{ fontSize: 12, marginBottom: 6, color: '#aaa' }}>Connects to</h4>
+                <ul className="inspector-list">
+                  {desc.connectsTo.map((c, i) => <li key={i}>{c}</li>)}
+                </ul>
+              </>
+            )}
+            {desc.connectsFrom && desc.connectsFrom.length > 0 && (
+              <>
+                <h4 style={{ fontSize: 12, marginBottom: 6, color: '#aaa' }}>Receives from</h4>
+                <ul className="inspector-list">
+                  {desc.connectsFrom.map((c, i) => <li key={i}>{c}</li>)}
+                </ul>
+              </>
+            )}
+          </div>
+        )}
+        {!desc && tooltip && (
+          <div className="inspector-section">
+            <p className="inspector-text">{tooltip}</p>
+          </div>
+        )}
+        {!desc && !tooltip && (
+          <div className="inspector-section">
+            <p className="inspector-text" style={{ color: '#888' }}>No description available for this node type.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

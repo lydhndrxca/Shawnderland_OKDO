@@ -517,14 +517,7 @@
   box-shadow: none !important;
 }
 
-.gs-canvas-area .react-flow__handle {
-  border: none;
-  transition: box-shadow 0.15s !important;
-}
-
-.gs-canvas-area .react-flow__handle:hover {
-  transform: translate(-50%, -50%) !important;
-}
+/* Handle styles unified in CanvasCommon.css */
 
 .gs-canvas-area .react-flow__edge-path {
   cursor: pointer;
@@ -550,25 +543,7 @@
   border-color: var(--border) !important;
 }
 
-/* ── Handle styling (matching ShawnderMind) ── */
-.gs-prompt-node .react-flow__handle,
-.gs-ref-node .react-flow__handle,
-.gs-image-gen-node .react-flow__handle,
-.gs-video-gen-node .react-flow__handle,
-.gs-output-node .react-flow__handle {
-  width: 12px !important;
-  height: 12px !important;
-  border: 2px solid var(--bg-surface);
-  border-radius: 50%;
-}
-
-.gs-prompt-node .react-flow__handle:hover,
-.gs-ref-node .react-flow__handle:hover,
-.gs-image-gen-node .react-flow__handle:hover,
-.gs-video-gen-node .react-flow__handle:hover,
-.gs-output-node .react-flow__handle:hover {
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.3);
-}
+/* Handle styles unified in CanvasCommon.css */
 
 /* ── Loading indicator (matching ShawnderMind) ── */
 .gs-loading {

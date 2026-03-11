@@ -14,7 +14,7 @@
 }
 
 .flow-canvas .react-flow__renderer {
-  background: var(--bg-base);
+  background: transparent;
 }
 
 .flow-controls {
@@ -65,9 +65,7 @@
   box-shadow: none !important;
 }
 
-.react-flow__handle {
-  border: none;
-}
+/* Handle styles unified in CanvasCommon.css */
 
 .react-flow__edge-path {
   cursor: pointer;
@@ -207,13 +205,7 @@
   border-color: rgba(255, 255, 255, 0.15) !important;
 }
 
-.react-flow__handle {
-  transition: box-shadow 0.15s !important;
-}
-
-.react-flow__handle:hover {
-  transform: translate(-50%, -50%) !important;
-}
+/* Handle hover — unified in CanvasCommon.css */
 
 .cut-line-overlay {
   position: absolute;
@@ -227,7 +219,7 @@
   stroke-width: 2;
   stroke-dasharray: 6 4;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 4px rgba(239, 83, 80, 0.5));
+  stroke-opacity: 0.9;
 }
 
 .react-flow__node.snap-preview {
@@ -409,9 +401,9 @@
   to { stroke-dashoffset: 0; }
 }
 
-@keyframes edge-glow-pulse {
-  0%, 100% { filter: drop-shadow(0 0 4px rgba(0, 200, 255, 0.6)) drop-shadow(0 0 8px rgba(108, 99, 255, 0.4)); }
-  50% { filter: drop-shadow(0 0 8px rgba(0, 200, 255, 0.9)) drop-shadow(0 0 16px rgba(108, 99, 255, 0.6)); }
+@keyframes edge-opacity-pulse {
+  0%, 100% { stroke-opacity: 0.7; stroke-width: 4; }
+  50% { stroke-opacity: 1; stroke-width: 5; }
 }
 
 .react-flow__edge.edge-processing .react-flow__edge-path {
@@ -420,7 +412,7 @@
   stroke-dasharray: 10 5 !important;
   animation:
     edge-flow 0.4s linear infinite,
-    edge-glow-pulse 1.5s ease-in-out infinite;
+    edge-opacity-pulse 1.5s ease-in-out infinite;
 }
 
 .react-flow__edge.edge-processing .react-flow__edge-interaction {

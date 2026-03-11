@@ -124,6 +124,7 @@ function FolderBrowser({ onSelect, onCancel }: { onSelect: (p: string) => void; 
 export default function GlobalSettingsPage() {
   const settings = useGlobalSettings();
   const [showBrowser, setShowBrowser] = useState(false);
+  const [showBrowser3D, setShowBrowser3D] = useState(false);
 
   const handleOutputDirChange = useCallback((val: string) => {
     setGlobalSettings({ outputDir: val });
@@ -132,6 +133,15 @@ export default function GlobalSettingsPage() {
   const handleBrowseSelect = useCallback((selectedPath: string) => {
     setGlobalSettings({ outputDir: selectedPath });
     setShowBrowser(false);
+  }, []);
+
+  const handle3DExportDirChange = useCallback((val: string) => {
+    setGlobalSettings({ threeDExportDir: val });
+  }, []);
+
+  const handleBrowse3DSelect = useCallback((selectedPath: string) => {
+    setGlobalSettings({ threeDExportDir: selectedPath });
+    setShowBrowser3D(false);
   }, []);
 
   const dirPreview = settings.outputDir || 'Not set';
@@ -196,12 +206,52 @@ export default function GlobalSettingsPage() {
             </div>
           )}
         </section>
+
+        <section className="gsp-section">
+          <h2 className="gsp-section-title">3D Export Directory</h2>
+          <p className="gsp-section-desc">
+            Folder where 3D models (OBJ, GLB, FBX, USDZ) from the Meshy 3D Gen AI pipeline are exported.
+          </p>
+
+          <div className="gsp-field-row">
+            <input
+              className="gsp-input"
+              value={settings.threeDExportDir}
+              onChange={(e) => handle3DExportDirChange(e.target.value)}
+              placeholder="e.g., D:\ShawnderlandOutput\3d-exports"
+            />
+            <button
+              type="button"
+              className="gsp-btn"
+              onClick={() => setShowBrowser3D(true)}
+            >
+              Browse
+            </button>
+          </div>
+
+          {settings.threeDExportDir && (
+            <div className="gsp-preview">
+              <div className="gsp-preview-title">3D exports will save to</div>
+              <pre className="gsp-tree">{`${settings.threeDExportDir}\\
+  model_name.obj
+  model_name.glb
+  ...`}</pre>
+            </div>
+          )}
+        </section>
       </div>
 
       {showBrowser && (
         <FolderBrowser
           onSelect={handleBrowseSelect}
           onCancel={() => setShowBrowser(false)}
+        />
+      )}
+
+      {showBrowser3D && (
+        <FolderBrowser
+          onSelect={handleBrowse3DSelect}
+          onCancel={() => setShowBrowser3D(false)}
         />
       )}
     </div>

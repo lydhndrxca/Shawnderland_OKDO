@@ -66,6 +66,7 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [resultText, setResultText] = useState((data?.resultText as string) ?? '');
+  const [userHint, setUserHint] = useState((data?.userHint as string) ?? '');
 
   const pushToDownstream = useCallback(
     (description: string, json: Record<string, string>) => {
@@ -115,23 +116,79 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
     setError(null);
     setStatus('Describing character...');
     try {
-      // Step 1: image → prose description (matches original tool)
-      const description = await generateText(DESCRIBE_IMAGE_PROMPT, img);
+      const hint = userHint.trim();
+
+      // Parse user exclusion terms upfront — used for prompt AND post-processing
+      const excludeTerms: string[] = [];
+      if (hint) {
+        const patterns = [
+          /\b(?:no|ignore|remove|without|exclude|skip|drop|omit)\s+(?:the\s+)?(.+)/gi,
+        ];
+        for (const pat of patterns) {
+          let m: RegExpExecArray | null;
+          while ((m = pat.exec(hint)) !== null) {
+            const raw = m[1].toLowerCase().split(/[,;&]+/).map((t) => t.trim()).filter(Boolean);
+            excludeTerms.push(...raw);
+          }
+        }
+      }
+
+      // Place user override BEFORE the main instruction so the AI processes it first
+      const excludeList = excludeTerms.length > 0
+        ? `ITEMS TO COMPLETELY EXCLUDE (pretend they do not exist in the image): ${excludeTerms.join(', ')}\n`
+        : '';
+
+      const descHintBlock = hint
+        ? `⚠️ MANDATORY USER OVERRIDE — HIGHEST PRIORITY:\n${excludeList}${hint}\nIf the user says to ignore/exclude/remove any item, that item MUST NOT appear ANYWHERE in your description. Write as if it does not exist. Do not mention it even indirectly.\n\n`
+        : '';
+
+      const attrHintBlock = hint
+        ? `\n\n⚠️ MANDATORY USER OVERRIDE — HIGHEST PRIORITY (overrides "no none values" rule):\n${excludeList}${hint}\nIf the user says "no [item]", "ignore [item]", "remove [item]", "without [item]", or "exclude [item]", you MUST set ANY field that would describe that item to "none". For example: "no tool belt" → "waist": "none", "handprop": "none". "no hat" → "headwear": "none". This overrides everything else.`
+        : '';
+
+      // Step 1: image → prose description (user override BEFORE the main prompt)
+      const description = await generateText(descHintBlock + DESCRIBE_IMAGE_PROMPT, img);
+
+      // Post-process description: remove sentences that mention excluded items
+      let cleanDescription = description;
+      if (excludeTerms.length > 0) {
+        const sentences = description.split(/(?<=[.!?])\s+/);
+        cleanDescription = sentences
+          .filter((sentence) => {
+            const lower = sentence.toLowerCase();
+            return !excludeTerms.some((term) => lower.includes(term));
+          })
+          .join(' ');
+      }
 
       setStatus('Extracting identity and attributes...');
 
       // Step 2: description → structured JSON attributes
-      const attrPrompt = `${EXTRACT_ATTRIBUTES_PROMPT}\n\nCHARACTER DESCRIPTION:\n${description}`;
+      const attrPrompt = `${EXTRACT_ATTRIBUTES_PROMPT}${attrHintBlock}\n\nCHARACTER DESCRIPTION:\n${cleanDescription}`;
       const attrText = await generateText(attrPrompt, img);
 
-      const combined = `Description:\n${description}\n\nAttributes:\n${attrText}`;
+      const combined = `Description:\n${cleanDescription}\n\nAttributes:\n${attrText}`;
       setResultText(combined);
       setNodes((nds) =>
         nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, resultText: combined } } : n)),
       );
 
       const json = JSON.parse(attrText.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
-      pushToDownstream(description, json);
+
+      // Post-process: scrub attributes matching user exclusion patterns
+      if (excludeTerms.length > 0) {
+        for (const key of Object.keys(json)) {
+          const val = (json[key] ?? '').toLowerCase();
+          for (const term of excludeTerms) {
+            if (val.includes(term)) {
+              json[key] = 'none';
+              break;
+            }
+          }
+        }
+      }
+
+      pushToDownstream(cleanDescription, json);
       setStatus('');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -139,7 +196,7 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
     } finally {
       setGenerating(false);
     }
-  }, [id, getNode, getEdges, setNodes, pushToDownstream]);
+  }, [id, getNode, getEdges, setNodes, pushToDownstream, userHint]);
 
   return (
     <div className={`char-node ${selected ? 'selected' : ''}`} title={NODE_TOOLTIPS.charExtractAttrs}>
@@ -147,6 +204,20 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
         Extract Attributes
       </div>
       <div className="char-node-body">
+        <textarea
+          className="char-textarea nodrag nopan nowheel"
+          value={userHint}
+          onChange={(e) => {
+            const v = e.target.value;
+            setUserHint(v);
+            setNodes((nds) =>
+              nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, userHint: v } } : n)),
+            );
+          }}
+          placeholder="Optional: focus on armor details, ignore background, treat hair as blonde..."
+          rows={2}
+          style={{ fontSize: 11, minHeight: 36 }}
+        />
         <button className="char-btn primary nodrag" onClick={handleExtract} disabled={generating}>
           {generating ? 'Extracting...' : 'Extract Attributes'}
         </button>

@@ -111,7 +111,7 @@ export default function HomePage() {
         <div className="home-section">
           <div className="home-section-title">Tools</div>
           <div className="home-tools-grid">
-            {TOOLS.map((tool) => (
+            {TOOLS.filter((t) => !t.hidden).map((tool) => (
               <div
                 key={tool.id}
                 className="home-tool-card"

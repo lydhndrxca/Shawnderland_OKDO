@@ -68,17 +68,8 @@ const SNAP_DISTANCE_Y = 60;
 
 const CTX_CATEGORIES = ALL_CTX_CATEGORIES;
 
-function buildInitialNodes(session: { stageState: Record<string, unknown>; seedText: string }): Node[] {
-  const nodes: Node[] = [];
-  nodes.push({ id: 'start', type: 'start', position: { x: -250, y: 0 }, data: { stageId: 'start' } });
-  nodes.push({ id: 'seed', type: 'seed', position: { x: 0, y: 0 }, data: { stageId: 'seed' } });
-  for (const stageId of STAGE_ORDER.slice(1)) {
-    const hasOutput = !!(session.stageState as Record<string, { output: unknown }>)[stageId]?.output;
-    if (hasOutput) {
-      nodes.push({ id: stageId, type: stageId, position: { x: 0, y: 0 }, data: { stageId } });
-    }
-  }
-  return nodes;
+function buildInitialNodes(_session: { stageState: Record<string, unknown>; seedText: string }): Node[] {
+  return [];
 }
 
 function buildInitialEdges(nodes: Node[]): Edge[] {
@@ -291,9 +282,10 @@ function FlowCanvasInner() {
     const w = window as unknown as Record<string, unknown>;
     w.__updateNodeData = flow.updateNodeData;
     w.__getNodeData = flow.getNodeData;
+    w.__getNodeType = (id: string) => flow.nodes.find((n) => n.id === id)?.type;
     w.__getEdges = () => flow.edges;
     w.__getFlowSnapshot = flow.getFlowSnapshot;
-  }, [flow.updateNodeData, flow.getNodeData, flow.edges, flow.getFlowSnapshot]);
+  }, [flow.updateNodeData, flow.getNodeData, flow.nodes, flow.edges, flow.getFlowSnapshot]);
 
   // Register opener for GeminiEditor button clicks
   useEffect(() => {
@@ -396,9 +388,20 @@ function FlowCanvasInner() {
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    (window as unknown as Record<string, unknown>).__saveFlowState = (fs: unknown) => saveFlowState(fs as Parameters<typeof saveFlowState>[0]);
-    return () => { delete (window as unknown as Record<string, unknown>).__saveFlowState; };
-  }, [saveFlowState]);
+    const w = window as unknown as Record<string, unknown>;
+    w.__saveFlowState = (fs: unknown) => saveFlowState(fs as Parameters<typeof saveFlowState>[0]);
+    w.__saveCanvasSessionNamed = flow.saveSessionNamed;
+    w.__loadCanvasSessionNamed = flow.loadSessionNamed;
+    w.__deleteCanvasSessionNamed = flow.deleteSessionNamed;
+    w.__listCanvasSessions = flow.savedSessionsList;
+    return () => {
+      delete w.__saveFlowState;
+      delete w.__saveCanvasSessionNamed;
+      delete w.__loadCanvasSessionNamed;
+      delete w.__deleteCanvasSessionNamed;
+      delete w.__listCanvasSessions;
+    };
+  }, [saveFlowState, flow.saveSessionNamed, flow.loadSessionNamed, flow.deleteSessionNamed, flow.savedSessionsList]);
 
   useEffect(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -419,6 +422,26 @@ function FlowCanvasInner() {
         x: event.clientX - bounds.left,
         y: event.clientY - bounds.top,
       });
+
+      // File group drop from Files tab
+      const fileGroupId = event.dataTransfer.getData('application/shawnderland-file-group');
+      if (fileGroupId) {
+        import('@/lib/filesStore').then(({ getGroup }) =>
+          getGroup(fileGroupId).then((group) => {
+            if (!group) return;
+            group.images.forEach((img, i) => {
+              const offset = { x: position.x + i * 420, y: position.y };
+              flow.addNodeToCanvas('charMainViewer', offset, {
+                generatedImage: { base64: img.base64, mimeType: img.mimeType },
+                viewKey: 'main',
+                customLabel: `${group.name} — ${img.viewName}`,
+              });
+            });
+          }),
+        );
+        return;
+      }
+
       const resultText = event.dataTransfer.getData('application/reactflow-result');
       if (resultText) {
         flow.addNodeToCanvas('seed', position, { prefillSeed: resultText });
@@ -958,7 +981,7 @@ function FlowCanvasInner() {
             setInspectorNodeId(node.id);
           }}
           onNodeDoubleClick={(_, node) => {
-            if (node.type === 'geminiEditor') setEditorNodeId(node.id);
+            if (node.type === 'imageStudio') setEditorNodeId(node.id);
           }}
           onPaneClick={() => {
             flow.setSelectedNodeId(null);

@@ -1,7 +1,7 @@
 "use client";
 
-import { memo, useCallback, useState, useRef } from 'react';
-import { Handle, Position, NodeResizer, useReactFlow, useStore } from '@xyflow/react';
+import { memo, useCallback, useState } from 'react';
+import { NodeResizer, useReactFlow, useStore } from '@xyflow/react';
 import { ImageContextMenu } from '@/components/ImageContextMenu';
 import type { GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import './CharacterNodes.css';
@@ -33,96 +33,69 @@ interface Props {
 }
 
 function DetachedViewerNodeInner({ id, data, selected }: Props) {
-  const { getNode, getEdges, setNodes } = useReactFlow();
+  const { setNodes } = useReactFlow();
+  const sourceNodeId = data.sourceNodeId as string | undefined;
 
-  // Reactively watch the connected source node's image
-  const sourceSigSelector = useCallback(
-    (state: {
-      nodes: Array<{ id: string; type?: string; data: Record<string, unknown> }>;
-      edges: Array<{ source: string; target: string }>;
-    }) => {
-      for (const e of state.edges) {
-        const peerId = e.target === id ? e.source : e.source === id ? e.target : null;
-        if (!peerId) continue;
-        const peer = state.nodes.find((n) => n.id === peerId);
-        if (!peer?.data) continue;
-        const img = peer.data.generatedImage as { base64: string } | undefined;
-        if (img?.base64) return `${peerId}:${peer.type ?? ''}:${img.base64.slice(0, 80)}`;
-      }
-      return '';
+  const sourceImgSelector = useCallback(
+    (state: { nodes: Array<{ id: string; type?: string; data: Record<string, unknown> }> }) => {
+      if (!sourceNodeId) return null;
+      const src = state.nodes.find((n) => n.id === sourceNodeId);
+      if (!src?.data) return null;
+      const img = src.data.generatedImage as { base64: string } | undefined;
+      return img?.base64 ? `${src.type ?? ''}:${img.base64.slice(0, 80)}` : null;
     },
-    [id],
+    [sourceNodeId],
   );
-  const sourceSig = useStore(sourceSigSelector);
+  const sourceSig = useStore(sourceImgSelector);
 
-  // Derive actual source data
   const sourceInfo = (() => {
-    const edges = getEdges();
-    for (const e of edges) {
-      const peerId = e.target === id ? e.source : e.source === id ? e.target : null;
-      if (!peerId) continue;
-      const peer = getNode(peerId);
-      if (!peer?.data) continue;
-      const d = peer.data as Record<string, unknown>;
-      const img = d.generatedImage as GeneratedImage | undefined;
-      const customLabel = d.customLabel as string | undefined;
-      const label = customLabel || SOURCE_LABELS[peer.type ?? ''] || (d.viewKey as string) || 'Image';
-      const color = SOURCE_COLORS[peer.type ?? ''] || '#666';
-      return { image: img ?? null, label, color };
+    if (!sourceNodeId || !sourceSig) {
+      return {
+        image: null,
+        label: (data.sourceLabel as string) || 'Detached View',
+        color: (data.sourceColor as string) || '#666',
+      };
     }
-    return { image: null, label: (data.sourceLabel as string) || 'Detached View', color: (data.sourceColor as string) || '#666' };
+    void sourceSig;
+    return {
+      image: null as GeneratedImage | null,
+      label: (data.sourceLabel as string) || 'Detached View',
+      color: (data.sourceColor as string) || '#666',
+    };
   })();
 
-  void sourceSig;
+  // Directly read from store for the actual image (reactive via sourceSig)
+  const sourceImgDataSelector = useCallback(
+    (state: { nodes: Array<{ id: string; type?: string; data: Record<string, unknown> }> }) => {
+      if (!sourceNodeId) return null;
+      const src = state.nodes.find((n) => n.id === sourceNodeId);
+      if (!src?.data) return null;
+      return (src.data.generatedImage as GeneratedImage) ?? null;
+    },
+    [sourceNodeId],
+  );
+  const sourceImage: GeneratedImage | null = useStore(sourceImgDataSelector) ?? null;
+  const sourceTypeSelector = useCallback(
+    (state: { nodes: Array<{ id: string; type?: string }> }) => {
+      if (!sourceNodeId) return '';
+      return state.nodes.find((n) => n.id === sourceNodeId)?.type ?? '';
+    },
+    [sourceNodeId],
+  );
+  const sourceType = useStore(sourceTypeSelector);
 
-  const { image, label, color } = sourceInfo;
+  const label = (data.sourceLabel as string) || SOURCE_LABELS[sourceType] || 'Detached View';
+  const color = (data.sourceColor as string) || SOURCE_COLORS[sourceType] || '#666';
+  const image = sourceImage;
 
-  // Zoom/pan
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const isPanning = useRef(false);
-  const lastMouse = useRef({ x: 0, y: 0 });
-
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.stopPropagation();
-    const factor = e.deltaY > 0 ? 1 / 1.12 : 1.12;
-    setZoom((z) => Math.max(0.1, Math.min(20, z * factor)));
-  }, []);
-
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button === 1 || (e.button === 0 && e.altKey)) {
-      e.preventDefault();
-      isPanning.current = true;
-      lastMouse.current = { x: e.clientX, y: e.clientY };
-    }
-  }, []);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isPanning.current) {
-      const dx = e.clientX - lastMouse.current.x;
-      const dy = e.clientY - lastMouse.current.y;
-      lastMouse.current = { x: e.clientX, y: e.clientY };
-      setPan((p) => ({ x: p.x + dx, y: p.y + dy }));
-    }
-  }, []);
-
-  const handleMouseUp = useCallback(() => { isPanning.current = false; }, []);
-  const handleResetView = useCallback(() => { setZoom(1); setPan({ x: 0, y: 0 }); }, []);
+  void sourceInfo;
 
   const handlePasteImage = useCallback((img: GeneratedImage) => {
-    const edges = getEdges();
-    for (const e of edges) {
-      const peerId = e.target === id ? e.source : e.source === id ? e.target : null;
-      if (!peerId) continue;
-      const peer = getNode(peerId);
-      if (peer?.data) {
-        setNodes((nds) =>
-          nds.map((n) => n.id === peerId ? { ...n, data: { ...n.data, generatedImage: img } } : n),
-        );
-        return;
-      }
-    }
-  }, [id, getNode, getEdges, setNodes]);
+    if (!sourceNodeId) return;
+    setNodes((nds) =>
+      nds.map((n) => n.id === sourceNodeId ? { ...n, data: { ...n.data, generatedImage: img } } : n),
+    );
+  }, [sourceNodeId, setNodes]);
 
   const [imgRes, setImgRes] = useState<{ w: number; h: number } | null>(null);
 
@@ -135,63 +108,79 @@ function DetachedViewerNodeInner({ id, data, selected }: Props) {
   }, [id, setNodes]);
 
   return (
-    <div
-      className={`char-node ${selected ? 'selected' : ''}`}
-      style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}
-    >
+    <div style={{
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      borderRadius: 6,
+      overflow: 'hidden',
+      background: '#111124',
+      border: `1px solid ${color}44`,
+      boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+    }}>
       <NodeResizer
         isVisible={!!selected}
-        minWidth={120}
-        minHeight={100}
+        minWidth={100}
+        minHeight={80}
         onResize={handleResize}
       />
 
-      <Handle type="target" position={Position.Left} id="input" className="char-handle" style={{ top: '50%' }} />
-      <Handle type="source" position={Position.Right} id="output" className="char-handle" style={{ top: '50%' }} />
-
-      <div className="char-node-header" style={{ background: color, padding: '3px 10px', fontSize: 10 }}>
+      {/* Thin colored header */}
+      <div style={{
+        background: color,
+        padding: '2px 8px',
+        fontSize: 10,
+        fontWeight: 600,
+        color: '#000',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        flexShrink: 0,
+      }}>
         <span>{label}</span>
-        <span style={{ marginLeft: 'auto', fontSize: 9, opacity: 0.7 }}>detached</span>
+        {imgRes && (
+          <span style={{ marginLeft: 'auto', fontSize: 8, opacity: 0.7 }}>
+            {imgRes.w}&times;{imgRes.h}
+          </span>
+        )}
       </div>
 
-      <div
-        className="char-viewer-canvas nodrag nowheel"
-        onWheel={handleWheel}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={() => { isPanning.current = false; }}
-        onDoubleClick={handleResetView}
-        style={{ flex: 1, overflow: 'hidden', cursor: isPanning.current ? 'grabbing' : 'default' }}
-      >
+      {/* Image fills remaining space */}
+      <div className="nodrag" style={{
+        flex: 1,
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#0a0a1a',
+      }}>
         {image ? (
-          <>
-            <ImageContextMenu
-              image={image}
+          <ImageContextMenu
+            image={image}
+            alt={label}
+            onPasteImage={handlePasteImage}
+          >
+            <img
+              key={image.base64.slice(-40)}
+              src={`data:${image.mimeType};base64,${image.base64}`}
               alt={label}
-              onPasteImage={handlePasteImage}
-              onResetView={handleResetView}
-            >
-              <img
-                key={image.base64.slice(-40)}
-                src={`data:${image.mimeType};base64,${image.base64}`}
-                alt={label}
-                draggable={false}
-                onLoad={(e) => {
-                  const el = e.currentTarget;
-                  setImgRes({ w: el.naturalWidth, h: el.naturalHeight });
-                }}
-                style={{
-                  transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
-                  transition: isPanning.current ? 'none' : 'transform 0.1s',
-                }}
-              />
-            </ImageContextMenu>
-            {imgRes && <span className="char-viewer-res">{imgRes.w}&times;{imgRes.h}</span>}
-          </>
+              draggable={false}
+              onLoad={(e) => {
+                const el = e.currentTarget;
+                setImgRes({ w: el.naturalWidth, h: el.naturalHeight });
+              }}
+              style={{
+                maxWidth: '100%',
+                maxHeight: '100%',
+                objectFit: 'contain',
+                display: 'block',
+              }}
+            />
+          </ImageContextMenu>
         ) : (
-          <span className="char-viewer-empty">
-            No image<br />Connect to a viewer node
+          <span style={{ fontSize: 10, color: '#555', textAlign: 'center', padding: 8 }}>
+            {sourceNodeId ? 'No image yet' : 'No source'}
           </span>
         )}
       </div>

@@ -393,6 +393,33 @@
   color: #ffab40;
 }
 
+/* ── Run Full Pipeline Button ── */
+.seed-run-all-btn {
+  width: 100%;
+  padding: 8px 10px;
+  margin-top: 4px;
+  border: 1px solid rgba(108, 99, 255, 0.4);
+  border-radius: var(--radius-sm);
+  background: rgba(108, 99, 255, 0.1);
+  color: #6c63ff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  letter-spacing: 0.3px;
+}
+
+.seed-run-all-btn:hover:not(:disabled) {
+  background: #6c63ff;
+  border-color: #6c63ff;
+  color: #fff;
+}
+
+.seed-run-all-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* ── Seed Media Upload Bar ── */
 .seed-media-bar {
   display: flex;

@@ -237,3 +237,12 @@
 .layout-save-confirm:hover {
   filter: brightness(1.15);
 }
+
+.layout-menu-danger {
+  color: #f44336 !important;
+}
+
+.layout-menu-danger:hover {
+  background: rgba(244, 67, 54, 0.12) !important;
+  color: #ff5252 !important;
+}

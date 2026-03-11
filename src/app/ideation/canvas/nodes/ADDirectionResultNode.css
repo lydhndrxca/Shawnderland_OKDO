@@ -1,0 +1,205 @@
+/* ── AD Direction Result Node ── */
+.adresult-node {
+  background: var(--bg-surface, #1a1a2e);
+  border: 1px solid var(--border, #2a2a3c);
+  border-radius: var(--radius-lg, 12px);
+  min-width: 280px;
+  max-width: 340px;
+  box-shadow: var(--shadow-node, 0 4px 16px rgba(0, 0, 0, 0.3));
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.adresult-node.selected {
+  border-color: #ffb74d;
+  box-shadow: 0 0 16px rgba(255, 183, 77, 0.3);
+}
+
+.adresult-node.has-image {
+  max-width: 400px;
+}
+
+.adresult-handle {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--bg-surface, #1a1a2e);
+  background: #ffb74d;
+}
+
+/* ── Header ── */
+.adresult-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(255, 183, 77, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.adresult-number {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffb74d, #ff9800);
+  color: #0f0f1a;
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.adresult-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffb74d;
+  line-height: 1.3;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Image area ── */
+.adresult-image-area {
+  position: relative;
+  min-height: 60px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.adresult-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 300px;
+  object-fit: contain;
+}
+
+.adresult-generating {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 14px;
+  color: var(--text-muted, #888);
+  font-size: 11px;
+}
+
+.adresult-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 183, 77, 0.2);
+  border-top-color: #ffb74d;
+  border-radius: 50%;
+  animation: adresult-spin 0.8s linear infinite;
+}
+
+@keyframes adresult-spin {
+  to { transform: rotate(360deg); }
+}
+
+.adresult-error {
+  padding: 12px 14px;
+  font-size: 11px;
+  color: #f44336;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.adresult-retry-btn {
+  padding: 3px 10px;
+  border: 1px solid rgba(255, 183, 77, 0.3);
+  border-radius: 3px;
+  background: transparent;
+  color: #ffb74d;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.adresult-retry-btn:hover {
+  background: rgba(255, 183, 77, 0.1);
+}
+
+.adresult-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted, #888);
+  font-size: 11px;
+}
+
+/* ── Body ── */
+.adresult-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.adresult-direction {
+  font-size: 11px;
+  color: var(--text-primary, #fff);
+  line-height: 1.5;
+}
+
+.adresult-rationale {
+  font-size: 10px;
+  color: var(--text-secondary, #c0c0c0);
+  line-height: 1.4;
+}
+
+.adresult-reference {
+  font-size: 10px;
+  color: var(--text-muted, #888);
+  line-height: 1.4;
+  font-style: italic;
+}
+
+.adresult-label {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.3px;
+  color: var(--text-muted, #888);
+}
+
+/* ── Actions ── */
+.adresult-actions {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.adresult-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 5px 6px;
+  border: 1px solid var(--border, #2a2a3c);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--bg-elevated, #2a2a3c);
+  color: var(--text-secondary, #c0c0c0);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.adresult-action-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #fff);
+}
+
+.adresult-regen-btn {
+  border-color: rgba(255, 183, 77, 0.3);
+  color: #ffb74d;
+}
+
+.adresult-regen-btn:hover {
+  background: rgba(255, 183, 77, 0.12);
+  color: #ffcc80;
+}

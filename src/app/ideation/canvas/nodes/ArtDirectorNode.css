@@ -1,0 +1,453 @@
+/* ── Art Director Node ── */
+.artdir-node {
+  background: var(--bg-surface, #1a1a2e);
+  border: 1px solid var(--border, #2a2a3c);
+  border-radius: var(--radius-lg, 12px);
+  min-width: 320px;
+  max-width: 380px;
+  box-shadow: var(--shadow-node, 0 4px 16px rgba(0, 0, 0, 0.3));
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.artdir-node.selected {
+  border-color: #f9a825;
+  box-shadow: 0 0 20px rgba(249, 168, 37, 0.35);
+}
+
+.artdir-node.has-result {
+  max-width: 480px;
+}
+
+.artdir-handle {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--bg-surface, #1a1a2e);
+  background: #f9a825;
+}
+
+/* ── Header ── */
+.artdir-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #f9a825, #ff8f00);
+  color: #0f0f1a;
+  border-radius: var(--radius-lg, 12px) var(--radius-lg, 12px) 0 0;
+}
+
+.artdir-label {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.artdir-badge {
+  font-size: 9px;
+  font-weight: 700;
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* ── Focus selector bar ── */
+.artdir-focus-bar {
+  display: flex;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.artdir-focus-btn {
+  flex: 1;
+  padding: 7px 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #888);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  position: relative;
+}
+
+.artdir-focus-btn:hover {
+  background: rgba(249, 168, 37, 0.06);
+  color: var(--text-secondary, #c0c0c0);
+}
+
+.artdir-focus-btn.active {
+  color: #f9a825;
+  background: rgba(249, 168, 37, 0.08);
+}
+
+.artdir-focus-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: #f9a825;
+  border-radius: 1px;
+}
+
+/* ── Input section ── */
+.artdir-input-section {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.artdir-text-input {
+  width: 100%;
+  resize: none;
+  border: 1px solid var(--border, #2a2a3c);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--bg-elevated, #2a2a3c);
+  color: var(--text-primary, #fff);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 8px 10px;
+  line-height: 1.5;
+  outline: none;
+  min-height: 56px;
+}
+
+.artdir-text-input:focus {
+  border-color: #f9a825;
+}
+
+.artdir-text-input::placeholder {
+  color: var(--text-muted, #888);
+}
+
+/* ── Media bar (matches SeedNode) ── */
+.artdir-media-bar {
+  display: flex;
+  gap: 4px;
+}
+
+.artdir-media-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted, #888);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.artdir-media-btn:hover {
+  background: rgba(249, 168, 37, 0.1);
+  color: #f9a825;
+  border-color: rgba(249, 168, 37, 0.3);
+}
+
+.artdir-media-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 160px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.artdir-media-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  color: var(--text-secondary, #c0c0c0);
+}
+
+.artdir-media-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--text-muted, #888);
+}
+
+.artdir-media-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.artdir-media-thumb {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.artdir-media-remove {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted, #888);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.artdir-media-remove:hover {
+  background: rgba(244, 67, 54, 0.25);
+  color: #f44336;
+}
+
+/* ── Run button ── */
+.artdir-run-btn {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #f9a825;
+  border-radius: var(--radius-sm, 4px);
+  background: transparent;
+  color: #f9a825;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  letter-spacing: 0.3px;
+}
+
+.artdir-run-btn:hover:not(:disabled) {
+  background: #f9a825;
+  color: #0f0f1a;
+}
+
+.artdir-run-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* ── Loading ── */
+.artdir-loading {
+  padding: 16px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--text-secondary, #c0c0c0);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.artdir-spinner {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  border: 2px solid rgba(249, 168, 37, 0.25);
+  border-top-color: #f9a825;
+  border-radius: 50%;
+  animation: artdir-spin 0.8s linear infinite;
+}
+
+@keyframes artdir-spin {
+  to { transform: rotate(360deg); }
+}
+
+.artdir-loading-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.artdir-loading-phase {
+  font-size: 10px;
+  font-weight: 700;
+  color: #f9a825;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ── Error ── */
+.artdir-error {
+  padding: 10px 14px;
+  font-size: 11px;
+  color: #f44336;
+  background: rgba(244, 67, 54, 0.08);
+}
+
+/* ── Results ── */
+.artdir-results {
+  max-height: 700px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(249, 168, 37, 0.2) transparent;
+}
+
+/* ── Overall Vision ── */
+.artdir-vision {
+  padding: 12px 14px;
+  background: rgba(249, 168, 37, 0.06);
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  transition: background 0.15s;
+}
+
+.artdir-vision:hover {
+  background: rgba(249, 168, 37, 0.1);
+}
+
+.artdir-vision-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #f9a825;
+  margin-bottom: 6px;
+}
+
+.artdir-vision-text {
+  font-size: 12px;
+  color: var(--text-primary, #fff);
+  line-height: 1.6;
+  font-style: italic;
+}
+
+/* ── Points ── */
+.artdir-points {
+  display: flex;
+  flex-direction: column;
+}
+
+.artdir-point {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.15s;
+}
+
+.artdir-point:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.artdir-point:last-child {
+  border-bottom: none;
+}
+
+.artdir-point-number {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f9a825, #ff8f00);
+  color: #0f0f1a;
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.artdir-point-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.artdir-point-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f9a825;
+  line-height: 1.3;
+}
+
+.artdir-point-direction {
+  font-size: 12px;
+  color: var(--text-primary, #fff);
+  line-height: 1.6;
+}
+
+.artdir-point-direction strong {
+  color: #f9a825;
+}
+
+.artdir-point-rationale {
+  font-size: 11px;
+  color: var(--text-secondary, #c0c0c0);
+  line-height: 1.5;
+}
+
+.artdir-point-reference {
+  font-size: 11px;
+  color: var(--text-muted, #888);
+  line-height: 1.4;
+  font-style: italic;
+}
+
+.artdir-point-label {
+  font-weight: 700;
+  color: var(--text-muted, #888);
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.3px;
+}
+
+/* ── Actions ── */
+.artdir-actions {
+  display: flex;
+  gap: 6px;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.artdir-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--border, #2a2a3c);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--bg-elevated, #2a2a3c);
+  color: var(--text-secondary, #c0c0c0);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.artdir-action-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #fff);
+}
+
+.artdir-rerun-btn {
+  border-color: rgba(249, 168, 37, 0.3);
+  color: #f9a825;
+}
+
+.artdir-rerun-btn:hover {
+  background: rgba(249, 168, 37, 0.12);
+  color: #ffca28;
+}

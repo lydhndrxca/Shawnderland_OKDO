@@ -130,6 +130,7 @@ export interface CanvasSessionState {
   saveCurrentSession: () => Promise<{ ok: boolean; error?: string }>;
   loadSessionNamed: (name: string) => Promise<boolean>;
   deleteSessionNamed: (name: string) => Promise<void>;
+  resetToDefault: (defaultSnapshot: LayoutSnapshot) => void;
   activeSessionName: string | null;
   savedSessionsList: Array<{ name: string; savedAt: string }>;
   refreshSessionsList: () => void;
@@ -964,6 +965,18 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     }
   }, [appKey, activeSessionName, refreshSessionsList]);
 
+  const resetToDefault = useCallback((defaultSnapshot: LayoutSnapshot) => {
+    try {
+      localStorage.removeItem(`shawnderland-layout-${appKey}`);
+    } catch { /* best-effort */ }
+    setActiveSessionName(null);
+    restoreSnapshot(defaultSnapshot);
+    historyRef.current = [];
+    historyIndexRef.current = -1;
+    setCanUndo(false);
+    setCanRedo(false);
+  }, [appKey, restoreSnapshot]);
+
   // ── Auto-load on mount: check auto-save first, then named layouts ──
   const mountedRef = useRef(false);
   const isRestoringRef = useRef(false);
@@ -1088,6 +1101,7 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     saveCurrentSession,
     loadSessionNamed,
     deleteSessionNamed,
+    resetToDefault,
     activeSessionName,
     savedSessionsList,
     refreshSessionsList,

@@ -11,7 +11,7 @@ import type { SeedMediaItem } from '@/lib/ideation/state/sessionTypes';
 import { generateText } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 
 export default function SeedNode({ id, data, selected }: NodeProps) {
-  const { session, editSeed, editSeedContext, editSeedMedia, updateSettings, runStage, runningStageId } = useSession();
+  const { session, editSeed, editSeedContext, editSeedMedia, updateSettings, runStage, runningStageId, runFullPipeline, isRunning } = useSession();
   const { setNodes } = useReactFlow();
   const d = data as Record<string, unknown>;
   const prefill = (d.prefillSeed as string) ?? '';
@@ -102,6 +102,12 @@ export default function SeedNode({ id, data, selected }: NodeProps) {
     if (localContext !== (session.seedContext ?? '')) editSeedContext(localContext);
     try { await runStage('seed'); } catch (e) { console.error('[SeedNode] runStage error:', e); }
   }, [localSeed, localContext, session.seedText, session.seedContext, editSeed, editSeedContext, runStage]);
+
+  const handleRunAll = useCallback(async () => {
+    if (localSeed !== session.seedText) editSeed(localSeed);
+    if (localContext !== (session.seedContext ?? '')) editSeedContext(localContext);
+    try { await runFullPipeline(); } catch (e) { console.error('[SeedNode] runFullPipeline error:', e); }
+  }, [localSeed, localContext, session.seedText, session.seedContext, editSeed, editSeedContext, runFullPipeline]);
 
   const toggleStrict = useCallback(() => {
     updateSettings({ strictAdherence: !strict });
@@ -263,6 +269,17 @@ export default function SeedNode({ id, data, selected }: NodeProps) {
         <span className="seed-strict-label">Strict Adherence</span>
         <span className={`seed-strict-badge ${strict ? 'on' : 'off'}`}>{strict ? 'ON' : 'OFF'}</span>
       </button>
+
+      {hasSeedContent && (
+        <button
+          className="seed-run-all-btn nodrag"
+          onClick={handleRunAll}
+          disabled={isRunning}
+          title="Run the full ideation pipeline automatically — no stops"
+        >
+          {isRunning ? 'Pipeline Running…' : '▶▶ Run Full Pipeline'}
+        </button>
+      )}
     </BaseNode>
   );
 }

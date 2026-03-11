@@ -276,6 +276,13 @@ function GeminiStudioCanvas() {
         onSaveCurrentSession={async () => { const r = await cs.saveCurrentSession(); showToast(r.ok ? 'Session saved' : `Save failed: ${r.error}`, r.ok ? 'info' : 'error'); }}
         onLoadSession={async (name) => { await cs.loadSessionNamed(name); showToast(`Session "${name}" loaded`); }}
         onDeleteSession={async (name) => { await cs.deleteSessionNamed(name); showToast(`Session "${name}" deleted`); }}
+        onResetSession={() => {
+          cs.resetToDefault({
+            nodes: IMAGE_PIPELINE_NODES.map((n) => ({ id: n.id, position: n.position, type: n.type })),
+            edges: IMAGE_PIPELINE_EDGES.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle })),
+          });
+          showToast('Session reset to defaults');
+        }}
         activeSessionName={cs.activeSessionName}
         savedSessions={cs.savedSessionsList}
       />

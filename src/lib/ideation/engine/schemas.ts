@@ -19,8 +19,17 @@ export const NormalizeOutputSchema = z.object({
 });
 export type NormalizeOutput = z.infer<typeof NormalizeOutputSchema>;
 
-export const LensEnum = z.enum(['practical', 'inversion', 'constraint_art']);
-export type LensType = z.infer<typeof LensEnum>;
+const LENS_VALUES = ['practical', 'inversion', 'constraint_art'] as const;
+const lensNormalize: Record<string, (typeof LENS_VALUES)[number]> = {
+  practical: 'practical', inversion: 'inversion', constraint_art: 'constraint_art',
+  constraint: 'constraint_art', creative_constraint: 'constraint_art',
+  contrarian: 'inversion', opposite: 'inversion',
+};
+export const LensEnum = z.string().transform((v) => {
+  const key = v.toLowerCase().trim().replace(/[\s-]+/g, '_');
+  return lensNormalize[key] ?? 'practical';
+}).pipe(z.enum(LENS_VALUES));
+export type LensType = (typeof LENS_VALUES)[number];
 
 export const CultureBlockSchema = z.object({
   anchors: z.object({

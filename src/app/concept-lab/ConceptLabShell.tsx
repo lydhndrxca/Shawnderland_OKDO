@@ -282,6 +282,7 @@ function ConceptLabCanvas() {
         onSaveCurrentSession={async () => { const r = await cs.saveCurrentSession(); showToast(r.ok ? 'Session saved' : `Save failed: ${r.error}`, r.ok ? 'info' : 'error'); }}
         onLoadSession={async (name) => { await cs.loadSessionNamed(name); showToast(`Session "${name}" loaded`); }}
         onDeleteSession={async (name) => { await cs.deleteSessionNamed(name); showToast(`Session "${name}" deleted`); }}
+        onResetSession={() => { cs.resetToDefault({ nodes: [], edges: [] }); showToast('Session reset to defaults'); }}
         activeSessionName={cs.activeSessionName}
         savedSessions={cs.savedSessionsList}
       />

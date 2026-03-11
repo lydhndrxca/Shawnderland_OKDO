@@ -1,0 +1,240 @@
+/* ── Generate Report Node ── */
+.report-node {
+  background: var(--bg-surface, #1a1a2e);
+  border: 1px solid var(--border, #2a2a3c);
+  border-radius: var(--radius-lg, 12px);
+  min-width: 300px;
+  max-width: 400px;
+  box-shadow: var(--shadow-node, 0 4px 16px rgba(0, 0, 0, 0.3));
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.report-node.selected {
+  border-color: #ef5350;
+  box-shadow: 0 0 16px rgba(239, 83, 80, 0.3);
+}
+
+.report-node.has-report {
+  max-width: 480px;
+}
+
+.report-node-handle {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--bg-surface, #1a1a2e);
+  background: #ef5350;
+}
+
+/* ── Header ── */
+.report-node-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #ef5350;
+  color: #0f0f1a;
+  border-radius: var(--radius-lg, 12px) var(--radius-lg, 12px) 0 0;
+}
+
+.report-node-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.report-node-badge {
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+/* ── Empty / Pre-generate state ── */
+.report-node-empty {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.report-node-status {
+  font-size: 11px;
+  color: var(--text-muted, #888);
+  line-height: 1.4;
+}
+
+.report-node-generate-btn {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ef5350;
+  border-radius: var(--radius-sm, 4px);
+  background: transparent;
+  color: #ef5350;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.report-node-generate-btn:hover:not(:disabled) {
+  background: #ef5350;
+  color: #0f0f1a;
+}
+
+.report-node-generate-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* ── Generating spinner ── */
+.report-node-generating {
+  padding: 20px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary, #c0c0c0);
+  font-size: 12px;
+}
+
+.report-node-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(239, 83, 80, 0.3);
+  border-top-color: #ef5350;
+  border-radius: 50%;
+  animation: report-spin 0.8s linear infinite;
+}
+
+@keyframes report-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Error ── */
+.report-node-error {
+  padding: 10px 14px;
+  font-size: 11px;
+  color: #f44336;
+  background: rgba(244, 67, 54, 0.08);
+}
+
+/* ── Report content ── */
+.report-node-content {
+  max-height: 600px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.report-section {
+  padding: 12px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.report-section-heading {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted, #888);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.report-expand-hint {
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: lowercase;
+  letter-spacing: 0;
+  opacity: 0.5;
+  cursor: pointer;
+}
+
+/* ── TLDR ── */
+.report-tldr {
+  background: rgba(239, 83, 80, 0.06);
+  cursor: pointer;
+}
+
+.report-tldr-heading {
+  color: #ef5350;
+  font-size: 13px;
+}
+
+.report-tldr-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary, #fff);
+  line-height: 1.5;
+}
+
+/* ── Section body ── */
+.report-section-body {
+  font-size: 12px;
+  color: var(--text-secondary, #c0c0c0);
+  line-height: 1.6;
+}
+
+.report-section-body strong {
+  color: var(--text-primary, #fff);
+  font-weight: 600;
+}
+
+.report-section-body ul {
+  margin: 4px 0;
+  padding-left: 16px;
+}
+
+.report-section-body li {
+  margin: 2px 0;
+}
+
+/* ── Conclusion ── */
+.report-conclusion {
+  background: rgba(239, 83, 80, 0.04);
+}
+
+.report-conclusion-text {
+  font-size: 12px;
+  color: var(--text-primary, #fff);
+  line-height: 1.5;
+  font-style: italic;
+}
+
+/* ── Actions bar ── */
+.report-node-actions {
+  display: flex;
+  gap: 6px;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.report-action-btn {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--border, #2a2a3c);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--bg-elevated, #2a2a3c);
+  color: var(--text-secondary, #c0c0c0);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.report-action-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #fff);
+}
+
+.report-regen-btn {
+  border-color: rgba(239, 83, 80, 0.3);
+  color: #ef5350;
+}
+
+.report-regen-btn:hover {
+  background: rgba(239, 83, 80, 0.12);
+  color: #ff7043;
+}

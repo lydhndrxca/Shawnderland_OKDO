@@ -50,7 +50,7 @@ import {
 function buildNormalizeSchemaHint(session: Session): string {
   const nodeData = session.flowState?.nodeData?.['normalize'] as Record<string, unknown> | undefined;
   const qCount = typeof nodeData?.questionCount === 'number' ? nodeData.questionCount : 4;
-  return `Return JSON: { "seedSummary": "<one-paragraph structured summary of the seed idea>", "assumptions": [{ "key": "<name>", "value": "<assumption text>", "userOverride": false }], "clarifyingQuestions": ["<question1>", "<question2>", ...] }. Generate 3-5 assumptions and exactly ${qCount} clarifying questions that would help refine the ideation if answered.`;
+  return `Return JSON: { "seedSummary": "<one-paragraph structured summary of the seed idea>", "assumptions": [{ "key": "<name>", "value": "<assumption text>", "userOverride": false }], "clarifyingQuestions": ["<question1>", "<question2>", ...] }. Generate 3-5 assumptions and exactly ${qCount} clarifying questions. Each question must be unique to this specific seed idea — never generic boilerplate.`;
 }
 
 const STAGE_SCHEMA_HINTS: Partial<Record<StageId, string>> = {
@@ -351,7 +351,9 @@ async function runNormalizeStage(
   const influenceContext = resolveInfluenceContext(session);
   const preprompt = buildPrepromptBlock(session);
   const seedDesc = getSeedDescription(session);
-  let prompt = preprompt + buildNormalizePrompt(seedDesc, userInputs, session.seedContext, influenceContext, settings.strictAdherence);
+  const normNodeData = session.flowState?.nodeData?.['normalize'] as Record<string, unknown> | undefined;
+  const questionCount = typeof normNodeData?.questionCount === 'number' ? normNodeData.questionCount : 4;
+  let prompt = preprompt + buildNormalizePrompt(seedDesc, userInputs, session.seedContext, influenceContext, settings.strictAdherence, questionCount);
   prompt += buildSeedMediaTextBlock(session);
   prompt += buildInfluenceBlock(session);
   prompt = appendStrictAdherence(prompt, session);

@@ -4,6 +4,7 @@ export function buildNormalizePrompt(
   seedContext?: string,
   influenceContext?: string[],
   strictAdherence?: boolean,
+  questionCount = 4,
 ): string {
   let prompt = '[STAGE:normalize]\n\n';
   prompt += `## Seed Idea\n${seedText}\n\n`;
@@ -47,7 +48,12 @@ export function buildNormalizePrompt(
     'Produce a structured normalization:\n' +
     '- seedSummary: 1-2 sentence elaboration of what this idea is about, staying faithful to the user\'s words\n' +
     '- assumptions: key-value pairs for things that are implied but not stated (label them clearly as assumptions)\n' +
-    '- clarifyingQuestions: 2-4 targeted questions that would meaningfully improve the quality of generated ideas if answered. Ask about intent, scope, audience, constraints, or priorities that are not clear from the seed.\n\n' +
+    `- clarifyingQuestions: exactly ${questionCount} questions. ` +
+    'Each question MUST be unique to THIS specific seed idea — never ask generic boilerplate like ' +
+    '"What is the target audience?" or "What is the scope?". Instead, demonstrate that you deeply ' +
+    'understand what the user described and ask the specific follow-ups that only make sense for THIS idea. ' +
+    'Good questions surface hidden trade-offs, unexplored angles, or ambiguities that would ' +
+    'materially change the direction of ideation if answered differently.\n\n' +
     'Return JSON: { "seedSummary": "...", "assumptions": [{ "key": "...", "value": "...", "userOverride": false }], "clarifyingQuestions": ["..."] }\n';
   return prompt;
 }

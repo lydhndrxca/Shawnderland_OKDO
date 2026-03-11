@@ -99,7 +99,7 @@ export const STAGE_ORDER: StageId[] = [
   'expand', 'converge', 'commit', 'iterate',
 ];
 
-export type OutputNodeType = 'textOutput' | 'imageOutput' | 'videoOutput';
+export type OutputNodeType = 'textOutput' | 'imageOutput' | 'videoOutput' | 'generateReport' | 'artDirector' | 'adDirectionResult' | 'levelDesignDirector' | 'ldDirectionResult';
 export type InputNodeType = 'count';
 export type InfluenceNodeType = 'emotion' | 'influence' | 'textInfluence' | 'documentInfluence' | 'imageInfluence' | 'linkInfluence' | 'videoInfluence';
 export type PromptInjectionNodeType = 'preprompt' | 'postprompt';
@@ -154,6 +154,36 @@ export const OUTPUT_NODE_META: Record<OutputNodeType, OutputNodeMeta> = {
     label: 'Video Output',
     color: '#ba68c8',
     tooltip: 'Generates short video clips from your idea using AI video models.',
+  },
+  generateReport: {
+    type: 'generateReport',
+    label: 'Generate Report',
+    color: '#4fc3f7',
+    tooltip: 'Generates a comprehensive report from the idea pipeline output.',
+  },
+  artDirector: {
+    type: 'artDirector',
+    label: 'Art Director',
+    color: '#ffb74d',
+    tooltip: 'Hollywood art direction feedback through a 6-phase ideation gauntlet.',
+  },
+  adDirectionResult: {
+    type: 'adDirectionResult',
+    label: 'AD Direction Result',
+    color: '#ffcc80',
+    tooltip: 'A single art direction point with annotated image.',
+  },
+  levelDesignDirector: {
+    type: 'levelDesignDirector',
+    label: 'Level Design Director',
+    color: '#81c784',
+    tooltip: 'AAA level layout feedback through a 6-phase ideation gauntlet.',
+  },
+  ldDirectionResult: {
+    type: 'ldDirectionResult',
+    label: 'LD Direction Result',
+    color: '#a5d6a7',
+    tooltip: 'A single level design direction point with annotated image.',
   },
 };
 
@@ -296,7 +326,7 @@ export const RESULT_NODE_META: Record<ResultNodeType, ResultNodeMeta> = {
   },
 };
 
-export const OUTPUT_NODE_TYPES: OutputNodeType[] = ['textOutput', 'imageOutput', 'videoOutput'];
+export const OUTPUT_NODE_TYPES: OutputNodeType[] = ['textOutput', 'imageOutput', 'videoOutput', 'generateReport', 'artDirector', 'levelDesignDirector', 'ldDirectionResult'];
 export const INPUT_NODE_TYPES: InputNodeType[] = ['count'];
 export const INFLUENCE_NODE_TYPES: InfluenceNodeType[] = ['emotion', 'influence', 'textInfluence', 'documentInfluence', 'imageInfluence', 'linkInfluence', 'videoInfluence'];
 export const UTILITY_NODE_TYPES: UtilityNodeType[] = ['imageReference', 'extractData'];

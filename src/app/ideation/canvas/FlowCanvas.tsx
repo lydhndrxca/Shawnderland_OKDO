@@ -48,6 +48,7 @@ import { applyResizeToAll } from '@/components/nodes/withNodeResize';
 import { applyDagreLayout } from './flowLayout';
 import type { FlowState } from '@/lib/ideation/state/sessionTypes';
 import { loadDefaultOrLatest } from '@/lib/layoutStore';
+import { DEFAULT_SHAWNDERMIND_LAYOUT } from './defaultLayout';
 import CostWidget from '@/components/CostWidget';
 import './FlowCanvas.css';
 
@@ -67,6 +68,14 @@ const SNAP_DISTANCE_X = 40;
 const SNAP_DISTANCE_Y = 60;
 
 const CTX_CATEGORIES = ALL_CTX_CATEGORIES;
+
+/** Find a pipeline stage node — prefer ID match, fall back to type match. */
+function findStageNode(nodes: Node[], stageId: string): Node | undefined {
+  return nodes.find((n) => n.id === stageId) ?? nodes.find((n) => n.type === stageId);
+}
+function hasStageNode(nodes: Node[], stageId: string): boolean {
+  return nodes.some((n) => n.id === stageId || n.type === stageId);
+}
 
 function buildInitialNodes(_session: { stageState: Record<string, unknown>; seedText: string }): Node[] {
   return [];
@@ -116,6 +125,9 @@ function computeInitialLayout(session: { stageState: Record<string, unknown>; se
       if (raw) { const parsed = JSON.parse(raw) as FlowState; if (parsed?.nodes?.length) saved = parsed; }
     } catch { /* ignore */ }
   }
+  if (!saved?.nodes?.length) {
+    saved = DEFAULT_SHAWNDERMIND_LAYOUT;
+  }
   if (saved?.nodes?.length) {
     const posMap = new Map(saved.nodes.map((n) => [n.id, n.position]));
     const savedNodeData = saved.nodeData ?? {};
@@ -129,7 +141,9 @@ function computeInitialLayout(session: { stageState: Record<string, unknown>; se
       ...n, position: posMap.get(n.id) ?? n.position,
       data: savedNodeData[n.id] ? { ...n.data, ...savedNodeData[n.id] } : n.data,
     }));
-    return { nodes: [...restored, ...extraNodes], edges: initialEdges, viewport: saved.viewport };
+    const allNodes = [...restored, ...extraNodes];
+    const pipelineEdges = buildInitialEdges(allNodes);
+    return { nodes: allNodes, edges: pipelineEdges.length > 0 ? pipelineEdges : initialEdges, viewport: saved.viewport };
   }
   return { ...applyDagreLayout(initialNodes, initialEdges), viewport: undefined };
 }
@@ -189,10 +203,11 @@ function FlowCanvasInner() {
       }),
     );
 
-    const currentNodeIds = new Set(flow.nodes.map((n) => n.id));
+    const currentNodes = flow.nodes;
+    const currentNodeIds = new Set(currentNodes.map((n) => n.id));
     const newNodes: Node[] = [];
     for (const stageId of STAGE_ORDER) {
-      if (currentNodeIds.has(stageId)) continue;
+      if (hasStageNode(currentNodes, stageId)) continue;
       const hasOutput = !!(session.stageState as Record<string, { output: unknown }>)[stageId]?.output;
       if (hasOutput) newNodes.push({ id: stageId, type: stageId, position: { x: 0, y: 0 }, data: { stageId } });
     }
@@ -204,21 +219,24 @@ function FlowCanvasInner() {
       });
       flow.setEdges((prev) => {
         const currentIds = new Set(prev.map((e) => e.id));
-        const allNodes = [...flow.nodes, ...newNodes];
+        const allNodes = [...currentNodes, ...newNodes];
         const allEdges = buildInitialEdges(allNodes);
         return [...prev, ...allEdges.filter((e) => !currentIds.has(e.id))];
       });
     }
 
-    // Auto-spawn Result Nodes below completed pipeline stages
-    const resultStageIds: { stageId: StageId; output: unknown }[] = [];
+    // Auto-spawn Result Nodes below completed pipeline stages (skip seed — it has no meaningful result)
+    const resultStageIds: { stageId: StageId; output: unknown; parentId: string }[] = [];
     for (const stageId of STAGE_ORDER) {
+      if (stageId === 'seed') continue;
       if (spawnedResultsRef.current.has(stageId)) continue;
       const output = getStageOutput(session, stageId);
       if (!output) continue;
-      const allNodeIds = new Set([...currentNodeIds, ...newNodes.map((n) => n.id)]);
+      const allNodes = [...currentNodes, ...newNodes];
+      const allNodeIds = new Set(allNodes.map((n) => n.id));
       if (allNodeIds.has(`result-${stageId}`)) { spawnedResultsRef.current.add(stageId); continue; }
-      resultStageIds.push({ stageId, output });
+      const parent = findStageNode(allNodes, stageId);
+      resultStageIds.push({ stageId, output, parentId: parent?.id ?? stageId });
       spawnedResultsRef.current.add(stageId);
     }
     if (resultStageIds.length > 0) {
@@ -227,8 +245,8 @@ function FlowCanvasInner() {
         const toAdd: Node[] = [];
         const occupiedBottom = new Map<number, number>();
         for (const n of prev) { const bx = Math.round(n.position.x / 100) * 100; occupiedBottom.set(bx, Math.max(occupiedBottom.get(bx) ?? -Infinity, n.position.y + EST_H)); }
-        for (const { stageId, output } of resultStageIds) {
-          const parent = prev.find((n) => n.id === stageId);
+        for (const { stageId, output, parentId } of resultStageIds) {
+          const parent = prev.find((n) => n.id === parentId) ?? findStageNode(prev, stageId);
           const pp = parent?.position ?? { x: 0, y: 0 };
           const bx = Math.round(pp.x / 100) * 100;
           const low = Math.max(occupiedBottom.get(bx) ?? pp.y + EST_H, pp.y + EST_H);
@@ -238,8 +256,8 @@ function FlowCanvasInner() {
         }
         return [...prev, ...toAdd];
       });
-      flow.setEdges((prev) => [...prev, ...resultStageIds.map(({ stageId }) => ({
-        id: `e-${stageId}-result`, source: stageId, sourceHandle: 'results', target: `result-${stageId}`,
+      flow.setEdges((prev) => [...prev, ...resultStageIds.map(({ stageId, parentId }) => ({
+        id: `e-${stageId}-result`, source: parentId, sourceHandle: 'results', target: `result-${stageId}`,
         type: 'pipeline', data: { sourceStage: stageId, isRunning: false, isComplete: true },
       }))]);
     }
@@ -296,13 +314,12 @@ function FlowCanvasInner() {
   // Pipeline-specific window globals
   const spawnFullChain = useCallback(() => {
     flow.setNodes((prev) => {
-      const existingIds = new Set(prev.map((n) => n.id));
       const toAdd: Node[] = [];
       for (const stageId of STAGE_ORDER.slice(1)) {
-        if (!existingIds.has(stageId)) toAdd.push({ id: stageId, type: stageId, position: { x: 0, y: 0 }, data: { stageId } });
+        if (!hasStageNode(prev, stageId)) toAdd.push({ id: stageId, type: stageId, position: { x: 0, y: 0 }, data: { stageId } });
       }
       if (toAdd.length === 0) return prev;
-      const seedNode = prev.find((n) => n.id === 'seed');
+      const seedNode = findStageNode(prev, 'seed');
       const seedY = seedNode?.position.y ?? 0;
       const rightmostX = prev.length > 0 ? prev.reduce((max, n) => Math.max(max, n.position.x), -Infinity) : 0;
       return [...prev, ...toAdd.map((n, i) => ({ ...n, position: { x: rightmostX + 380 * (i + 1), y: seedY } }))];
@@ -522,10 +539,11 @@ function FlowCanvasInner() {
   const handleNodeContextMenu = useCallback(
     (event: React.MouseEvent, nodeId: string) => {
       event.preventDefault();
-      const stageId = nodeId.split('-')[0] as StageId;
+      const node = flow.nodes.find((n) => n.id === nodeId);
+      const stageId = (node?.type ?? nodeId.split('-')[0]) as StageId;
       setCtxMenu({ x: event.clientX, y: event.clientY, nodeId, stageId });
     },
-    [],
+    [flow.nodes],
   );
 
   const handlePaneContextMenu = useCallback(
@@ -946,6 +964,7 @@ function FlowCanvasInner() {
         onSaveCurrentSession={async () => { const r = await flow.saveCurrentSession(); showToast(r.ok ? 'Session saved' : `Save failed: ${r.error}`, r.ok ? 'info' : 'error'); }}
         onLoadSession={async (name) => { await flow.loadSessionNamed(name); showToast(`Session "${name}" loaded`); }}
         onDeleteSession={async (name) => { await flow.deleteSessionNamed(name); showToast(`Session "${name}" deleted`); }}
+        onResetSession={() => { flow.resetToDefault(DEFAULT_SHAWNDERMIND_LAYOUT); showToast('Session reset to defaults'); }}
         activeSessionName={flow.activeSessionName}
         savedSessions={flow.savedSessionsList}
       />

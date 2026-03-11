@@ -46,6 +46,7 @@ export interface GlobalToolbarProps {
   onSaveCurrentSession?: () => void;
   onLoadSession?: (name: string) => void;
   onDeleteSession?: (name: string) => void;
+  onResetSession?: () => void;
   activeSessionName?: string | null;
   savedSessions?: SavedSessionEntry[];
 
@@ -97,6 +98,7 @@ export default function GlobalToolbar({
   onSaveCurrentSession,
   onLoadSession,
   onDeleteSession,
+  onResetSession,
   activeSessionName,
   savedSessions,
 }: GlobalToolbarProps) {
@@ -430,6 +432,17 @@ export default function GlobalToolbar({
                       <button className="layout-menu-btn" onClick={() => setSessionSavePrompt(true)}>
                         Save Session As...
                       </button>
+                      {onResetSession && (
+                        <>
+                          <div className="layout-menu-sep" />
+                          <button
+                            className="layout-menu-btn layout-menu-danger"
+                            onClick={() => { onResetSession(); setSessionDropdownOpen(false); }}
+                          >
+                            Reset to Defaults
+                          </button>
+                        </>
+                      )}
                       {savedSessions && savedSessions.length > 0 && (
                         <>
                           <div className="layout-menu-sep" />

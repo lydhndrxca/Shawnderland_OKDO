@@ -35,6 +35,17 @@ import ImageInfluenceNode from '@/app/ideation/canvas/nodes/ImageInfluenceNode';
 import LinkInfluenceNode from '@/app/ideation/canvas/nodes/LinkInfluenceNode';
 import VideoInfluenceNode from '@/app/ideation/canvas/nodes/VideoInfluenceNode';
 
+// ── Report nodes ─────────────────────────────────────────────────
+import GenerateReportNode from '@/app/ideation/canvas/nodes/GenerateReportNode';
+
+// ── Art Director nodes ──────────────────────────────────────────
+import ArtDirectorNode from '@/app/ideation/canvas/nodes/ArtDirectorNode';
+import ADDirectionResultNode from '@/app/ideation/canvas/nodes/ADDirectionResultNode';
+
+// ── Level Design Director nodes ─────────────────────────────────
+import LevelDesignDirectorNode from '@/app/ideation/canvas/nodes/LevelDesignDirectorNode';
+import LDDirectionResultNode from '@/app/ideation/canvas/nodes/LDDirectionResultNode';
+
 // ── Control / Layout nodes ──────────────────────────────────────
 import PrepromptNode from '@/app/ideation/canvas/nodes/PrepromptNode';
 import PostPromptNode from '@/app/ideation/canvas/nodes/PostPromptNode';
@@ -153,6 +164,17 @@ export const ALL_RAW_NODE_TYPES: NodeTypes = {
   // Prompt injection
   preprompt: PrepromptNode,
   postprompt: PostPromptNode,
+
+  // Report
+  generateReport: GenerateReportNode,
+
+  // Art Director
+  artDirector: ArtDirectorNode,
+  adDirectionResult: ADDirectionResultNode,
+
+  // Level Design Director
+  levelDesignDirector: LevelDesignDirectorNode,
+  ldDirectionResult: LDDirectionResultNode,
 
   // Control / Layout (not in dock but used by pipeline at runtime)
   start: StartNode,
@@ -310,6 +332,9 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
       { type: 'converge', label: 'Converge', desc: 'Score & pick winner', color: '#ffd54f' },
       { type: 'commit', label: 'Commit', desc: 'Create final artifact', color: '#4db6ac' },
       { type: 'iterate', label: 'Iterate', desc: 'Plan what\u2019s next', color: '#90a4ae' },
+      { type: 'generateReport', label: 'Generate Report', desc: 'Full idea report with TLDR', color: '#ef5350' },
+      { type: 'artDirector', label: 'Art Director', desc: 'Hollywood art direction — 5 points of expert feedback', color: '#f9a825' },
+      { type: 'levelDesignDirector', label: 'Level Design Director', desc: 'AAA level design critique — gameplay-focused feedback', color: '#00e676' },
     ],
   },
   /* ━━ Inputs / Outputs / Modifiers ━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */

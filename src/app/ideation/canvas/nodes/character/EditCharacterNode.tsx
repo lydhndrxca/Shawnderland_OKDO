@@ -6,6 +6,7 @@ import { generateWithGeminiRef, type GeneratedImage } from '@/lib/ideation/engin
 import { createProcessingAnimator } from '@/lib/processingAnimation';
 import { registerRequest, unregisterRequest } from '@/lib/activeRequests';
 import { NODE_TOOLTIPS } from './nodeTooltips';
+import { devLog } from '@/lib/devLog';
 import './CharacterNodes.css';
 
 interface Props {
@@ -294,7 +295,7 @@ function EditCharacterNodeInner({ id, data, selected }: Props) {
       }
     } catch (e) {
       if (isCancelledError(e)) {
-        console.log('[EditCharacter] cancelled');
+        devLog('[EditCharacter] cancelled');
       } else {
         console.error('[EditCharacter] error:', e);
         if (mountedRef.current) setError(e instanceof Error ? e.message : String(e));

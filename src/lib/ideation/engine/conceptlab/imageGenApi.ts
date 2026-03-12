@@ -7,6 +7,7 @@
 import { recordImagenUsage, recordUsage } from '../provider/costTracker';
 import { getActiveBackend as _getActiveBackend } from '../apiConfig';
 import { registerRequest, unregisterRequest } from '@/lib/activeRequests';
+import { devLog, devWarn } from '@/lib/devLog';
 export type { ApiBackend } from '../apiConfig';
 export { getActiveBackend } from '../apiConfig';
 
@@ -84,7 +85,7 @@ async function attemptFetch(
   const timer = setTimeout(() => { timedOut = true; ac.abort(); }, timeoutMs);
 
   const t0 = Date.now();
-  console.log(`[attemptFetch] → ${url.slice(0, 50)}… (${(bodyStr.length / 1024).toFixed(0)}KB, timeout=${timeoutMs / 1000}s)`);
+  devLog(`[attemptFetch] → ${url.slice(0, 50)}… (${(bodyStr.length / 1024).toFixed(0)}KB, timeout=${timeoutMs / 1000}s)`);
 
   try {
     const res = await fetch(url, {
@@ -94,12 +95,12 @@ async function attemptFetch(
       signal: ac.signal,
     });
 
-    console.log(`[attemptFetch] ← ${res.status} ${res.statusText} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+    devLog(`[attemptFetch] ← ${res.status} ${res.statusText} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
 
     if (res.ok) {
-      console.log(`[attemptFetch] parsing JSON response...`);
+      devLog(`[attemptFetch] parsing JSON response...`);
       const json = (await res.json()) as Record<string, unknown>;
-      console.log(`[attemptFetch] ✓ JSON parsed (${((Date.now() - t0) / 1000).toFixed(1)}s total)`);
+      devLog(`[attemptFetch] ✓ JSON parsed (${((Date.now() - t0) / 1000).toFixed(1)}s total)`);
       return json;
     }
 
@@ -107,10 +108,10 @@ async function attemptFetch(
     throw new Error(`${label} error ${res.status}: ${errText.slice(0, 400)}`);
   } catch (err) {
     const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
-    if (tracker.signal.aborted) { console.log(`[attemptFetch] cancelled after ${elapsed}s`); throw new Error('Cancelled'); }
+    if (tracker.signal.aborted) { devLog(`[attemptFetch] cancelled after ${elapsed}s`); throw new Error('Cancelled'); }
     if (timedOut) { console.error(`[attemptFetch] timed out after ${elapsed}s`); throw new Error(`${label} timed out after ${Math.round(timeoutMs / 1000)}s`); }
     if (err instanceof Error && err.message.startsWith(`${label} error`)) throw err;
-    console.warn(`[attemptFetch] network error after ${elapsed}s: ${err instanceof Error ? err.message : err}`);
+    devWarn(`[attemptFetch] network error after ${elapsed}s: ${err instanceof Error ? err.message : err}`);
     return null;
   } finally {
     clearTimeout(timer);
@@ -129,11 +130,11 @@ async function callApi(
 
   try {
     const proxyBody = JSON.stringify({ model, method, body });
-    console.log(`[imageGenApi] ${label} → proxy (${(proxyBody.length / 1024).toFixed(0)}KB)`);
+    devLog(`[imageGenApi] ${label} → proxy (${(proxyBody.length / 1024).toFixed(0)}KB)`);
 
     const result = await attemptFetch(PROXY_URL, proxyBody, label, timeoutMs, tracker);
     if (result) {
-      console.log(`[imageGenApi] ${label} → proxy OK ✓`);
+      devLog(`[imageGenApi] ${label} → proxy OK ✓`);
       return result;
     }
 
@@ -286,7 +287,7 @@ async function _geminiRefCall(
   parts: Array<Record<string, unknown>>,
 ): Promise<GeneratedImage[]> {
   const t0 = Date.now();
-  console.log(`[generateWithGeminiRef] calling callApi (${modelDef.label})...`);
+  devLog(`[generateWithGeminiRef] calling callApi (${modelDef.label})...`);
 
   const imgCfg = getImageConfig(modelDef.id);
   const json = await callApi(
@@ -302,7 +303,7 @@ async function _geminiRefCall(
     modelDef.label,
   );
 
-  console.log(`[generateWithGeminiRef] callApi returned in ${Date.now() - t0}ms`);
+  devLog(`[generateWithGeminiRef] callApi returned in ${Date.now() - t0}ms`);
 
   if ((json as { usageMetadata?: object }).usageMetadata) {
     recordUsage(
@@ -314,12 +315,12 @@ async function _geminiRefCall(
   const responseParts =
     ((json as { candidates?: Array<{ content?: { parts?: Array<Record<string, unknown>> } }> })
       .candidates?.[0]?.content?.parts) ?? [];
-  console.log(`[generateWithGeminiRef] response parts: ${responseParts.length}`);
+  devLog(`[generateWithGeminiRef] response parts: ${responseParts.length}`);
 
   const imageParts = responseParts.filter(
     (p: Record<string, unknown>) => (p as { inlineData?: object }).inlineData,
   );
-  console.log(`[generateWithGeminiRef] image parts: ${imageParts.length}, text parts: ${responseParts.filter((p: Record<string, unknown>) => (p as { text?: string }).text).length}`);
+  devLog(`[generateWithGeminiRef] image parts: ${imageParts.length}, text parts: ${responseParts.filter((p: Record<string, unknown>) => (p as { text?: string }).text).length}`);
 
   if (imageParts.length === 0) {
     const textContent = responseParts
@@ -330,7 +331,7 @@ async function _geminiRefCall(
     throw new Error(`No image returned from ${modelDef.label}${textContent ? ': ' + textContent.slice(0, 100) : ''}`);
   }
 
-  console.log(`[generateWithGeminiRef] ✓ returning ${imageParts.length} image(s)`);
+  devLog(`[generateWithGeminiRef] ✓ returning ${imageParts.length} image(s)`);
   return imageParts.map((p: Record<string, unknown>) => {
     const d = (p as { inlineData: { mimeType: string; data: string } }).inlineData;
     return { base64: d.data, mimeType: d.mimeType };
@@ -362,9 +363,9 @@ export async function generateWithGeminiRefDetailed(
 ): Promise<GeminiRefResult> {
   const images = Array.isArray(referenceImage) ? referenceImage : [referenceImage];
 
-  console.log(`[generateWithGeminiRef] model=${model}, images=${images.length}, prompt length=${prompt.length}`);
+  devLog(`[generateWithGeminiRef] model=${model}, images=${images.length}, prompt length=${prompt.length}`);
   for (let i = 0; i < images.length; i++) {
-    console.log(`[generateWithGeminiRef] image[${i}] mime=${images[i].mimeType} base64 length=${images[i].base64.length}`);
+    devLog(`[generateWithGeminiRef] image[${i}] mime=${images[i].mimeType} base64 length=${images[i].base64.length}`);
   }
 
   const parts: Array<Record<string, unknown>> = [
@@ -383,7 +384,7 @@ export async function generateWithGeminiRefDetailed(
     for (let attempt = 0; attempt < retries; attempt++) {
       try {
         if (attempt > 0) {
-          console.log(`[generateWithGeminiRef] Retry ${attempt}/${retries - 1} for ${modelDef.label} after ${PRO_RETRY_DELAY_MS}ms…`);
+          devLog(`[generateWithGeminiRef] Retry ${attempt}/${retries - 1} for ${modelDef.label} after ${PRO_RETRY_DELAY_MS}ms…`);
           await new Promise((r) => setTimeout(r, PRO_RETRY_DELAY_MS));
         }
         const result = await _geminiRefCall(modelDef, parts);
@@ -393,14 +394,14 @@ export async function generateWithGeminiRefDetailed(
         const isServerError = /error\s*(5\d{2})/i.test(msg) || msg.includes('INTERNAL');
 
         if (isServerError && attempt < retries - 1) {
-          console.warn(`[generateWithGeminiRef] ${modelDef.label} attempt ${attempt + 1} failed (server error), retrying…`);
+          devWarn(`[generateWithGeminiRef] ${modelDef.label} attempt ${attempt + 1} failed (server error), retrying…`);
           continue;
         }
 
         const isLast = i === modelsToTry.length - 1;
         if (isServerError && !isLast) {
           const next = GEMINI_IMAGE_MODELS[modelsToTry[i + 1]];
-          console.warn(`[generateWithGeminiRef] ${modelDef.label} exhausted ${retries} attempt(s), falling back to ${next.label}…`);
+          devWarn(`[generateWithGeminiRef] ${modelDef.label} exhausted ${retries} attempt(s), falling back to ${next.label}…`);
           break;
         }
         throw err;
@@ -548,7 +549,7 @@ export async function restoreImageQuality(
 
   onStatus?.('Analyzing image…');
   const description = await generateText(DESCRIBE_FOR_RESTORE_PROMPT, sourceImage);
-  console.log('[restoreImageQuality] Description length:', description.length);
+  devLog('[restoreImageQuality] Description length:', description.length);
 
   const ar = (opts.imageWidth && opts.imageHeight)
     ? detectAspectRatio(opts.imageWidth, opts.imageHeight)

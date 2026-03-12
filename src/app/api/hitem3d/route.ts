@@ -7,12 +7,19 @@ const ACCESS_KEY = process.env.HITEM3D_ACCESS_KEY ?? '';
 const SECRET_KEY = process.env.HITEM3D_SECRET_KEY ?? '';
 const BASE = 'https://api.hitem3d.ai';
 
+const ALLOWED_PROXY_HOSTS = new Set(['api.hitem3d.ai', 'cdn.hitem3d.ai', 'assets.hitem3d.ai']);
+
 export async function POST(req: NextRequest) {
   if (!ACCESS_KEY) {
     return NextResponse.json({ error: 'HITEM3D_ACCESS_KEY not configured' }, { status: 500 });
   }
 
-  const payload = await req.json();
+  let payload: Record<string, unknown>;
+  try {
+    payload = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
   const { action } = payload as { action: string };
 
   if (action === 'submit-task') {
@@ -107,6 +114,14 @@ export async function POST(req: NextRequest) {
   if (action === 'proxy-model') {
     const { url } = payload as { url: string };
     if (!url) return NextResponse.json({ error: 'Missing url' }, { status: 400 });
+    try {
+      const parsedUrl = new URL(url);
+      if (!ALLOWED_PROXY_HOSTS.has(parsedUrl.hostname)) {
+        return NextResponse.json({ error: `Proxy blocked: host ${parsedUrl.hostname} not allowed` }, { status: 403 });
+      }
+    } catch {
+      return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
+    }
     try {
       const res = await fetch(url);
       if (!res.ok) {

@@ -22,6 +22,7 @@ import { createProcessingAnimator } from '@/lib/processingAnimation';
 import { IMAGE_GEN_MODELS, MULTIMODAL_MODELS, IMAGE_RESOLUTIONS, PRESET_KEY, loadPreset } from './ModelSettingsNode';
 import type { PresetData } from './ModelSettingsNode';
 import { NODE_TOOLTIPS } from './nodeTooltips';
+import { devLog, devWarn } from '@/lib/devLog';
 import './CharacterNodes.css';
 
 interface Props {
@@ -124,9 +125,9 @@ function gatherInputs(
     }
   }
 
-  console.log(`[gatherInputs] ${incoming.length} incoming edge(s) to node ${nodeId}, ${resolvedSources.length} after gate resolution`);
+  devLog(`[gatherInputs] ${incoming.length} incoming edge(s) to node ${nodeId}, ${resolvedSources.length} after gate resolution`);
   for (const { node: src, data: d } of resolvedSources) {
-    console.log(`[gatherInputs] source type="${src.type}", keys=[${Object.keys(d).join(', ')}]`);
+    devLog(`[gatherInputs] source type="${src.type}", keys=[${Object.keys(d).join(', ')}]`);
 
     if (src.type === 'charIdentity') {
       const id = d.identity as CharacterIdentity | undefined;
@@ -145,22 +146,22 @@ function gatherInputs(
     } else if (src.type === 'charRefCallout') {
       const callout = (d.calloutText as string) || 'incorporate this item';
       const refEdges = edges.filter((re) => re.target === src.id);
-      console.log(`[gatherInputs] RefCallout "${callout}" — ${refEdges.length} incoming edges to callout node`);
+      devLog(`[gatherInputs] RefCallout "${callout}" — ${refEdges.length} incoming edges to callout node`);
       let foundImage: GeneratedImage | null = null;
       for (const re of refEdges) {
         const refSrc = getNode(re.source);
         if (!refSrc?.data) continue;
         const rd = refSrc.data as Record<string, unknown>;
-        console.log(`[gatherInputs]   → RefCallout source type="${refSrc.type}", hasGeneratedImage=${!!(rd.generatedImage as { base64?: string })?.base64}, hasImageBase64=${!!rd.imageBase64}`);
+        devLog(`[gatherInputs]   → RefCallout source type="${refSrc.type}", hasGeneratedImage=${!!(rd.generatedImage as { base64?: string })?.base64}, hasImageBase64=${!!rd.imageBase64}`);
         const rImg = rd.generatedImage as GeneratedImage | undefined;
         if (rImg?.base64) { foundImage = rImg; break; }
         if (rd.imageBase64) { foundImage = { base64: rd.imageBase64 as string, mimeType: (rd.mimeType as string) || 'image/png' }; break; }
       }
       if (foundImage) {
-        console.log(`[gatherInputs]   ✓ RefCallout image found (${(foundImage.base64.length / 1024).toFixed(0)}KB), callout="${callout}"`);
+        devLog(`[gatherInputs]   ✓ RefCallout image found (${(foundImage.base64.length / 1024).toFixed(0)}KB), callout="${callout}"`);
         contentRefs.push({ image: foundImage, callout });
       } else {
-        console.warn(`[gatherInputs]   ✗ RefCallout image NOT found for "${callout}"`);
+        devWarn(`[gatherInputs]   ✗ RefCallout image NOT found for "${callout}"`);
       }
     } else if (src.type === 'charBible') {
       const parts: string[] = [];
@@ -379,8 +380,8 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
       const refImages = contentRefs.map((r) => r.image);
       const callouts = contentRefs.map((r) => r.callout);
 
-      console.log(`[GenerateCharImage] Inputs — style imgs: ${styleImages.length}, content refs: ${contentRefs.length} [${callouts.join('; ')}], styleText: "${styleText.slice(0, 50)}", desc: ${description.length} chars`);
-      console.log(`[GenerateCharImage] Models — imageGen: ${imgDef.label} (${imgDef.apiId}), multimodal: ${mmDef.label} (${mmDef.apiId}), resolution: ${imageResolution}`);
+      devLog(`[GenerateCharImage] Inputs — style imgs: ${styleImages.length}, content refs: ${contentRefs.length} [${callouts.join('; ')}], styleText: "${styleText.slice(0, 50)}", desc: ${description.length} chars`);
+      devLog(`[GenerateCharImage] Models — imageGen: ${imgDef.label} (${imgDef.apiId}), multimodal: ${mmDef.label} (${mmDef.apiId}), resolution: ${imageResolution}`);
       setProgress(`Inputs: ${styleImages.length} style img${styleImages.length !== 1 ? 's' : ''}, ${contentRefs.length} content ref${contentRefs.length !== 1 ? 's' : ''}${callouts.length > 0 ? ` (${callouts.join(', ')})` : ''}`);
 
       if (!pose && attributes.pose) {
@@ -483,7 +484,7 @@ ${fullPrompt}
 ${styleRules}
 ${contentRefs.length > 0 ? `- Every content reference item MUST appear on the character. This is MANDATORY — do not skip any.` : ''}`;
 
-        console.log(`[GenerateCharImage] Using multimodal (${mmDef.label}) with ${allRefImages.length} ref images. Prompt length: ${prompt.length}`);
+        devLog(`[GenerateCharImage] Using multimodal (${mmDef.label}) with ${allRefImages.length} ref images. Prompt length: ${prompt.length}`);
         result = await generateWithGeminiRef(prompt, allRefImages, mmDef.apiId as GeminiImageModel);
       } else if (imgDef.apiId.startsWith('imagen-')) {
         result = await generateWithImagen4(fullPrompt, aspectRatio, 1, imgDef.apiId);
@@ -511,7 +512,7 @@ ${contentRefs.length > 0 ? `- Every content reference item MUST appear on the ch
       );
 
       autoSaveImage(mainImage, 'main_stage', projectName, outputDir || undefined)
-        .then((r) => { if (!r.ok) console.warn('[auto-save]', r.error); });
+        .then((r) => { if (!r.ok) devWarn('[auto-save]', r.error); });
 
       const mainViewerIds = findDownstreamMainViewers(id, getNode, getEdges);
       if (mainViewerIds.length > 0) {

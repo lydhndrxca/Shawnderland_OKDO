@@ -35,6 +35,7 @@ import {
   getActiveSessionName as storeGetActiveSessionName,
   type SessionSnapshot,
 } from '@/lib/layoutStore';
+import { devLog, devWarn } from '@/lib/devLog';
 
 export interface CutLine {
   x1: number;
@@ -857,7 +858,7 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
       if (nd.localImage) imageFields.push(`${nid}:localImage`);
       if (nd.historyEntries) imageFields.push(`${nid}:historyEntries(${(nd.historyEntries as unknown[]).length})`);
     }
-    console.log(`[saveSessionNamed] "${name}" — ${nodeIds.length} nodes, image fields:`, imageFields);
+    devLog(`[saveSessionNamed] "${name}" — ${nodeIds.length} nodes, image fields:`, imageFields);
 
     const result = await storeSaveSession(appKey, name, snapshot);
     if (result.ok) {
@@ -869,7 +870,7 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     try {
       const jsonBody = JSON.stringify({ name, snapshot });
       const sizeMB = (jsonBody.length / (1024 * 1024)).toFixed(2);
-      console.log(`[saveSessionNamed] Sending ${sizeMB} MB to filesystem API...`);
+      devLog(`[saveSessionNamed] Sending ${sizeMB} MB to filesystem API...`);
       const res = await fetch('/api/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -877,12 +878,12 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
       });
       if (res.ok) {
         const resData = await res.json();
-        console.log(`[saveSessionNamed] Filesystem save OK:`, resData);
+        devLog(`[saveSessionNamed] Filesystem save OK:`, resData);
       } else {
-        console.warn(`[saveSessionNamed] Filesystem save failed: ${res.status} ${res.statusText}`);
+        devWarn(`[saveSessionNamed] Filesystem save failed: ${res.status} ${res.statusText}`);
       }
     } catch (e) {
-      console.warn('[saveSessionNamed] filesystem save failed:', e);
+      devWarn('[saveSessionNamed] filesystem save failed:', e);
     }
 
     return result;
@@ -901,7 +902,7 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
         body: JSON.stringify({ name: activeSessionName, snapshot }),
       });
     } catch (e) {
-      console.warn('[saveCurrentSession] filesystem save failed:', e);
+      devWarn('[saveCurrentSession] filesystem save failed:', e);
     }
 
     return result;
@@ -921,7 +922,7 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
         }
       }
     } catch (e) {
-      console.warn('[loadSessionNamed] filesystem load failed, falling back to IndexedDB:', e);
+      devWarn('[loadSessionNamed] filesystem load failed, falling back to IndexedDB:', e);
     }
 
     // Fallback to IndexedDB
@@ -930,7 +931,7 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
       if (snap) source = 'IndexedDB';
     }
     if (!snap) {
-      console.warn(`[loadSessionNamed] "${name}" not found in filesystem or IndexedDB`);
+      devWarn(`[loadSessionNamed] "${name}" not found in filesystem or IndexedDB`);
       return false;
     }
 
@@ -946,7 +947,7 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
       if (d.localImage) imageFields.push(`${nid}:localImage`);
       if (d.historyEntries) imageFields.push(`${nid}:historyEntries(${(d.historyEntries as unknown[]).length})`);
     }
-    console.log(`[loadSessionNamed] "${name}" from ${source} — ${snap.nodes.length} nodes, ${snap.edges.length} edges, image fields:`, imageFields);
+    devLog(`[loadSessionNamed] "${name}" from ${source} — ${snap.nodes.length} nodes, ${snap.edges.length} edges, image fields:`, imageFields);
 
     const ok = restoreSessionSnapshot(snap);
     if (ok) setActiveSessionName(name);
@@ -961,7 +962,7 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     try {
       await fetch(`/api/session?name=${encodeURIComponent(name)}`, { method: 'DELETE' });
     } catch (e) {
-      console.warn('[deleteSessionNamed] filesystem delete failed:', e);
+      devWarn('[deleteSessionNamed] filesystem delete failed:', e);
     }
   }, [appKey, activeSessionName, refreshSessionsList]);
 

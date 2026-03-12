@@ -9,6 +9,7 @@ import {
 } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import type { GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { NODE_TOOLTIPS } from './nodeTooltips';
+import { devWarn } from '@/lib/devLog';
 import './CharacterNodes.css';
 
 interface Props {
@@ -130,7 +131,7 @@ function MainStageViewerNodeInner({ id, data, selected }: Props) {
         if (match) {
           result = JSON.parse(match[0]);
         } else {
-          console.warn('[AutoFidelity] Could not parse detection response:', raw.slice(0, 200));
+          devWarn('[AutoFidelity] Could not parse detection response:', raw.slice(0, 200));
           setFidelityStatus(null);
           return;
         }

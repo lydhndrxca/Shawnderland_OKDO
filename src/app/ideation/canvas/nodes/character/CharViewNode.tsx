@@ -6,6 +6,7 @@ import { ImageContextMenu } from '@/components/ImageContextMenu';
 import { generateWithGeminiRef, restoreImageQuality, type GeneratedImage, type GeminiImageModel } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { registerRequest, unregisterRequest } from '@/lib/activeRequests';
 import { NODE_TOOLTIPS } from './nodeTooltips';
+import { devLog, devWarn } from '@/lib/devLog';
 import './CharacterNodes.css';
 
 interface Props {
@@ -597,7 +598,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
 
     setAutoGenBusy(true);
 
-    console.log(`[CharView:${viewKey}] Auto-generating ${cfg.label} from Main Stage reference...`);
+    devLog(`[CharView:${viewKey}] Auto-generating ${cfg.label} from Main Stage reference...`);
 
     const session = registerRequest();
     autoGenSessionRef.current = session;
@@ -618,7 +619,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         const img = results[0];
         if (!img) return;
 
-        console.log(`[CharView:${viewKey}] ✓ Auto-generated ${cfg.label} (${(img.base64.length / 1024).toFixed(0)}KB)`);
+        devLog(`[CharView:${viewKey}] ✓ Auto-generated ${cfg.label} (${(img.base64.length / 1024).toFixed(0)}KB)`);
         setEditedImage(img);
         setNodes((nds) =>
           nds.map((n) =>
@@ -695,20 +696,20 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         prompt = upstreamCtx + '\n\n' + prompt;
       }
 
-      console.log(`[CharView:${viewKey}] editing image (${Array.isArray(refImages) ? refImages.length + ' images' : (srcImage.base64.length / 1024).toFixed(0) + 'KB'})...`);
+      devLog(`[CharView:${viewKey}] editing image (${Array.isArray(refImages) ? refImages.length + ' images' : (srcImage.base64.length / 1024).toFixed(0) + 'KB'})...`);
 
       const modelLabel = editModel === 'gemini-flash-image' ? 'NB2' : 'NB Pro';
       setEditStatus(`Waiting for ${modelLabel}…`);
       const results = await generateWithGeminiRef(prompt, refImages, editModel);
 
-      console.log(`[CharView:${viewKey}] API returned. mounted=${mountedRef.current}, aborted=${session.signal.aborted}, results=${results?.length}`);
+      devLog(`[CharView:${viewKey}] API returned. mounted=${mountedRef.current}, aborted=${session.signal.aborted}, results=${results?.length}`);
 
       if (!mountedRef.current) {
-        console.warn(`[CharView:${viewKey}] ⚠ Component unmounted during API call — skipping update`);
+        devWarn(`[CharView:${viewKey}] ⚠ Component unmounted during API call — skipping update`);
         return;
       }
       if (session.signal.aborted) {
-        console.warn(`[CharView:${viewKey}] ⚠ Session was cancelled — skipping update`);
+        devWarn(`[CharView:${viewKey}] ⚠ Session was cancelled — skipping update`);
         return;
       }
 
@@ -716,7 +717,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
       if (!img) throw new Error('No image returned');
 
       const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
-      console.log(`[CharView:${viewKey}] ✓ edit complete (${elapsed}s), new image ${(img.base64.length / 1024).toFixed(0)}KB`);
+      devLog(`[CharView:${viewKey}] ✓ edit complete (${elapsed}s), new image ${(img.base64.length / 1024).toFixed(0)}KB`);
       setEditStatus(`Done in ${elapsed}s ✓`);
 
       setEditedImage(img);
@@ -758,7 +759,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
       const msg = e instanceof Error ? e.message : String(e);
       const isCancel = msg.toLowerCase().includes('cancelled') || msg.toLowerCase().includes('abort');
       if (isCancel) {
-        console.log(`[CharView:${viewKey}] edit cancelled`);
+        devLog(`[CharView:${viewKey}] edit cancelled`);
         setEditStatus(null);
       } else {
         console.error(`[CharView:${viewKey}] edit error:`, e);

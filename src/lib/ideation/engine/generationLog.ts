@@ -1,3 +1,5 @@
+import { devWarn } from '@/lib/devLog';
+
 const DB_NAME = 'shawndermind_generation_log';
 const DB_VERSION = 2;
 const STORE_NAME = 'entries';
@@ -174,7 +176,7 @@ export async function logGeneration(entry: Omit<GenerationLogEntry, 'id' | 'time
       tx.onerror = () => reject(tx.error);
     });
   } catch (err) {
-    console.warn('[GenerationLog] Failed to write entry:', err);
+    devWarn('[GenerationLog] Failed to write entry:', err);
   }
   return id;
 }

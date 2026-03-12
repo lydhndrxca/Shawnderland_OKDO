@@ -31,13 +31,20 @@ async function meshyFetch(
   return { status: res.status, data };
 }
 
+const ALLOWED_PROXY_HOSTS = new Set(['assets.meshy.ai', 'cdn.meshy.ai', 'api.meshy.ai']);
+
 export async function POST(req: NextRequest) {
   if (!MESHY_KEY) {
     return NextResponse.json({ error: 'MESHY_API_KEY not configured' }, { status: 500 });
   }
 
-  const payload = await req.json();
-  const { action, ...params } = payload as Record<string, unknown>;
+  let payload: Record<string, unknown>;
+  try {
+    payload = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+  const { action, ...params } = payload;
 
   if (action === 'create-image-to-3d') {
     const { status, data } = await meshyFetch('/openapi/v1/image-to-3d', 'POST', params);
@@ -60,6 +67,14 @@ export async function POST(req: NextRequest) {
   if (action === 'proxy-model') {
     const url = params.url as string;
     if (!url) return NextResponse.json({ error: 'Missing url' }, { status: 400 });
+    try {
+      const parsedUrl = new URL(url);
+      if (!ALLOWED_PROXY_HOSTS.has(parsedUrl.hostname)) {
+        return NextResponse.json({ error: `Proxy blocked: host ${parsedUrl.hostname} not allowed` }, { status: 403 });
+      }
+    } catch {
+      return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
+    }
     try {
       const res = await fetch(url);
       if (!res.ok) {

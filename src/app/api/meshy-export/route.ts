@@ -6,19 +6,31 @@ export const maxDuration = 120;
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  const { url, dir, filename } = (await req.json()) as {
-    url: string;
-    dir: string;
-    filename: string;
-  };
+  let body: { url: string; dir: string; filename: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+  const { url, dir, filename } = body;
 
   if (!url || !dir || !filename) {
     return NextResponse.json({ error: 'Missing url, dir, or filename' }, { status: 400 });
   }
 
+  if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) {
+    return NextResponse.json({ error: 'Invalid filename' }, { status: 400 });
+  }
+
+  const resolvedDir = path.resolve(dir);
+  const outPath = path.join(resolvedDir, filename);
+  if (!outPath.startsWith(resolvedDir)) {
+    return NextResponse.json({ error: 'Path traversal detected' }, { status: 403 });
+  }
+
   try {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    if (!fs.existsSync(resolvedDir)) {
+      fs.mkdirSync(resolvedDir, { recursive: true });
     }
 
     const res = await fetch(url);
@@ -30,7 +42,6 @@ export async function POST(req: NextRequest) {
     }
 
     const buf = Buffer.from(await res.arrayBuffer());
-    const outPath = path.join(dir, filename);
     fs.writeFileSync(outPath, buf);
 
     return NextResponse.json({ ok: true, path: outPath, size: buf.length });

@@ -31,6 +31,7 @@ import {
 } from '../state/sessionSelectors';
 import type { DivergeCandidate } from '../engine/schemas';
 import { deriveEffectiveNormalize } from '../engine/normalize';
+import { devWarn } from '@/lib/devLog';
 
 export interface GuidedRunState {
   active: boolean;
@@ -246,7 +247,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         delete toSave.seedMedia;
         delete toSave.events;
         localStorage.setItem(SESSION_AUTO_KEY, JSON.stringify(toSave));
-      } catch (e) { console.warn('[SessionProvider] auto-save failed (likely quota):', e); }
+      } catch (e) { devWarn('[SessionProvider] auto-save failed (likely quota):', e); }
     }, 1500);
     return () => { if (sessionAutoSaveTimer.current) clearTimeout(sessionAutoSaveTimer.current); };
   }, [session, loaded]);
@@ -1024,7 +1025,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('shawndermind-sessions-index', JSON.stringify(stored));
       localStorage.setItem(`shawndermind-session-${safeName}`, data);
     } catch (e) {
-      console.warn('[saveSessionAs] localStorage save failed (likely quota):', e);
+      devWarn('[saveSessionAs] localStorage save failed (likely quota):', e);
     }
 
     // Save full canvas state (including all images) to IndexedDB + filesystem
@@ -1033,7 +1034,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       ((name: string) => Promise<{ ok: boolean; error?: string }>) | undefined;
     if (saveCanvas) {
       const result = await saveCanvas(safeName);
-      if (!result.ok) console.warn('[saveSessionAs] IndexedDB canvas save failed:', result.error);
+      if (!result.ok) devWarn('[saveSessionAs] IndexedDB canvas save failed:', result.error);
     }
 
     // Also persist the pipeline session data to filesystem
@@ -1044,7 +1045,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ name: `pipeline-${safeName}`, snapshot: toSave }),
       });
     } catch (e) {
-      console.warn('[saveSessionAs] filesystem pipeline save failed:', e);
+      devWarn('[saveSessionAs] filesystem pipeline save failed:', e);
     }
 
     setSession((prev) => ({ ...prev, projectName: name || prev.projectName }));
@@ -1078,7 +1079,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (e) {
-      console.warn('[loadSessionByName] filesystem pipeline load failed:', e);
+      devWarn('[loadSessionByName] filesystem pipeline load failed:', e);
     }
 
     if (!pipelineLoaded) {
@@ -1095,7 +1096,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       ((name: string) => Promise<boolean>) | undefined;
     if (loadCanvas) {
       const ok = await loadCanvas(safeName);
-      if (!ok) console.warn('[loadSessionByName] canvas load not found in filesystem or IndexedDB — using localStorage flowState');
+      if (!ok) devWarn('[loadSessionByName] canvas load not found in filesystem or IndexedDB — using localStorage flowState');
     }
   }, []);
 
@@ -1117,7 +1118,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (e) {
-      console.warn('[listSavedSessions] filesystem list failed:', e);
+      devWarn('[listSavedSessions] filesystem list failed:', e);
     }
 
     // 2. localStorage sessions (backward compat)
@@ -1155,7 +1156,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       await fetch(`/api/session?name=${encodeURIComponent(safeName)}`, { method: 'DELETE' });
       await fetch(`/api/session?name=${encodeURIComponent(`pipeline-${safeName}`)}`, { method: 'DELETE' });
     } catch (e) {
-      console.warn('[deleteSavedSession] filesystem delete failed:', e);
+      devWarn('[deleteSavedSession] filesystem delete failed:', e);
     }
   }, []);
 

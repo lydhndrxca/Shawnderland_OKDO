@@ -15,7 +15,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'ELEVENLABS_API_KEY not configured' }, { status: 500 });
   }
 
-  const payload = await req.json();
+  let payload: Record<string, unknown>;
+  try {
+    payload = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
   const { action } = payload as { action: string };
 
   /* ── List voices ─────────────────────────────────────────────── */

@@ -14,6 +14,7 @@ import type { GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenAp
 import { getGlobalSettings } from '@/lib/globalSettings';
 import { createProcessingAnimator } from '@/lib/processingAnimation';
 import { NODE_TOOLTIPS } from './nodeTooltips';
+import { devWarn } from '@/lib/devLog';
 import './CharacterNodes.css';
 
 interface Props {
@@ -63,7 +64,7 @@ function fireAndForgetSave(image: GeneratedImage, viewName: string, charName: st
       appKey: 'concept-lab',
       contentType: 'characters',
     }),
-  }).catch((e) => console.warn('[quick-gen save]', e));
+  }).catch((e) => devWarn('[quick-gen save]', e));
 }
 
 function QuickGenerateNodeInner({ id, data, selected }: Props) {

@@ -84,12 +84,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'tmpFile param required' }, { status: 400 });
   }
 
+  const resolved = path.resolve(tmpFile);
+  const tmpDir = os.tmpdir();
+  if (!resolved.startsWith(tmpDir) || !path.basename(resolved).startsWith('shawnderland-browse-')) {
+    return NextResponse.json({ error: 'Invalid tmpFile path' }, { status: 403 });
+  }
+
   try {
-    if (!fs.existsSync(tmpFile)) {
+    if (!fs.existsSync(resolved)) {
       return NextResponse.json({ done: false });
     }
-    const selected = fs.readFileSync(tmpFile, 'utf8').trim();
-    fs.unlinkSync(tmpFile);
+    const selected = fs.readFileSync(resolved, 'utf8').trim();
+    fs.unlinkSync(resolved);
     return NextResponse.json({ done: true, path: selected });
   } catch {
     return NextResponse.json({ done: false });

@@ -121,9 +121,9 @@ export const TOOLS: ToolRegistryEntry[] = [
       "Timeline editor",
       "Video export",
     ],
-    startCommand: "cd Walter_Storyboarding && run.bat",
-    mode: "electron-only",
-    hidden: true,
+    startCommand: "",
+    mode: "web",
+    hidden: false,
   },
 ];
 

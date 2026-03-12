@@ -1,0 +1,375 @@
+.va-node {
+  min-width: 380px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: visible;
+  font-size: 13px;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  position: relative;
+}
+
+.va-node.selected {
+  border-color: #26c6da;
+  box-shadow: 0 0 16px rgba(38, 198, 218, 0.3);
+}
+
+/* ── Header ── */
+.va-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: #26c6da;
+  color: #0a1929;
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.va-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.va-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 8px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
+}
+
+/* ── Body ── */
+.va-body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.va-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.va-field-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+}
+
+/* ── Prompt ── */
+.va-prompt {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 8px 10px;
+  line-height: 1.5;
+  outline: none;
+  min-height: 72px;
+}
+
+.va-prompt:focus {
+  border-color: #26c6da;
+}
+
+.va-prompt::placeholder {
+  color: var(--text-muted);
+}
+
+/* ── Upload Area ── */
+.va-upload-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px 12px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.va-upload-area:hover {
+  border-color: #26c6da;
+  background: rgba(38, 198, 218, 0.04);
+}
+
+.va-upload-icon {
+  font-size: 24px;
+}
+
+.va-upload-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.va-upload-link {
+  color: #26c6da;
+  text-decoration: underline;
+}
+
+.va-upload-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* ── Video List ── */
+.va-video-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.va-video-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 5px;
+}
+
+.va-video-thumb {
+  width: 48px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+  background: #111;
+}
+
+.va-video-thumb-placeholder {
+  width: 48px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.va-video-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.va-video-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.va-video-size {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.va-video-remove {
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.va-video-remove:hover {
+  background: rgba(244, 67, 54, 0.25);
+  color: #f44336;
+}
+
+/* ── Analyze Button ── */
+.va-run {
+  width: 100%;
+  padding: 8px 0;
+  background: transparent;
+  border: 1px solid #26c6da;
+  border-radius: var(--radius-sm);
+  color: #26c6da;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+}
+
+.va-run:hover:not(:disabled) {
+  background: #26c6da;
+  color: #0a1929;
+}
+
+.va-run:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.va-run:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ── Loading ── */
+.va-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.va-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: #26c6da;
+  border-radius: 50%;
+  animation: va-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes va-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Results ── */
+.va-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.va-results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.va-copy-all,
+.va-copy-btn {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.va-copy-all:hover,
+.va-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+
+.va-result-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.va-result-card.error {
+  border-color: rgba(239, 83, 80, 0.3);
+}
+
+.va-result-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.02);
+  transition: background 0.1s;
+}
+
+.va-result-card-header:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.va-result-card-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.va-result-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.va-expand-arrow {
+  font-size: 10px;
+  color: var(--text-muted);
+  width: 12px;
+  text-align: center;
+}
+
+.va-result-text {
+  padding: 6px 10px 10px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.va-result-text.expanded {
+  max-height: none;
+}
+
+.va-result-error {
+  padding: 6px 10px;
+  font-size: 11px;
+  color: #ef5350;
+}
+
+/* ── Handles ── */
+.va-handle {
+  width: 12px !important;
+  height: 12px !important;
+  border: 2px solid var(--bg-surface);
+  border-radius: 50%;
+}
+
+.va-handle:hover {
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.3);
+}

@@ -25,6 +25,7 @@ import VideoOutputNode from '@/app/ideation/canvas/nodes/VideoOutputNode';
 import CountNode from '@/app/ideation/canvas/nodes/CountNode';
 import ImageReferenceNode from '@/app/ideation/canvas/nodes/ImageReferenceNode';
 import ExtractDataNode from '@/app/ideation/canvas/nodes/ExtractDataNode';
+import VideoAnalysisNode from '@/app/ideation/canvas/nodes/VideoAnalysisNode';
 
 // ── Influence nodes ─────────────────────────────────────────────
 import EmotionNode from '@/app/ideation/canvas/nodes/EmotionNode';
@@ -151,6 +152,7 @@ export const ALL_RAW_NODE_TYPES: NodeTypes = {
   count: CountNode,
   imageReference: ImageReferenceNode,
   extractData: ExtractDataNode,
+  videoAnalysis: VideoAnalysisNode,
 
   // Influences
   emotion: EmotionNode,
@@ -297,6 +299,7 @@ export const NODE_DEFAULTS: Record<string, { style?: { width: number; height: nu
   elVoiceScript: { style: { width: 340, height: 500 } },
   elVoiceDesigner: { style: { width: 340, height: 420 } },
   elDialogueWriter: { style: { width: 360, height: 520 } },
+  videoAnalysis: { style: { width: 440, height: 640 } },
 };
 
 export interface DockNodeDef {
@@ -373,6 +376,7 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
       { type: 'imageOutput', label: 'Image Output', desc: 'Generate images', color: '#f06292' },
       { type: 'videoOutput', label: 'Video Output', desc: 'Generate video', color: '#ba68c8' },
       { type: 'extractData', label: 'Extract Data', desc: 'Read image with AI', color: '#ffab40' },
+      { type: 'videoAnalysis', label: 'Video Analysis', desc: 'Analyze videos with AI prompt', color: '#26c6da' },
     ],
   },
   /* ━━ Character Design ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */

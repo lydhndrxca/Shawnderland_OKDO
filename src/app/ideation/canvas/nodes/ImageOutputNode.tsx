@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useCallback, useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Handle, Position, useReactFlow, useEdges, useNodes } from '@xyflow/react';
 import { IMAGE_MODELS, ASPECT_RATIOS, type ModelOption } from './modelCatalog';
 import { recordUsage, recordImagenUsage } from '@/lib/ideation/engine/provider/costTracker';
@@ -51,6 +52,7 @@ function ImageOutputNodeInner({ id, selected }: ImageOutputNodeProps) {
   const { setNodes } = useReactFlow();
   const allNodes = useNodes();
   const allEdges = useEdges();
+  const [showFullPreview, setShowFullPreview] = useState(false);
   const [model, setModelLocal] = useState<ModelOption>(IMAGE_MODELS[0]);
 
   const setModel = useCallback((m: ModelOption) => {
@@ -256,7 +258,9 @@ function ImageOutputNodeInner({ id, selected }: ImageOutputNodeProps) {
               <img
                 src={`data:${images[viewIdx].mimeType};base64,${images[viewIdx].base64}`}
                 alt={`Generated image ${viewIdx + 1}`}
-                className="image-output-preview"
+                className="image-output-preview nodrag"
+                onClick={(e) => { e.stopPropagation(); setShowFullPreview(true); }}
+                style={{ cursor: 'pointer' }}
               />
             </ImageContextMenu>
             {images.length > 1 && (
@@ -277,6 +281,42 @@ function ImageOutputNodeInner({ id, selected }: ImageOutputNodeProps) {
               </div>
             )}
           </div>
+        )}
+
+        {showFullPreview && images.length > 0 && createPortal(
+          <div className="fullscreen-preview-overlay" onClick={() => setShowFullPreview(false)}>
+            <button
+              type="button"
+              className="fullscreen-preview-close"
+              onClick={() => setShowFullPreview(false)}
+            >
+              &times;
+            </button>
+            <img
+              src={`data:${images[viewIdx].mimeType};base64,${images[viewIdx].base64}`}
+              alt="Full preview"
+              className="fullscreen-preview-img"
+              onClick={(e) => e.stopPropagation()}
+            />
+            {images.length > 1 && (
+              <div className="fullscreen-preview-nav" onClick={(e) => e.stopPropagation()}>
+                <button
+                  className="fullscreen-preview-nav-btn"
+                  onClick={() => setViewIdx((i) => (i - 1 + images.length) % images.length)}
+                >
+                  &lt;
+                </button>
+                <span>{viewIdx + 1}/{images.length}</span>
+                <button
+                  className="fullscreen-preview-nav-btn"
+                  onClick={() => setViewIdx((i) => (i + 1) % images.length)}
+                >
+                  &gt;
+                </button>
+              </div>
+            )}
+          </div>,
+          document.body,
         )}
       </div>
 

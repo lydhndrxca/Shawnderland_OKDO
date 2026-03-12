@@ -1,8 +1,10 @@
 "use client";
 
 import { memo, useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import './ImageReferenceNode.css';
+import './ImageOutputNode.css';
 
 interface ImageReferenceNodeProps {
   id: string;
@@ -20,6 +22,7 @@ function ImageReferenceNodeInner({ id, data, selected }: ImageReferenceNodeProps
   const [mimeType, setMimeType] = useState(initialMime);
   const [fileName, setFileName] = useState(initialName);
   const [expanded, setExpanded] = useState(false);
+  const [showFullPreview, setShowFullPreview] = useState(false);
 
   // Sync state when node data changes externally (e.g. session restore)
   useEffect(() => {
@@ -100,7 +103,7 @@ function ImageReferenceNodeInner({ id, data, selected }: ImageReferenceNodeProps
 
       <div className="image-ref-body">
         {hasImage ? (
-          <div className="image-ref-preview-wrap" onClick={() => setExpanded(!expanded)}>
+          <div className="image-ref-preview-wrap nodrag" onClick={(e) => { e.stopPropagation(); setShowFullPreview(true); }} style={{ cursor: 'pointer' }}>
             <img
               src={`data:${mimeType};base64,${imageBase64}`}
               alt={fileName || 'Reference image'}
@@ -123,6 +126,25 @@ function ImageReferenceNodeInner({ id, data, selected }: ImageReferenceNodeProps
           </button>
         </div>
       </div>
+
+      {showFullPreview && hasImage && createPortal(
+        <div className="fullscreen-preview-overlay" onClick={() => setShowFullPreview(false)}>
+          <button
+            type="button"
+            className="fullscreen-preview-close"
+            onClick={() => setShowFullPreview(false)}
+          >
+            &times;
+          </button>
+          <img
+            src={`data:${mimeType};base64,${imageBase64}`}
+            alt="Full preview"
+            className="fullscreen-preview-img"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>,
+        document.body,
+      )}
 
       <Handle
         type="target"

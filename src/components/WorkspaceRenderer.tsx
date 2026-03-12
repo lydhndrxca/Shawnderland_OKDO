@@ -28,6 +28,11 @@ const ConceptLabShell = dynamic(
   { ssr: false }
 );
 
+const WalterShell = dynamic(
+  () => import("@/app/walter/WalterShell"),
+  { ssr: false }
+);
+
 const GlobalSettingsPage = dynamic(
   () => import("./GlobalSettingsPage"),
   { ssr: false }
@@ -116,7 +121,7 @@ function resolveRoute(path: string): React.ReactNode {
   if (path === "/ui-lab") return <UILabContent />;
   if (path === "/gemini-studio") return <GeminiStudioShell />;
   if (path === "/concept-lab") return <ConceptLabShell />;
-  if (path === "/walter") return <ToolLandingContent toolId="walter" />;
+  if (path === "/walter") return <WalterShell />;
   return <div className="p-8 text-muted-foreground">Page not found</div>;
 }
 

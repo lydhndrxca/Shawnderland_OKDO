@@ -48,68 +48,55 @@ RENDERING STYLE — MATCH REFERENCE EXACTLY:
 • Study the reference image's style carefully — whether it is photorealistic, stylized, painterly, cel-shaded, or anything else — and reproduce that SAME style precisely.
 • This must look like the SAME character rendered from a different camera angle in the SAME engine/pipeline. Do NOT change the art style.`;
 
+const NO_TEXT_RULE = 'DO NOT render any text, titles, labels, letters, numbers, logos, captions, annotations, watermarks, or headers anywhere in the image. The image must contain ONLY the character on a plain background — absolutely nothing else.';
+
+const FULL_BODY_RULE = 'Show the COMPLETE character from the very top of the head (including all hair and headwear) down to the very bottom of the feet (including shoe soles). Leave generous padding above the head and below the feet. If the character is tall, zoom out to fit — NEVER crop the head or feet. This is a full-body character sheet, not a portrait.';
+
 const PERSPECTIVE_PROMPTS: Record<'front' | 'back' | 'side', string> = {
-  front: `CHARACTER TURNAROUND SHEET — ORTHOGRAPHIC FRONT VIEW:
-You are creating one panel of a professional character model sheet / turnaround sheet used in AAA game production.
+  front: `${NO_TEXT_RULE}
 
-CRITICAL CAMERA RULE — ORTHOGRAPHIC FRONT:
-• The virtual camera is locked at EXACTLY 0° azimuth (dead-center front).
-• Lens: orthographic / very long telephoto (200mm+). ZERO perspective distortion.
-• Camera height: chest level, perfectly centered on the character's midline.
-• The left and right halves of the character must be PERFECTLY SYMMETRICAL in the frame.
-• You must NOT see the side of the head, side of the torso, or any surface that faces left/right. Only surfaces that face the camera (toward the viewer) are visible.
-• ABSOLUTELY NO 3/4 TURN. NO YAW. NO ROTATION. If you can see the character's ear or side of their jaw, you have rotated too far — correct to 0°.
+Recompose the provided character reference into a dead-center orthographic front view.
 
-POSE: Neutral A-pose. Arms 30° from body, palms facing forward, fingers relaxed. Feet shoulder-width, weight even. Head facing straight at camera, eyes forward.
+Camera: locked at exactly 0 degrees azimuth, orthographic or 200mm+ telephoto lens, zero perspective distortion, chest height, centered on the character's midline. The left and right halves must be perfectly symmetrical in frame. No 3/4 turn, no yaw, no rotation — if you can see the character's ear or the side of their jaw, you have rotated too far.
 
-WHAT TO SHOW: Face (dead-on), chest, stomach, belt/buckle, front of both arms, both hands, front of both legs, tops of both shoes/boots. All front-facing gear, pouches, holsters, zippers, buttons, patches.
+Pose: neutral A-pose, arms 30 degrees from body, palms forward, fingers relaxed, feet shoulder-width, weight even, head facing straight at camera, eyes forward.
 
-IDENTITY LOCK: Preserve 100% of the character's design from the reference — body type, face, hair, skin tone, every garment, every accessory, every color, every material, every piece of damage/wear. Change NOTHING except the viewing angle.
+Visible elements: face (dead-on), chest, stomach, belt/buckle, front of both arms, both hands, front of both legs, tops of both shoes/boots, all front-facing gear, pouches, holsters, zippers, buttons, patches.
+
+Preserve 100% of the character's design from the reference — body type, face, hair, skin tone, every garment, accessory, color, material, and wear detail. Change nothing except the viewing angle.
 ${RENDER_STYLE_BLOCK}
-Full body head to toe, no cropping.
-Background: Solid flat grey (#D3D3D3). No floor, no shadows, no environment.`,
+${FULL_BODY_RULE}
+Background: solid flat grey (#D3D3D3). No floor, no shadows, no environment.`,
 
-  back: `CHARACTER TURNAROUND SHEET — ORTHOGRAPHIC BACK VIEW:
-You are creating one panel of a professional character model sheet / turnaround sheet used in AAA game production.
+  back: `${NO_TEXT_RULE}
 
-CRITICAL CAMERA RULE — ORTHOGRAPHIC BACK:
-• The virtual camera is locked at EXACTLY 180° azimuth (dead-center rear).
-• Lens: orthographic / very long telephoto (200mm+). ZERO perspective distortion.
-• Camera height: chest level, perfectly centered on the character's midline.
-• You must see ONLY the back of the character. The face must be completely hidden.
-• The left and right halves of the character's back must be PERFECTLY SYMMETRICAL in the frame.
-• ABSOLUTELY NO 3/4 TURN. NO YAW. NO ROTATION.
+Recompose the provided character reference into a dead-center orthographic rear view.
 
-POSE: Neutral A-pose. Arms 30° from body, palms facing forward (away from camera), fingers relaxed. Feet shoulder-width, weight even. Head facing directly away from camera.
+Camera: locked at exactly 180 degrees azimuth (dead-center rear), orthographic or 200mm+ telephoto lens, zero perspective distortion, chest height, centered on the character's midline. Only the back is visible — the face must be completely hidden. The left and right halves of the back must be perfectly symmetrical. No 3/4 turn, no yaw, no rotation.
 
-WHAT TO SHOW: Back of head/hair, back of neck, shoulder blades, spine line, back of jacket/shirt, back of belt, rear pockets, back of both arms, back of both legs, heels of shoes/boots. Any backpack, cape, quiver, or rear-mounted equipment.
+Pose: neutral A-pose, arms 30 degrees from body, palms facing away from camera, fingers relaxed, feet shoulder-width, weight even, head facing directly away.
 
-IDENTITY LOCK: Preserve 100% of the character's design from the reference — body type, face, hair, skin tone, every garment, every accessory, every color, every material, every piece of damage/wear. Extrapolate rear details consistent with the design language. Change NOTHING except the viewing angle.
+Visible elements: back of head/hair, back of neck, shoulder blades, spine line, back of jacket/shirt, back of belt, rear pockets, back of both arms, back of both legs, heels of shoes/boots, any backpack, cape, quiver, or rear-mounted equipment.
+
+Preserve 100% of the character's design from the reference. Extrapolate rear details consistent with the design language. Change nothing except the viewing angle.
 ${RENDER_STYLE_BLOCK}
-Full body head to toe, no cropping.
-Background: Solid flat grey (#D3D3D3). No floor, no shadows, no environment.`,
+${FULL_BODY_RULE}
+Background: solid flat grey (#D3D3D3). No floor, no shadows, no environment.`,
 
-  side: `CHARACTER TURNAROUND SHEET — ORTHOGRAPHIC SIDE VIEW (LEFT PROFILE):
-You are creating one panel of a professional character model sheet / turnaround sheet used in AAA game production.
+  side: `${NO_TEXT_RULE}
 
-CRITICAL CAMERA RULE — ORTHOGRAPHIC LEFT SIDE PROFILE:
-• The virtual camera is locked at EXACTLY 90° azimuth (pure left side).
-• Lens: orthographic / very long telephoto (200mm+). ZERO perspective distortion.
-• Camera height: chest level.
-• The character's nose points to the RIGHT edge of the frame. The back of their head points LEFT.
-• You must see a CLEAN SILHOUETTE — the outline/profile of the character from the side.
-• ONLY ONE EAR should be visible (the left ear). If you can see both eyes, you are NOT at 90° — you are doing a 3/4 view, which is WRONG.
-• The character's chest and back should appear as a single edge/profile line, not as a surface.
-• ABSOLUTELY NO 3/4 TURN. This must be a TRUE 90-DEGREE SIDE PROFILE. If ANY part of the chest surface or back surface faces the camera, you have rotated wrong.
+Recompose the provided character reference into a pure left-side orthographic profile view.
 
-POSE: Neutral standing pose. Arms slightly away from body (so the arm silhouette is visible). Feet shoulder-width apart, one foot slightly ahead for natural stance. Head in profile facing screen-right.
+Camera: locked at exactly 90 degrees azimuth (pure left side), orthographic or 200mm+ telephoto lens, zero perspective distortion, chest height. The character's nose points to the right edge of the frame, the back of their head points left. This must be a clean silhouette profile — only one ear (the left ear) should be visible. If you can see both eyes or any of the chest/back surface, you are doing a 3/4 view which is wrong. This must be a true 90-degree side profile.
 
-WHAT TO SHOW: Left profile of face (forehead, nose, lips, chin), left ear, left shoulder, left arm, left side of torso forming a clean silhouette, left hip, left leg, left side of all gear/clothing. The depth and layering of equipment should be visible in the profile silhouette.
+Pose: neutral standing, arms slightly away from body so the arm silhouette is visible, feet shoulder-width, one foot slightly ahead for natural stance, head in profile facing screen-right.
 
-IDENTITY LOCK: Preserve 100% of the character's design from the reference — body type, face, hair, skin tone, every garment, every accessory, every color, every material, every piece of damage/wear. Extrapolate side details consistent with the design language. Change NOTHING except the viewing angle.
+Visible elements: left profile of face (forehead, nose, lips, chin), left ear, left shoulder, left arm, side silhouette of torso, left hip, left leg, side profile of all gear and clothing layers.
+
+Preserve 100% of the character's design from the reference. Extrapolate side details consistent with the design language. Change nothing except the viewing angle.
 ${RENDER_STYLE_BLOCK}
-Full body head to toe, no cropping.
-Background: Solid flat grey (#D3D3D3). No floor, no shadows, no environment.`,
+${FULL_BODY_RULE}
+Background: solid flat grey (#D3D3D3). No floor, no shadows, no environment.`,
 };
 
 const CUSTOM_PROMPT_EXAMPLE = PERSPECTIVE_PROMPTS.front;
@@ -188,7 +175,7 @@ function buildViewPrompt(viewKey: ViewKey, data: Record<string, unknown>): strin
     const useText = (data?.useText as boolean) ?? true;
     const viewPrompt = (data?.viewPrompt as string) ?? '';
     if (!useText || !viewPrompt.trim()) return null;
-    return viewPrompt.trim() + '\n' + RENDER_STYLE_BLOCK + '\nFull body head to toe, no cropping.\nBackground: Solid flat grey (#D3D3D3). No floor, no shadows, no environment.';
+    return NO_TEXT_RULE + '\n\n' + viewPrompt.trim() + '\n' + RENDER_STYLE_BLOCK + '\n' + FULL_BODY_RULE + '\nBackground: solid flat grey (#D3D3D3). No floor, no shadows, no environment.';
   }
 
   return PERSPECTIVE_PROMPTS[viewKey as 'front' | 'back' | 'side'];
@@ -916,7 +903,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
 
       const userEdit = editText.trim();
       let fullPrompt = isCustom && useImage && effectiveAngleRef && !useText
-        ? `Create a custom view of this character matching the camera angle and pose shown in the second reference image. Preserve the character's identity from the first reference image exactly.\n${RENDER_STYLE_BLOCK}\nFull body head to toe, no cropping.\nBackground: Solid flat grey (#D3D3D3). No floor, no shadows, no environment.`
+        ? `${NO_TEXT_RULE}\n\nCreate a custom view of this character matching the camera angle and pose shown in the second reference image. Preserve the character's identity from the first reference image exactly.\n${RENDER_STYLE_BLOCK}\n${FULL_BODY_RULE}\nBackground: solid flat grey (#D3D3D3). No floor, no shadows, no environment.`
         : (isCustom && useImage && effectiveAngleRef
           ? prompt + '\nUse the second reference image as a guide for the desired camera angle, pose, and framing.'
           : prompt);

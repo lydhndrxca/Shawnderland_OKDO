@@ -124,7 +124,15 @@ export interface CharacterAttributes {
 
 /* ── Style Constants ── */
 
-export const CHARACTER_STYLE_NOTES = `CRITICAL IMAGE FORMAT: 9:16 vertical portrait (1536 x 2816). Show the entire character head-to-toe within frame.
+export const CHARACTER_STYLE_NOTES = `CRITICAL IMAGE FORMAT: 9:16 vertical portrait (1536 x 2816).
+
+MANDATORY FULL-BODY FRAMING (DO NOT VIOLATE):
+- The ENTIRE character must be visible from the TOP OF THE HEAD (including hair) to the BOTTOM OF THE FEET (including soles).
+- Leave at LEAST 5% padding above the head and below the feet — NEVER crop or cut off ANY body part.
+- The head, face, and hair must be FULLY visible and not touching or exceeding the top edge.
+- The feet and shoes must be FULLY visible and not touching or exceeding the bottom edge.
+- If the character is tall or has tall hair/headwear, ZOOM OUT to fit everything. NEVER crop to fit.
+- This is NOT a portrait or headshot. This is a FULL-BODY character sheet image.
 
 FOLLOW THE DESCRIPTION LITERALLY:
 - Wardrobe, props, colors, materials, condition, and wear must match the attribute list.
@@ -142,36 +150,17 @@ BACKGROUND (REQUIRED):
 - No ground shadows, reflections, gradients, or lighting effects.
 
 CAMERA & COMPOSITION:
-- Eye-level camera, natural perspective, 70-85mm equivalent lens unless overridden.
-- Centered full-body framing with visible feet; respect any camera instructions provided by the user.`;
+- Eye-level camera at chest height, natural perspective, 70-85mm equivalent lens unless overridden.
+- Centered full-body framing. ZOOM OUT enough so the full character fits with padding on all sides.`;
 
 export const VIEW_REQUESTS: Record<string, string> = {
-  main: 'Casual standing pose, full body, three-quarter front view of the character. Camera at chest height, rotated about 9 degrees to the right from the front view. Primarily front-facing with just a hint of the right side visible. Keep proportions natural, lens normal, no extreme perspective.',
+  main: 'Casual standing pose, FULL BODY from head to toe, three-quarter front view of the character. Camera at chest height, rotated about 9 degrees to the right from the front view. Primarily front-facing with just a hint of the right side visible. Keep proportions natural, lens normal, no extreme perspective. The TOP OF THE HEAD and the BOTTOM OF THE FEET must both be clearly visible with padding — do NOT crop the head or feet.',
 
-  front: `ORTHOGRAPHIC FRONT VIEW (0° azimuth):
-Camera locked dead-center front, orthographic/200mm+ lens, zero perspective distortion.
-Character's left and right halves PERFECTLY SYMMETRICAL in frame.
-NO 3/4 turn, NO yaw, NO rotation. If you can see the side of the head or ear, you've rotated too far — correct to 0°.
-Pose: Neutral A-pose, arms 30° from body, palms forward, feet shoulder-width.
-Show: Face (dead-on), chest, belt, front of both arms/legs/shoes, all front-facing gear.
-Full body head-to-toe, no cropping. No ground plane or floor.`,
+  front: `Recompose to a dead-center orthographic front view at 0 degrees azimuth. Orthographic or 200mm+ lens, zero perspective distortion. Left and right halves perfectly symmetrical. No 3/4 turn, no yaw, no rotation. Neutral A-pose, arms 30 degrees from body, palms forward, feet shoulder-width. Show face dead-on, chest, belt, front of both arms/legs/shoes, all front-facing gear. Full body from top of head to bottom of feet with padding, no cropping. Solid grey background, no floor.`,
 
-  back: `ORTHOGRAPHIC BACK VIEW (180° azimuth):
-Camera locked dead-center rear, orthographic/200mm+ lens, zero perspective distortion.
-ONLY the back visible. Face completely hidden. Back left/right PERFECTLY SYMMETRICAL in frame.
-NO 3/4 turn, NO yaw, NO rotation.
-Pose: Neutral A-pose, arms 30° from body, feet shoulder-width, head facing away.
-Show: Back of head/hair, shoulder blades, spine, back of jacket/clothing, back of belt, rear pockets, back of arms/legs, heels, any backpack/cape/rear gear.
-Full body head-to-toe, no cropping. No ground plane or floor.`,
+  back: `Recompose to a dead-center orthographic rear view at 180 degrees azimuth. Orthographic or 200mm+ lens, zero perspective distortion. Only the back visible, face completely hidden. Back left/right perfectly symmetrical. No 3/4 turn, no yaw, no rotation. Neutral A-pose, arms 30 degrees from body, feet shoulder-width, head facing away. Show back of head/hair, shoulder blades, spine, back of clothing and belt, rear pockets, back of arms/legs, heels, any rear gear. Full body from top of head to bottom of feet with padding, no cropping. Solid grey background, no floor.`,
 
-  side: `ORTHOGRAPHIC LEFT SIDE PROFILE (90° azimuth):
-Camera locked at EXACTLY 90° left side, orthographic/200mm+ lens, zero perspective distortion.
-Character's nose points to RIGHT edge of frame, back of head points LEFT.
-Must be a CLEAN SILHOUETTE profile. ONLY ONE EAR visible (left). If you can see both eyes or any chest/back surface, you are doing a 3/4 view which is WRONG.
-NO 3/4 turn. TRUE 90° side profile only.
-Pose: Neutral standing, arms slightly away from body, head in profile facing screen-right.
-Show: Left profile of face, left ear, left shoulder/arm, side silhouette of torso, left hip/leg, side profile of all gear.
-Full body head-to-toe, no cropping. No ground plane or floor.`,
+  side: `Recompose to a pure left-side orthographic profile view at exactly 90 degrees azimuth. Orthographic or 200mm+ lens, zero perspective distortion. Nose points to right edge of frame, back of head points left. Clean silhouette profile — only one ear (left) visible. If both eyes are visible, you are doing a 3/4 view which is wrong. True 90-degree side profile only. Neutral standing, arms slightly away from body, head in profile facing screen-right. Show left profile of face, left ear, left shoulder/arm, side silhouette of torso, left hip/leg, side of all gear. Full body from top of head to bottom of feet with padding, no cropping. Solid grey background, no floor.`,
 };
 
 export const LOCK_OUTFIT_BLOCK = `IDENTITY LOCK - MANDATORY:
@@ -224,8 +213,9 @@ export function buildCharacterDescription(
 
   parts.push('## CAMERA & COMPOSITION');
   parts.push('- Aspect Ratio: 9:16 portrait.');
-  parts.push('- Framing: Full body, head-to-toe, feet visible in frame.');
-  parts.push('- Lens: 85mm portrait lens, eye-level, no extreme perspective.');
+  parts.push('- Framing: FULL BODY — the complete character from the top of the head (including all hair/headwear) to the bottom of the feet (including soles of shoes) MUST be visible with padding. NEVER crop the head or feet.');
+  parts.push('- Lens: 85mm portrait lens, eye-level at chest height, no extreme perspective.');
+  parts.push('- Zoom out enough so the entire figure fits comfortably with space above and below.');
   parts.push('');
 
   parts.push('## NEGATIVE CONSTRAINTS');
@@ -251,20 +241,24 @@ export function buildCharacterViewPrompt(
       view,
       '',
       `Style Requirements:\n${CHARACTER_STYLE_NOTES}`,
+      '',
+      'FINAL CHECK — ABSOLUTELY MANDATORY: The generated image MUST show the COMPLETE character from the very top of the head to the very bottom of the feet. If the head or feet would be cut off, zoom out further. This is non-negotiable.',
     ].join('\n');
   }
 
   return [
+    'Do not render any text, titles, labels, letters, numbers, logos, captions, or annotations in the image. The image must contain only the character on a plain background.',
+    '',
     'Using the provided character image as reference, recompose to the specified view,',
     'preserving EXACT character design, body type, materials, colors, clothing, accessories, and all details.',
     '',
-    `CAMERA VIEW REQUIREMENTS:\n${view}`,
+    view,
     '',
     LOCK_OUTFIT_BLOCK,
     '',
-    'BACKGROUND: Solid flat grey (#D3D3D3). No floor, no shadows, no environment.',
+    'Background: solid flat grey (#D3D3D3). No floor, no shadows, no environment.',
     '',
-    `Style Requirements:\n${CHARACTER_STYLE_NOTES}`,
+    `Style requirements:\n${CHARACTER_STYLE_NOTES}`,
   ].join('\n');
 }
 

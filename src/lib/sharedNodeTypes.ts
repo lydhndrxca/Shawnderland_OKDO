@@ -426,7 +426,7 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
     label: 'Character \u2014 Tools',
     icon: '\u{1F528}',
     items: [
-      { type: 'charCreativeDirector', label: 'Art Direction Output', desc: 'AI design critique & suggestions — auto-runs from Main Stage', color: '#ff6f00' },
+      { type: 'charCreativeDirector', label: 'Art Direction Output', desc: 'Displays Art Director results — select & apply directions to character', color: '#ff6f00' },
       { type: 'imageStudio', label: 'Image Studio', desc: 'Full-screen editor with inpainting', color: '#00bcd4' },
       { type: 'charUpscale', label: 'Upscale Image', desc: 'AI upscale (x2/x3/x4)', color: '#e040fb' },
       { type: 'charRestore', label: 'Restore Quality', desc: 'AI redraw to remove artifacts', color: '#00c853' },

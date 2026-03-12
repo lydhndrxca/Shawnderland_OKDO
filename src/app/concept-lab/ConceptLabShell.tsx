@@ -266,13 +266,22 @@ function ConceptLabCanvas() {
         onDuplicate={cs.duplicateSelected}
         onFitView={handleFitView}
         onResetNodes={() => {
-          const snapshot = cs.nodes.map((n: any) => ({
-            id: n.id,
-            position: n.position,
-            type: n.type,
-            style: n.style,
-            data: {},
-          }));
+          const PRESERVE_KEYS: Record<string, string[]> = {
+            uiFrame: ['label', 'color'],
+            charFrontViewer: ['viewKey'],
+            charBackViewer: ['viewKey'],
+            charSideViewer: ['viewKey'],
+            charMainViewer: ['viewKey'],
+            charViewer: ['viewKey'],
+          };
+          const snapshot = cs.nodes.map((n: any) => {
+            const keep = PRESERVE_KEYS[n.type ?? ''];
+            const preserved: Record<string, unknown> = {};
+            if (keep) {
+              for (const k of keep) { if (n.data?.[k] !== undefined) preserved[k] = n.data[k]; }
+            }
+            return { id: n.id, position: n.position, type: n.type, style: n.style, data: preserved };
+          });
           const edgeSnapshot = [...cs.edges];
           cs.setNodes([]);
           cs.setEdges([]);

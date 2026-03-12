@@ -560,7 +560,7 @@ export default function ArtDirectorNode({ id, selected }: NodeProps) {
       setResult(final);
       setPhase('done');
       setNodes((nds) => nds.map((n) =>
-        n.id === id ? { ...n, data: { ...n.data, artDirectionResult: final, artDirectionFocus: focus } } : n,
+        n.id === id ? { ...n, data: { ...n.data, artDirectionResult: final, artDirectionFocus: focus, artDirectionText: description } } : n,
       ));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

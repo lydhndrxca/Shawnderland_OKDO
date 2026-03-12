@@ -3,7 +3,6 @@
 import { memo, useCallback, useState, useRef, useEffect } from 'react';
 import { Handle, Position, useReactFlow, useStore } from '@xyflow/react';
 import {
-  generateText,
   generateWithGeminiRef,
 } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import type { GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
@@ -17,28 +16,17 @@ interface Props {
   selected?: boolean;
 }
 
-interface DesignSuggestion {
+interface ADPoint {
   title: string;
-  suggestion: string;
-  category: string;
+  direction: string;
+  rationale: string;
+  reference: string;
 }
 
-interface HistoryEntry {
-  title: string;
-  suggestion: string;
-  applied: boolean;
+interface ADResult {
+  overallVision: string;
+  points: ADPoint[];
 }
-
-const CATEGORY_COLORS: Record<string, string> = {
-  silhouette: '#42a5f5',
-  color: '#ffa726',
-  material: '#8d6e63',
-  accessory: '#ab47bc',
-  attitude: '#ef5350',
-  story: '#66bb6a',
-  proportion: '#26c6da',
-  detail: '#78909c',
-};
 
 const IMAGE_SOURCE_TYPES = new Set([
   'charMainViewer', 'charViewer', 'charImageViewer',
@@ -47,8 +35,7 @@ const IMAGE_SOURCE_TYPES = new Set([
   'imageOutput', 'imageReference', 'detachedViewer',
   'videoOutput', 'videoAnalysis',
   'adDirectionResult', 'ldDirectionResult',
-  'imageStudio',
-  'artDirector',
+  'imageStudio', 'artDirector',
 ]);
 
 const VIEWER_TYPES = new Set([
@@ -58,62 +45,58 @@ const VIEWER_TYPES = new Set([
   'imageOutput', 'imageReference',
 ]);
 
-function gatherContext(
+function findUpstreamImage(
   nodeId: string,
   getNode: ReturnType<typeof useReactFlow>['getNode'],
   getEdges: ReturnType<typeof useReactFlow>['getEdges'],
-) {
+): GeneratedImage | null {
   const edges = getEdges();
-  const incoming = edges.filter((e) => e.target === nodeId);
-
-  let image: GeneratedImage | null = null;
-  let description = '';
-  let identityText = '';
-  const attributeLines: string[] = [];
-
-  for (const e of incoming) {
+  for (const e of edges) {
+    if (e.target !== nodeId) continue;
     const src = getNode(e.source);
     if (!src?.data) continue;
     const d = src.data as Record<string, unknown>;
 
-    if (IMAGE_SOURCE_TYPES.has(src.type ?? '') && !image) {
+    if (IMAGE_SOURCE_TYPES.has(src.type ?? '')) {
       const img = d.generatedImage as GeneratedImage | undefined;
-      if (img?.base64) {
-        image = img;
-      } else if (typeof d.imageBase64 === 'string' && d.imageBase64) {
-        image = { base64: d.imageBase64, mimeType: (d.mimeType as string) || 'image/png' };
-      } else if (src.type === 'artDirector') {
+      if (img?.base64) return img;
+      if (typeof d.imageBase64 === 'string' && d.imageBase64) {
+        return { base64: d.imageBase64, mimeType: (d.mimeType as string) || 'image/png' };
+      }
+      if (src.type === 'artDirector') {
         const mediaList = d.media as Array<{ type: string; base64?: string; mimeType?: string }> | undefined;
-        if (mediaList) {
-          const imgMedia = mediaList.find((m) => m.type === 'image' && m.base64);
-          if (imgMedia) {
-            image = { base64: imgMedia.base64!, mimeType: imgMedia.mimeType || 'image/png' };
-          }
-        }
-      }
-    }
-
-    if (src.type === 'charDescription' && typeof d.description === 'string') {
-      description = d.description;
-    }
-    if (src.type === 'charIdentity') {
-      const ident = d.identity as { age?: string; race?: string; gender?: string; build?: string } | undefined;
-      if (ident) {
-        identityText = [ident.age, ident.race, ident.gender, ident.build].filter(Boolean).join(', ');
-      }
-    }
-    if (src.type === 'charAttributes' && d.attributes) {
-      const attrs = d.attributes as Record<string, string>;
-      for (const [k, v] of Object.entries(attrs)) {
-        if (v?.trim()) attributeLines.push(`${k}: ${v}`);
+        const imgMedia = mediaList?.find((m) => m.type === 'image' && m.base64);
+        if (imgMedia) return { base64: imgMedia.base64!, mimeType: imgMedia.mimeType || 'image/png' };
       }
     }
   }
-
-  return { image, description, identityText, attributeLines };
+  return null;
 }
 
-function findDownstreamViewers(
+function findUpstreamADResult(
+  nodeId: string,
+  getNode: ReturnType<typeof useReactFlow>['getNode'],
+  getEdges: ReturnType<typeof useReactFlow>['getEdges'],
+): { result: ADResult; focus: string; userText: string } | null {
+  const edges = getEdges();
+  for (const e of edges) {
+    if (e.target !== nodeId) continue;
+    const src = getNode(e.source);
+    if (!src?.data || src.type !== 'artDirector') continue;
+    const d = src.data as Record<string, unknown>;
+    const result = d.artDirectionResult as ADResult | undefined;
+    if (result?.points?.length) {
+      return {
+        result,
+        focus: (d.artDirectionFocus as string) || 'character',
+        userText: (d.artDirectionText as string) || '',
+      };
+    }
+  }
+  return null;
+}
+
+function findAllConnectedViewers(
   nodeId: string,
   getNode: ReturnType<typeof useReactFlow>['getNode'],
   getEdges: ReturnType<typeof useReactFlow>['getEdges'],
@@ -127,195 +110,42 @@ function findDownstreamViewers(
     if (visited.has(current)) continue;
     visited.add(current);
     for (const e of edges) {
-      if (e.source !== current) continue;
-      const tgt = getNode(e.target);
-      if (!tgt || visited.has(tgt.id)) continue;
-      if (VIEWER_TYPES.has(tgt.type ?? '')) viewers.push(tgt.id);
-      queue.push(tgt.id);
+      let neighbor: string | null = null;
+      if (e.source === current) neighbor = e.target;
+      else if (e.target === current) neighbor = e.source;
+      if (!neighbor || visited.has(neighbor)) continue;
+      const node = getNode(neighbor);
+      if (!node) continue;
+      if (VIEWER_TYPES.has(node.type ?? '')) viewers.push(node.id);
+      queue.push(neighbor);
     }
   }
   return viewers;
 }
 
-const BASE_PROMPT = `You are an award-winning Hollywood character designer with 25+ years working on iconic film franchises — think the costume departments behind Blade Runner, Mad Max, The Matrix, John Wick, and Dune. You have an extraordinary eye for what makes a character design feel lived-in, memorable, and cinematically compelling.
-
-You're reviewing this character design. Study every detail — the silhouette, color relationships, material choices, accessories, proportions, and the overall "story" the outfit tells about who this person is.
-
-Now give your honest, expert creative direction. What specific changes would push this design from good to iconic? Think about:
-- Silhouette and shape language (what does the outline read as?)
-- Color harmony and accent choices
-- Material contrasts and textural interest
-- Accessories or props that add narrative depth
-- Small details that reward a closer look
-- What the design says about this character's life and personality`;
-
-const BOLD_ADDENDUM = `
-
-BOLD MODE — PUSH THE BOUNDARIES:
-Forget safe, incremental suggestions. Think like a visionary. What would a fearless designer do? Consider:
-- Radical silhouette changes that completely redefine the character's presence
-- Unexpected cultural or subcultural mashups
-- Bold color moves — monochrome, neon accents, inverted palettes
-- Unusual material combinations (tech fabrics with vintage leather, raw canvas with chrome hardware)
-- Accessories that tell a whole backstory in one glance
-- Props or wearable elements that break genre conventions
-- Details inspired by architecture, nature, machinery, or other non-fashion sources
-Be provocative. Be surprising. Every suggestion should make the designer say "I never would have thought of that."`;
-
-const FORMAT_INSTRUCTIONS = `
-
-Return EXACTLY a JSON array of 4-5 suggestions. Each suggestion must be specific and actionable — not vague. Reference actual garments, colors, or details you can see.
-
-JSON format (return ONLY this, no markdown, no backticks):
-[
-  { "title": "short punchy title (3-6 words)", "suggestion": "2-3 sentence specific actionable direction", "category": "silhouette|color|material|accessory|attitude|story|proportion|detail" }
-]`;
-
 function CreativeDirectorNodeInner({ id, data, selected }: Props) {
   const { setNodes, setEdges, getNode, getEdges } = useReactFlow();
-  const [analyzing, setAnalyzing] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<DesignSuggestion[]>(
-    (data?.suggestions as DesignSuggestion[]) ?? [],
-  );
-  const [editingIdx, setEditingIdx] = useState<number | null>(null);
-  const [editingMulti, setEditingMulti] = useState(false);
-  const [editedIds, setEditedIds] = useState<Set<number>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [history, setHistory] = useState<HistoryEntry[]>(
-    (data?.critiqueHistory as HistoryEntry[]) ?? [],
-  );
-  const [boldMode, setBoldMode] = useState<boolean>(
-    (data?.boldMode as boolean) ?? false,
-  );
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [status, setStatus] = useState<string | null>(null);
   const mountedRef = useRef(true);
-  const lastAnalyzedRef = useRef<string | null>(null);
-  const analyzingRef = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
 
-  const persistData = useCallback((updates: Record<string, unknown>) => {
-    setNodes((nds) =>
-      nds.map((n) => n.id === id ? { ...n, data: { ...n.data, ...updates } } : n),
-    );
-  }, [id, setNodes]);
-
-  const runAnalysis = useCallback(async (auto: boolean) => {
-    if (analyzingRef.current) return;
-    analyzingRef.current = true;
-    setAnalyzing(true);
-    setError(null);
-
-    let updatedHistory = history;
-    if (!auto && suggestions.length > 0) {
-      const archived: HistoryEntry[] = suggestions.map((s, i) => ({
-        title: s.title,
-        suggestion: s.suggestion,
-        applied: editedIds.has(i),
-      }));
-      updatedHistory = [...history, ...archived];
-      setHistory(updatedHistory);
-      persistData({ critiqueHistory: updatedHistory });
-    }
-
-    setSuggestions([]);
-    setEditedIds(new Set());
-    setSelectedIds(new Set());
-
-    try {
-      const ctx = gatherContext(id, getNode, getEdges);
-
-      if (!ctx.image) {
-        if (!auto) setError('No image found. Connect a Main Stage Viewer or image source to the input.');
-        return;
-      }
-
-      const imageKey = ctx.image.base64.slice(0, 64);
-      if (auto && lastAnalyzedRef.current === imageKey) return;
-
-      let contextBlock = '';
-      if (ctx.identityText) contextBlock += `\nCharacter identity: ${ctx.identityText}`;
-      if (ctx.description) contextBlock += `\nDesigner's description: ${ctx.description}`;
-      if (ctx.attributeLines.length > 0) contextBlock += `\nCurrent attributes:\n${ctx.attributeLines.join('\n')}`;
-
-      let historyBlock = '';
-      if (updatedHistory.length > 0) {
-        const applied = updatedHistory.filter((h) => h.applied);
-        const notApplied = updatedHistory.filter((h) => !h.applied);
-
-        historyBlock = '\n\nYOUR PREVIOUS CRITIQUE HISTORY (do NOT repeat these):';
-        if (applied.length > 0) {
-          historyBlock += '\n\nSuggestions the designer ACCEPTED and applied to the image:';
-          for (const h of applied) {
-            historyBlock += `\n- "${h.title}": ${h.suggestion}`;
-          }
-          historyBlock += '\nThese changes should already be visible in the current image. Acknowledge the progress and build on it.';
-        }
-        if (notApplied.length > 0) {
-          historyBlock += '\n\nSuggestions the designer chose NOT to apply (respect their choice, do not re-suggest):';
-          for (const h of notApplied) {
-            historyBlock += `\n- "${h.title}": ${h.suggestion}`;
-          }
-        }
-        historyBlock += '\n\nGive entirely NEW suggestions that explore different aspects of the design. Go deeper, look at things you missed before. Push into fresh territory.';
-      }
-
-      const prompt = BASE_PROMPT + (boldMode ? BOLD_ADDENDUM : '') + FORMAT_INSTRUCTIONS
-        + (contextBlock ? `\n\nCONTEXT FROM THE DESIGNER:${contextBlock}` : '')
-        + historyBlock;
-      const raw = await generateText(prompt, ctx.image);
-
-      let parsed: DesignSuggestion[];
-      try {
-        const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
-        parsed = JSON.parse(jsonStr) as DesignSuggestion[];
-      } catch {
-        const match = raw.match(/\[[\s\S]*\]/);
-        if (match) {
-          parsed = JSON.parse(match[0]) as DesignSuggestion[];
-        } else {
-          throw new Error('Could not parse suggestions from AI response');
-        }
-      }
-
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        throw new Error('No suggestions returned');
-      }
-
-      if (mountedRef.current) {
-        lastAnalyzedRef.current = imageKey;
-        setSuggestions(parsed);
-        persistData({ suggestions: parsed });
-      }
-    } catch (e) {
-      if (mountedRef.current) setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      if (mountedRef.current) setAnalyzing(false);
-      analyzingRef.current = false;
-    }
-  }, [id, getNode, getEdges, persistData, history, suggestions, editedIds, boldMode]);
-
-  const upstreamImageKey = useStore(
+  const upstreamADSig = useStore(
     useCallback(
       (s: { nodeLookup: Map<string, { type?: string; data: Record<string, unknown> }>; edges: Array<{ source: string; target: string }> }) => {
         for (const e of s.edges) {
           if (e.target !== id) continue;
           const src = s.nodeLookup.get(e.source);
-          if (!src) continue;
-          if (IMAGE_SOURCE_TYPES.has(src.type ?? '')) {
-            const img = src.data?.generatedImage as { base64?: string } | undefined;
-            if (img?.base64) return img.base64.slice(0, 64);
-            const raw = src.data?.imageBase64 as string | undefined;
-            if (raw) return raw.slice(0, 64);
-            if (src.type === 'artDirector') {
-              const mediaList = src.data?.media as Array<{ type: string; base64?: string }> | undefined;
-              const imgMedia = mediaList?.find((m) => m.type === 'image' && m.base64);
-              if (imgMedia?.base64) return imgMedia.base64.slice(0, 64);
-            }
-          }
+          if (!src || src.type !== 'artDirector') continue;
+          const r = src.data?.artDirectionResult as ADResult | undefined;
+          if (r?.points?.length) return JSON.stringify(r.points.map((p) => p.title));
         }
         return null;
       },
@@ -323,128 +153,22 @@ function CreativeDirectorNodeInner({ id, data, selected }: Props) {
     ),
   );
 
+  const adData = findUpstreamADResult(id, getNode, getEdges);
+  const adResult = adData?.result ?? null;
+  const points = adResult?.points ?? [];
+
   useEffect(() => {
-    if (!upstreamImageKey) return;
-    if (lastAnalyzedRef.current === upstreamImageKey) return;
-    const timer = setTimeout(() => { runAnalysis(true); }, 600);
-    return () => clearTimeout(timer);
-  }, [upstreamImageKey, runAnalysis]);
+    setSelectedIds(new Set());
+    setExpandedIds(new Set());
+  }, [upstreamADSig]);
 
-  const pushEditedImage = useCallback((editedImage: GeneratedImage) => {
-    const viewerIds = findDownstreamViewers(id, getNode, getEdges);
-    if (viewerIds.length > 0) {
-      setNodes((nds) =>
-        nds.map((n) =>
-          viewerIds.includes(n.id)
-            ? { ...n, data: { ...n.data, generatedImage: editedImage } }
-            : n,
-        ),
-      );
-    }
-    const edges = getEdges();
-    const incomingViewerIds: string[] = [];
-    for (const e of edges) {
-      if (e.target !== id) continue;
-      const src = getNode(e.source);
-      if (src && VIEWER_TYPES.has(src.type ?? '')) incomingViewerIds.push(src.id);
-    }
-    if (incomingViewerIds.length > 0) {
-      setNodes((nds) =>
-        nds.map((n) =>
-          incomingViewerIds.includes(n.id)
-            ? { ...n, data: { ...n.data, generatedImage: editedImage } }
-            : n,
-        ),
-      );
-    }
-  }, [id, getNode, getEdges, setNodes]);
-
-  const recordApplied = useCallback((items: DesignSuggestion[]) => {
-    const entries: HistoryEntry[] = items.map((s) => ({ title: s.title, suggestion: s.suggestion, applied: true }));
-    const next = [...history, ...entries];
-    setHistory(next);
-    setTimeout(() => persistData({ critiqueHistory: next }), 0);
-  }, [history, persistData]);
-
-  const buildEditPrompt = useCallback((items: DesignSuggestion[]) => {
-    const directions = items.map((s, i) => `${i + 1}. "${s.title}": ${s.suggestion}`).join('\n');
-    return `You are editing a character design image. Apply ALL of the following creative directions to the character simultaneously, while keeping everything else about the image identical:
-
-CREATIVE DIRECTIONS TO APPLY:
-${directions}
-
-RULES:
-- Apply ALL listed changes in a single cohesive result
-- Keep the same character, same pose, same camera angle, same background
-- Keep all existing clothing, accessories, and details that are NOT being changed
-- Maintain the same art style and rendering quality
-- The background must remain flat solid grey
-- Full body, head to toe, same framing`;
+  const toggleExpand = useCallback((idx: number) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      return next;
+    });
   }, []);
-
-  const handleApplyEdit = useCallback(async (idx: number) => {
-    const s = suggestions[idx];
-    if (!s) return;
-
-    const ctx = gatherContext(id, getNode, getEdges);
-    if (!ctx.image) { setError('No source image to edit.'); return; }
-
-    setEditingIdx(idx);
-    setError(null);
-    const anim = createProcessingAnimator(setNodes, setEdges, getEdges);
-
-    try {
-      anim.markNodes([id], true);
-      const result = await generateWithGeminiRef(buildEditPrompt([s]), ctx.image);
-      if (!mountedRef.current) return;
-      const editedImage = result[0];
-      if (!editedImage) throw new Error('No edited image returned');
-
-      pushEditedImage(editedImage);
-      setEditedIds((prev) => new Set(prev).add(idx));
-      recordApplied([s]);
-    } catch (e) {
-      if (mountedRef.current) setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      if (mountedRef.current) setEditingIdx(null);
-      anim.clearAll();
-    }
-  }, [id, suggestions, getNode, getEdges, setNodes, setEdges, pushEditedImage, recordApplied, buildEditPrompt]);
-
-  const handleApplySelected = useCallback(async () => {
-    if (selectedIds.size === 0) return;
-    const items = [...selectedIds].sort().map((i) => suggestions[i]).filter(Boolean);
-    if (items.length === 0) return;
-
-    const ctx = gatherContext(id, getNode, getEdges);
-    if (!ctx.image) { setError('No source image to edit.'); return; }
-
-    setEditingMulti(true);
-    setError(null);
-    const anim = createProcessingAnimator(setNodes, setEdges, getEdges);
-
-    try {
-      anim.markNodes([id], true);
-      const result = await generateWithGeminiRef(buildEditPrompt(items), ctx.image);
-      if (!mountedRef.current) return;
-      const editedImage = result[0];
-      if (!editedImage) throw new Error('No edited image returned');
-
-      pushEditedImage(editedImage);
-      setEditedIds((prev) => {
-        const next = new Set(prev);
-        for (const i of selectedIds) next.add(i);
-        return next;
-      });
-      setSelectedIds(new Set());
-      recordApplied(items);
-    } catch (e) {
-      if (mountedRef.current) setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      if (mountedRef.current) setEditingMulti(false);
-      anim.clearAll();
-    }
-  }, [id, selectedIds, suggestions, getNode, getEdges, setNodes, setEdges, pushEditedImage, recordApplied, buildEditPrompt]);
 
   const toggleSelect = useCallback((idx: number) => {
     setSelectedIds((prev) => {
@@ -454,235 +178,246 @@ RULES:
     });
   }, []);
 
-  const isBusy = analyzing || editingIdx !== null || editingMulti;
+  const handleApply = useCallback(async () => {
+    if (selectedIds.size === 0 || applying) return;
+
+    const image = findUpstreamImage(id, getNode, getEdges);
+    if (!image) {
+      setError('No source image found. Connect a Main Stage Viewer or image source.');
+      return;
+    }
+
+    const selectedPoints = [...selectedIds].sort().map((i) => points[i]).filter(Boolean);
+    if (selectedPoints.length === 0) return;
+
+    setApplying(true);
+    setError(null);
+    setStatus('Applying art direction...');
+    const anim = createProcessingAnimator(setNodes, setEdges, getEdges);
+
+    try {
+      anim.markNodes([id], true);
+
+      const directions = selectedPoints
+        .map((p, i) => `${i + 1}. **${p.title}**: ${p.direction}\n   Rationale: ${p.rationale}`)
+        .join('\n\n');
+
+      const prompt = `You are applying professional art direction feedback to a character design image.
+
+CREATIVE DIRECTIONS TO APPLY (apply ALL of these simultaneously):
+${directions}
+
+${adResult?.overallVision ? `OVERALL VISION: ${adResult.overallVision}\n` : ''}
+RULES:
+- Apply ALL listed art direction changes in a single cohesive result
+- Keep the same character identity — same person, same face, same body type
+- Keep the same pose, camera angle, and framing
+- Reinterpret the design through the lens of the art direction feedback
+- Materials, colors, silhouette, accessories, and details should evolve based on the directions
+- Maintain photorealistic quality throughout
+- Background: solid flat grey (#D3D3D3). No floor, no shadows, no environment
+- Full body, head to toe visible, same framing as original
+- The result should feel like a clear evolution of the original — recognizably the same character but with the art direction applied`;
+
+      const result = await generateWithGeminiRef(prompt, image);
+      if (!mountedRef.current) return;
+      const editedImage = result[0];
+      if (!editedImage) throw new Error('No image returned');
+
+      const allViewerIds = findAllConnectedViewers(id, getNode, getEdges);
+
+      if (allViewerIds.length > 0) {
+        setNodes((nds) =>
+          nds.map((n) =>
+            allViewerIds.includes(n.id)
+              ? { ...n, data: { ...n.data, generatedImage: editedImage } }
+              : n,
+          ),
+        );
+      }
+
+      setStatus(`Applied ${selectedPoints.length} direction${selectedPoints.length > 1 ? 's' : ''} successfully`);
+      setTimeout(() => { if (mountedRef.current) setStatus(null); }, 4000);
+    } catch (e) {
+      if (mountedRef.current) setError(e instanceof Error ? e.message : String(e));
+      setStatus(null);
+    } finally {
+      if (mountedRef.current) setApplying(false);
+      anim.clearAll();
+    }
+  }, [id, selectedIds, points, adResult, applying, getNode, getEdges, setNodes, setEdges]);
+
+  const hasPoints = points.length > 0;
 
   return (
     <div
-      className={`char-node ${selected ? 'selected' : ''} ${isBusy ? 'char-node-processing' : ''}`}
+      className={`char-node ${selected ? 'selected' : ''} ${applying ? 'char-node-processing' : ''}`}
       title={NODE_TOOLTIPS.charCreativeDirector}
       style={{ width: '100%', minWidth: 460, maxWidth: 'none' }}
     >
-      {/* ── Header ── */}
       <div className="char-node-header" style={{ background: '#ff6f00', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          Art Direction Output
-          {history.length > 0 && (
-            <span style={{ fontSize: 8, opacity: 0.7, fontWeight: 400 }}>
-              ({history.length} past note{history.length !== 1 ? 's' : ''})
-            </span>
-          )}
-        </span>
-        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-          {history.length > 0 && !analyzing && (
-            <button
-              type="button"
-              className="nodrag"
-              onClick={() => { setHistory([]); persistData({ critiqueHistory: [] }); }}
-              disabled={isBusy}
-              style={{
-                background: 'rgba(0,0,0,0.15)',
-                border: '1px solid rgba(0,0,0,0.1)',
-                borderRadius: 4,
-                color: '#0f0f1a',
-                fontSize: 8,
-                fontWeight: 600,
-                padding: '2px 6px',
-                cursor: 'pointer',
-                opacity: 0.7,
-              }}
-            >
-              Clear Memory
-            </button>
-          )}
+        <span>Art Direction Output</span>
+        {hasPoints && selectedIds.size > 0 && !applying && (
           <button
             type="button"
             className="nodrag"
-            onClick={() => runAnalysis(false)}
-            disabled={isBusy}
+            onClick={handleApply}
             style={{
-              background: 'rgba(0,0,0,0.2)',
+              background: 'rgba(0,0,0,0.25)',
               border: '1px solid rgba(0,0,0,0.15)',
               borderRadius: 4,
-              color: '#0f0f1a',
-              fontSize: 9,
-              fontWeight: 700,
-              padding: '2px 8px',
-              cursor: 'pointer',
-              textTransform: 'uppercase',
-              letterSpacing: '0.3px',
-              opacity: isBusy ? 0.4 : 1,
-            }}
-          >
-            Refresh
-          </button>
-        </div>
-      </div>
-
-      <div className="char-node-body" style={{ gap: 10 }}>
-        {/* ── Bold Mode toggle ── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button
-            type="button"
-            className="nodrag"
-            onClick={() => { const next = !boldMode; setBoldMode(next); persistData({ boldMode: next }); }}
-            disabled={isBusy}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '4px 10px',
+              color: '#fff',
               fontSize: 10,
               fontWeight: 700,
-              borderRadius: 4,
-              cursor: isBusy ? 'default' : 'pointer',
-              border: boldMode ? '1px solid rgba(255,111,0,0.5)' : '1px solid rgba(255,255,255,0.1)',
-              background: boldMode ? 'rgba(255,111,0,0.15)' : 'transparent',
-              color: boldMode ? '#ff9800' : 'var(--text-muted)',
-              transition: 'all 0.2s',
+              padding: '3px 10px',
+              cursor: 'pointer',
             }}
           >
-            <span style={{ fontSize: 14, lineHeight: 1 }}>{boldMode ? '🔥' : '💡'}</span>
-            {boldMode ? 'Bold Mode ON' : 'Bold Mode'}
+            Apply {selectedIds.size} Direction{selectedIds.size > 1 ? 's' : ''}
           </button>
-
-          {/* ── Apply Selected button ── */}
-          {selectedIds.size > 0 && !isBusy && (
-            <button
-              type="button"
-              className="char-btn primary nodrag"
-              onClick={handleApplySelected}
-              style={{ fontSize: 10, padding: '4px 12px' }}
-            >
-              Apply {selectedIds.size} Selected
-            </button>
-          )}
-        </div>
-
-        {analyzing && <div className="char-progress">Studying the design{boldMode ? ' (bold mode)' : ''}...</div>}
-        {editingMulti && <div className="char-progress">Applying {selectedIds.size || 'selected'} edits simultaneously...</div>}
-        {editingIdx !== null && !editingMulti && (
-          <div className="char-progress">
-            Applying edit: {suggestions[editingIdx]?.title}...
-          </div>
         )}
-        {error && <div className="char-error">{error}</div>}
+      </div>
 
-        {suggestions.length === 0 && !analyzing && !error && (
-          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, lineHeight: 1.4, textAlign: 'center', padding: '8px 0' }}>
-            Connect a character image — critique auto-generates.
+      <div className="char-node-body" style={{ gap: 6 }}>
+        {applying && <div className="char-progress">Generating updated character with art direction...</div>}
+        {error && <div className="char-error">{error}</div>}
+        {status && !applying && (
+          <div style={{ fontSize: 10, color: '#69f0ae', textAlign: 'center', padding: '4px 0' }}>{status}</div>
+        )}
+
+        {!hasPoints && !applying && (
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, lineHeight: 1.4, textAlign: 'center', padding: '12px 0' }}>
+            Connect an Art Director node — results will appear here after running the gauntlet.
           </p>
         )}
 
-        {/* ── Suggestion cards ── */}
-        {suggestions.length > 0 && !analyzing && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {suggestions.map((s, i) => {
-              const edited = editedIds.has(i);
-              const isThisEditing = editingIdx === i;
+        {/* Overall Vision */}
+        {adResult?.overallVision && (
+          <div style={{
+            background: 'rgba(255,111,0,0.06)',
+            border: '1px solid rgba(255,111,0,0.15)',
+            borderRadius: 6,
+            padding: '8px 10px',
+            fontSize: 11,
+            lineHeight: 1.5,
+            color: '#ccc',
+          }}>
+            <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: '#ff9800', marginBottom: 4 }}>
+              Overall Vision
+            </div>
+            {adResult.overallVision}
+          </div>
+        )}
+
+        {/* Direction Points */}
+        {hasPoints && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {points.map((p, i) => {
+              const isExpanded = expandedIds.has(i);
               const isSelected = selectedIds.has(i);
-              const catColor = CATEGORY_COLORS[s.category] ?? '#78909c';
               return (
                 <div
                   key={i}
                   style={{
-                    background: edited
-                      ? 'rgba(105, 240, 174, 0.06)'
-                      : isSelected
-                        ? 'rgba(255, 111, 0, 0.06)'
-                        : 'rgba(255,255,255,0.03)',
-                    border: `1px solid ${
-                      edited ? 'rgba(105, 240, 174, 0.25)'
-                      : isSelected ? 'rgba(255, 111, 0, 0.35)'
-                      : isThisEditing ? 'rgba(255, 111, 0, 0.4)'
-                      : 'rgba(255,255,255,0.08)'
-                    }`,
+                    background: isSelected ? 'rgba(255,111,0,0.08)' : 'rgba(255,255,255,0.02)',
+                    border: `1px solid ${isSelected ? 'rgba(255,111,0,0.35)' : 'rgba(255,255,255,0.06)'}`,
                     borderRadius: 6,
-                    padding: '10px 12px',
-                    transition: 'border-color 0.2s, background 0.2s',
+                    transition: 'border-color 0.15s, background 0.15s',
+                    overflow: 'hidden',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                    {/* Checkbox */}
-                    {!edited && (
-                      <input
-                        type="checkbox"
-                        className="nodrag"
-                        checked={isSelected}
-                        onChange={() => toggleSelect(i)}
-                        disabled={isBusy}
-                        style={{
-                          marginTop: 3,
+                  {/* Header row */}
+                  <div
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '8px 10px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      className="nodrag"
+                      checked={isSelected}
+                      onChange={() => toggleSelect(i)}
+                      disabled={applying}
+                      style={{ flexShrink: 0, accentColor: '#ff9800', width: 14, height: 14, cursor: applying ? 'default' : 'pointer' }}
+                    />
+                    <div
+                      style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+                      onClick={() => toggleExpand(i)}
+                      className="nodrag"
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{
+                          fontSize: 11, fontWeight: 800, color: '#ff9800',
+                          background: 'rgba(255,111,0,0.12)',
+                          width: 20, height: 20, borderRadius: '50%',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
                           flexShrink: 0,
-                          accentColor: '#ff9800',
-                          width: 14,
-                          height: 14,
-                          cursor: isBusy ? 'default' : 'pointer',
-                        }}
-                      />
-                    )}
-                    {edited && (
-                      <span style={{ marginTop: 2, flexShrink: 0, fontSize: 14, lineHeight: 1 }}>✓</span>
-                    )}
-
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                        <span
-                          style={{
-                            fontSize: 8,
-                            fontWeight: 700,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.5px',
-                            color: catColor,
-                            background: `${catColor}18`,
-                            padding: '1px 5px',
-                            borderRadius: 3,
-                            flexShrink: 0,
-                          }}
-                        >
-                          {s.category}
+                        }}>
+                          {i + 1}
                         </span>
                         <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>
-                          {s.title}
+                          {p.title}
+                        </span>
+                        <span style={{ marginLeft: 'auto', fontSize: 10, color: '#666', flexShrink: 0 }}>
+                          {isExpanded ? '▲' : '▼'}
                         </span>
                       </div>
-                      <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-                        {s.suggestion}
-                      </p>
+                      {!isExpanded && (
+                        <p style={{ fontSize: 10, color: '#888', margin: '3px 0 0 26px', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {p.direction}
+                        </p>
+                      )}
                     </div>
-
-                    <button
-                      type="button"
-                      className="nodrag"
-                      disabled={isBusy || edited}
-                      onClick={() => handleApplyEdit(i)}
-                      style={{
-                        flexShrink: 0,
-                        padding: '6px 12px',
-                        fontSize: 10,
-                        fontWeight: 700,
-                        borderRadius: 4,
-                        cursor: isBusy || edited ? 'default' : 'pointer',
-                        border: edited
-                          ? '1px solid rgba(105,240,174,0.3)'
-                          : '1px solid rgba(255,111,0,0.4)',
-                        background: edited
-                          ? 'rgba(105,240,174,0.1)'
-                          : isThisEditing
-                            ? 'rgba(255,111,0,0.3)'
-                            : 'rgba(255,111,0,0.15)',
-                        color: edited ? '#69f0ae' : '#ff9800',
-                        transition: 'background 0.15s, border-color 0.15s',
-                        whiteSpace: 'nowrap',
-                        opacity: isBusy && !isThisEditing ? 0.4 : 1,
-                      }}
-                    >
-                      {edited ? 'Applied' : isThisEditing ? 'Editing...' : 'Apply Edit'}
-                    </button>
                   </div>
+
+                  {/* Expanded details */}
+                  {isExpanded && (
+                    <div style={{ padding: '0 10px 10px 42px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: '#ff9800', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 2 }}>Direction</div>
+                        <p style={{ fontSize: 11, color: '#ccc', margin: 0, lineHeight: 1.5 }}>{p.direction}</p>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 2 }}>Why it matters</div>
+                        <p style={{ fontSize: 10, color: '#999', margin: 0, lineHeight: 1.4 }}>{p.rationale}</p>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 2 }}>Reference</div>
+                        <p style={{ fontSize: 10, color: '#999', margin: 0, lineHeight: 1.4, fontStyle: 'italic' }}>{p.reference}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
+        )}
+
+        {/* Apply button at bottom */}
+        {hasPoints && selectedIds.size > 0 && (
+          <button
+            type="button"
+            className="nodrag"
+            onClick={handleApply}
+            disabled={applying}
+            style={{
+              width: '100%',
+              height: 36,
+              fontSize: 12,
+              fontWeight: 700,
+              borderRadius: 5,
+              cursor: applying ? 'default' : 'pointer',
+              border: '1px solid rgba(255,111,0,0.4)',
+              background: applying ? 'rgba(255,111,0,0.1)' : 'rgba(255,111,0,0.2)',
+              color: '#ff9800',
+              transition: 'all 0.15s',
+              opacity: applying ? 0.5 : 1,
+            }}
+          >
+            {applying ? 'Applying...' : `Apply ${selectedIds.size} Art Direction${selectedIds.size > 1 ? 's' : ''} to Character`}
+          </button>
         )}
       </div>
 

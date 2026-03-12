@@ -1193,67 +1193,72 @@ function CharViewNodeInner({ id, data, selected }: Props) {
       </div>}
 
       {!compact && (
-        <div className="char-viewer-toolbar">
-          <button className="char-btn nodrag" onClick={handleOpenImage}>Open IMG</button>
-          <button className="char-btn nodrag" onClick={async () => {
-            try {
-              const items = await navigator.clipboard.read();
-              for (const item of items) {
-                const imgType = item.types.find((t) => t.startsWith('image/'));
-                if (imgType) {
-                  const blob = await item.getType(imgType);
-                  const reader = new FileReader();
-                  reader.onload = () => {
-                    const url = reader.result as string;
-                    const parts = url.split(',');
-                    const mime = parts[0].match(/:(.*?);/)?.[1] ?? 'image/png';
-                    handlePasteImage({ base64: parts[1], mimeType: mime });
-                  };
-                  reader.readAsDataURL(blob);
-                }
-              }
-            } catch { /* clipboard may be unavailable */ }
-          }}>Paste IMG</button>
-          {viewImage && (
+        <>
+          <div className="char-viewer-toolbar">
+            <button className="char-btn nodrag" onClick={handleOpenImage}>Open IMG</button>
             <button className="char-btn nodrag" onClick={async () => {
               try {
-                const resp = await fetch(`data:${viewImage.mimeType};base64,${viewImage.base64}`);
-                const blob = await resp.blob();
-                await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+                const items = await navigator.clipboard.read();
+                for (const item of items) {
+                  const imgType = item.types.find((t) => t.startsWith('image/'));
+                  if (imgType) {
+                    const blob = await item.getType(imgType);
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const url = reader.result as string;
+                      const parts = url.split(',');
+                      const mime = parts[0].match(/:(.*?);/)?.[1] ?? 'image/png';
+                      handlePasteImage({ base64: parts[1], mimeType: mime });
+                    };
+                    reader.readAsDataURL(blob);
+                  }
+                }
               } catch { /* clipboard may be unavailable */ }
-            }}>Copy IMG</button>
-          )}
+            }}>Paste IMG</button>
+            {viewImage && (
+              <button className="char-btn nodrag" onClick={async () => {
+                try {
+                  const resp = await fetch(`data:${viewImage.mimeType};base64,${viewImage.base64}`);
+                  const blob = await resp.blob();
+                  await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+                } catch { /* clipboard may be unavailable */ }
+              }}>Copy IMG</button>
+            )}
+            <button className="char-btn nodrag" onClick={handleResetView}>Reset View</button>
+            <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
+            <span className="char-viewer-zoom-info">{Math.round(zoom * 100)}%</span>
+          </div>
           {!isMain && (
-            <button
-              className="char-btn nodrag"
-              onClick={handleGenerateView}
-              disabled={anyBusy || !mainStageImage}
-              title={mainStageImage ? `Generate ${displayLabel.toLowerCase()} from Main Stage` : 'No Main Stage image yet'}
-              style={{ background: anyBusy ? undefined : cfg.color, color: '#000', fontWeight: 600 }}
-            >
-              {genBusy ? `${editElapsed}s…` : viewImage ? 'Regenerate' : 'Generate View'}
-            </button>
+            <div className="char-viewer-toolbar" style={{ justifyContent: 'center' }}>
+              <button
+                className="char-btn nodrag"
+                onClick={handleGenerateView}
+                disabled={anyBusy || !mainStageImage}
+                title={mainStageImage ? `Generate ${displayLabel.toLowerCase()} from Main Stage` : 'No Main Stage image yet'}
+                style={{ background: anyBusy ? undefined : cfg.color, color: '#000', fontWeight: 600, flex: 1 }}
+              >
+                {genBusy ? `${editElapsed}s…` : viewImage ? 'Regenerate' : 'Generate View'}
+              </button>
+              {viewImage && (
+                <button
+                  className="char-btn nodrag"
+                  onClick={handleRestore}
+                  disabled={anyBusy}
+                  title="Restore quality — AI redraws the image from scratch to remove accumulated artifacts and degradation"
+                  style={{
+                    background: anyBusy ? undefined : 'linear-gradient(135deg, #00c853, #00e5ff)',
+                    color: anyBusy ? undefined : '#000',
+                    fontWeight: 600,
+                    fontSize: 10,
+                    flex: 1,
+                  }}
+                >
+                  {restoreBusy ? `${editElapsed}s\u2026` : 'Restore'}
+                </button>
+              )}
+            </div>
           )}
-          {viewImage && (
-            <button
-              className="char-btn nodrag"
-              onClick={handleRestore}
-              disabled={anyBusy}
-              title="Restore quality — AI redraws the image from scratch to remove accumulated artifacts and degradation"
-              style={{
-                background: anyBusy ? undefined : 'linear-gradient(135deg, #00c853, #00e5ff)',
-                color: anyBusy ? undefined : '#000',
-                fontWeight: 600,
-                fontSize: 10,
-              }}
-            >
-              {restoreBusy ? `${editElapsed}s\u2026` : 'Restore'}
-            </button>
-          )}
-          <button className="char-btn nodrag" onClick={handleResetView}>Reset View</button>
-          <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
-          <span className="char-viewer-zoom-info">{Math.round(zoom * 100)}%</span>
-        </div>
+        </>
       )}
 
       {/* ── Inline Edit (all views) ── */}

@@ -948,13 +948,23 @@ function FlowCanvasInner() {
         onFitView={handleFitView}
         onAutoLayout={autoLayout}
         onResetNodes={() => {
-          const snapshot = flow.nodes.map((n) => ({
-            id: n.id,
-            position: n.position,
-            type: n.type,
-            style: n.style,
-            data: {} as Record<string, unknown>,
-          }));
+          const PRESERVE_KEYS: Record<string, string[]> = {
+            uiFrame: ['label', 'color'],
+            charFrontViewer: ['viewKey'],
+            charBackViewer: ['viewKey'],
+            charSideViewer: ['viewKey'],
+            charMainViewer: ['viewKey'],
+            charViewer: ['viewKey'],
+          };
+          const snapshot = flow.nodes.map((n) => {
+            const keep = PRESERVE_KEYS[n.type ?? ''];
+            const preserved: Record<string, unknown> = {};
+            if (keep) {
+              const d = n.data as Record<string, unknown>;
+              for (const k of keep) { if (d[k] !== undefined) preserved[k] = d[k]; }
+            }
+            return { id: n.id, position: n.position, type: n.type, style: n.style, data: preserved };
+          });
           const edgeSnapshot = [...flow.edges];
           flow.setNodes([]);
           flow.setEdges([]);

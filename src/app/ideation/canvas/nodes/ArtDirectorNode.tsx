@@ -341,16 +341,25 @@ export default function ArtDirectorNode({ id, selected }: NodeProps) {
   const upstreamImageSig = useStore(
     useCallback(
       (s: { nodeLookup: Map<string, { type?: string; data: Record<string, unknown> }>; edges: Array<{ source: string; target: string }> }) => {
-        for (const e of s.edges) {
-          if (e.target !== id) continue;
-          const src = s.nodeLookup.get(e.source);
-          if (!src) continue;
-          if (UPSTREAM_IMAGE_TYPES.has(src.type ?? '')) {
-            const img = src.data?.generatedImage as { base64?: string } | undefined;
-            if (img?.base64) return img.base64.slice(0, 64);
+        function traceSig(nid: string, depth: number): string | null {
+          if (depth > 10) return null;
+          for (const e of s.edges) {
+            if (e.target !== nid) continue;
+            const src = s.nodeLookup.get(e.source);
+            if (!src) continue;
+            if (src.data?._sleeping) {
+              const r = traceSig(e.source, depth + 1);
+              if (r) return r;
+              continue;
+            }
+            if (UPSTREAM_IMAGE_TYPES.has(src.type ?? '')) {
+              const img = src.data?.generatedImage as { base64?: string } | undefined;
+              if (img?.base64) return img.base64.slice(0, 64);
+            }
           }
+          return null;
         }
-        return null;
+        return traceSig(id, 0);
       },
       [id],
     ),
@@ -362,27 +371,36 @@ export default function ArtDirectorNode({ id, selected }: NodeProps) {
     lastUpstreamSigRef.current = upstreamImageSig;
 
     const edges = getEdges();
-    for (const e of edges) {
-      if (e.target !== id) continue;
-      const src = getNode(e.source);
-      if (!src?.data) continue;
-      if (!UPSTREAM_IMAGE_TYPES.has(src.type ?? '')) continue;
-      const d = src.data as Record<string, unknown>;
-      const img = d.generatedImage as { base64?: string; mimeType?: string } | undefined;
-      if (img?.base64) {
-        const item: SeedMediaItem = {
-          type: 'image',
-          base64: img.base64,
-          mimeType: (img.mimeType as string) || 'image/png',
-          fileName: 'upstream-character',
-        };
-        setMedia((prev) => {
-          const filtered = prev.filter((m) => m.fileName !== 'upstream-character');
-          return [item, ...filtered];
-        });
-        break;
+    function traceImage(nid: string, depth: number): boolean {
+      if (depth > 10) return false;
+      for (const e of edges) {
+        if (e.target !== nid) continue;
+        const src = getNode(e.source);
+        if (!src?.data) continue;
+        const d = src.data as Record<string, unknown>;
+        if (d._sleeping) {
+          if (traceImage(src.id, depth + 1)) return true;
+          continue;
+        }
+        if (!UPSTREAM_IMAGE_TYPES.has(src.type ?? '')) continue;
+        const img = d.generatedImage as { base64?: string; mimeType?: string } | undefined;
+        if (img?.base64) {
+          const item: SeedMediaItem = {
+            type: 'image',
+            base64: img.base64,
+            mimeType: (img.mimeType as string) || 'image/png',
+            fileName: 'upstream-character',
+          };
+          setMedia((prev) => {
+            const filtered = prev.filter((m) => m.fileName !== 'upstream-character');
+            return [item, ...filtered];
+          });
+          return true;
+        }
       }
+      return false;
     }
+    traceImage(id, 0);
   }, [upstreamImageSig, id, getNode, getEdges]);
 
   const hasInput = description.trim().length > 0 || media.length > 0;

@@ -59,6 +59,17 @@ export const NODE_TOOLTIPS: Record<string, string> = {
     'Model Settings — Choose which AI models to use for image generation and multimodal tasks. Image Gen model handles main stage creation (text-to-image). Multimodal model handles ortho views, edits, and reference-based generation. Save as preset to persist across sessions.',
   charCreativeDirector:
     'Art Direction Output — Displays results from the Art Director gauntlet. Select one or more directions and click Apply to regenerate the character with those art direction changes.',
+  // ── Costume & Production Design ──
+  charBible:
+    'Character Bible — Write the character name, backstory, role, world context, and production style once. Connect to any generation node and the context auto-injects into every prompt.',
+  charPreservationLock:
+    'Preservation Lock — Toggle switches for "do not change" rules (face, hair, pose, body type, camera, lighting). Add custom negative constraints. Connect to generation nodes to auto-append.',
+  costumeDirector:
+    'Costume Director — Structured costume design with style influences, material palette, color palette, and texture rules. Runs a 5-phase AI gauntlet to produce 5 actionable costume directions.',
+  charStyleFusion:
+    'Style Fusion — Combine 2-4 reference images with per-reference labels, weight sliders, and "what to take" selectors. Outputs a structured style brief for downstream nodes.',
+  envPlacement:
+    'Environment Placement — Compose a character into a scene with structured fields: location, time of day, lighting, pose, props, camera angle, and output format.',
   // ── 3D Gen AI ──
   meshyImageTo3D:
     'Convert character images to a 3D model using Meshy AI. Connect inputs ← Main Stage Viewer, Front/Back/Side views. All Meshy API parameters exposed. Connect output → 3D Model Viewer.',

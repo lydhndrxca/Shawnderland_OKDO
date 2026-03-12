@@ -280,6 +280,7 @@ function ConceptLabCanvas() {
             if (keep) {
               for (const k of keep) { if (n.data?.[k] !== undefined) preserved[k] = n.data[k]; }
             }
+            if (n.data?._sleeping) preserved._sleeping = true;
             return { id: n.id, position: n.position, type: n.type, style: n.style, data: preserved };
           });
           const edgeSnapshot = [...cs.edges];

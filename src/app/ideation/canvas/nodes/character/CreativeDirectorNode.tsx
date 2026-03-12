@@ -57,6 +57,12 @@ function findUpstreamImage(
     if (!src?.data) continue;
     const d = src.data as Record<string, unknown>;
 
+    if (d._sleeping) {
+      const result = findUpstreamImage(src.id, getNode, getEdges);
+      if (result) return result;
+      continue;
+    }
+
     if (IMAGE_SOURCE_TYPES.has(src.type ?? '')) {
       const img = d.generatedImage as GeneratedImage | undefined;
       if (img?.base64) return img;
@@ -82,8 +88,16 @@ function findUpstreamADResult(
   for (const e of edges) {
     if (e.target !== nodeId) continue;
     const src = getNode(e.source);
-    if (!src?.data || src.type !== 'artDirector') continue;
+    if (!src?.data) continue;
     const d = src.data as Record<string, unknown>;
+
+    if (d._sleeping) {
+      const result = findUpstreamADResult(src.id, getNode, getEdges);
+      if (result) return result;
+      continue;
+    }
+
+    if (src.type !== 'artDirector') continue;
     const result = d.artDirectionResult as ADResult | undefined;
     if (result?.points?.length) {
       return {

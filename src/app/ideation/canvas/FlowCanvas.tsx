@@ -959,10 +959,11 @@ function FlowCanvasInner() {
           const snapshot = flow.nodes.map((n) => {
             const keep = PRESERVE_KEYS[n.type ?? ''];
             const preserved: Record<string, unknown> = {};
+            const d = n.data as Record<string, unknown>;
             if (keep) {
-              const d = n.data as Record<string, unknown>;
               for (const k of keep) { if (d[k] !== undefined) preserved[k] = d[k]; }
             }
+            if (d._sleeping) preserved._sleeping = true;
             return { id: n.id, position: n.position, type: n.type, style: n.style, data: preserved };
           });
           const edgeSnapshot = [...flow.edges];

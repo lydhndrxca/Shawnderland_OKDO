@@ -6,6 +6,7 @@
  * imports from here so all nodes are available everywhere.
  */
 
+import React from 'react';
 import type { NodeTypes } from '@xyflow/react';
 
 // ── Pipeline stage nodes (ShawnderMind) ─────────────────────────
@@ -101,6 +102,13 @@ import ProjectSettingsNode from '@/app/ideation/canvas/nodes/character/ProjectSe
 import ModelSettingsNode from '@/app/ideation/canvas/nodes/character/ModelSettingsNode';
 import DetachedViewerNode from '@/app/ideation/canvas/nodes/character/DetachedViewerNode';
 
+// ── Costume & Production Design nodes ────────────────────────────
+import CharacterBibleNode from '@/app/ideation/canvas/nodes/costume/CharacterBibleNode';
+import PreservationLockNode from '@/app/ideation/canvas/nodes/costume/PreservationLockNode';
+import CostumeDirectorNode from '@/app/ideation/canvas/nodes/costume/CostumeDirectorNode';
+import StyleFusionNode from '@/app/ideation/canvas/nodes/costume/StyleFusionNode';
+import EnvironmentPlacementNode from '@/app/ideation/canvas/nodes/costume/EnvironmentPlacementNode';
+
 // ── 3D Gen AI nodes ─────────────────────────────────────────────
 import MeshyImageTo3DNode from '@/app/ideation/canvas/nodes/threedgen/MeshyImageTo3DNode';
 import MeshyModelViewerNode from '@/app/ideation/canvas/nodes/threedgen/MeshyModelViewerNode';
@@ -129,11 +137,24 @@ import TETextBoxNode from '@/app/tool-editor/nodes/TextBoxNode';
 import TEDropdownNode from '@/app/tool-editor/nodes/DropdownNode';
 import TEImageNode from '@/app/tool-editor/nodes/ImageNode';
 
+// ── Sleep toggle HOC ────────────────────────────────────────────
+import { withSleepToggle } from '@/components/withSleepToggle';
+
+const NO_SLEEP = new Set(['group', 'start', 'uiFrame', 'teFrame', 'teWindow']);
+
+function applySleep(types: Record<string, React.ComponentType<any>>): NodeTypes {
+  const out: Record<string, React.ComponentType<any>> = {};
+  for (const [k, C] of Object.entries(types)) {
+    out[k] = NO_SLEEP.has(k) ? C : withSleepToggle(C);
+  }
+  return out as NodeTypes;
+}
+
 /**
  * ALL raw node types (without withCompatCheck or applyResizeToAll).
  * Each application applies those wrappers as needed.
  */
-export const ALL_RAW_NODE_TYPES: NodeTypes = {
+export const ALL_RAW_NODE_TYPES: NodeTypes = applySleep({
   // Pipeline stages
   seed: SeedNode,
   normalize: NormalizeNode,
@@ -238,6 +259,13 @@ export const ALL_RAW_NODE_TYPES: NodeTypes = {
   charModelSettings: ModelSettingsNode,
   detachedViewer: DetachedViewerNode,
 
+  // Costume & Production Design
+  charBible: CharacterBibleNode,
+  charPreservationLock: PreservationLockNode,
+  costumeDirector: CostumeDirectorNode,
+  charStyleFusion: StyleFusionNode,
+  envPlacement: EnvironmentPlacementNode,
+
   // 3D Gen AI
   meshyImageTo3D: MeshyImageTo3DNode,
   meshyModelViewer: MeshyModelViewerNode,
@@ -268,7 +296,7 @@ export const ALL_RAW_NODE_TYPES: NodeTypes = {
   teTextbox: TETextBoxNode,
   teDropdown: TEDropdownNode,
   teImage: TEImageNode,
-};
+});
 
 /**
  * Default node styles (width/height) applied when a node is created.
@@ -294,6 +322,67 @@ export const NODE_DEFAULTS: Record<string, { style?: { width: number; height: nu
   charCreativeDirector: { style: { width: 820, height: 500 } },
   charGenerate: { style: { width: 320, height: 420 } },
   charModelSettings: { style: { width: 320, height: 560 } },
+  charBible: {
+    style: { width: 400, height: 740 },
+    data: {
+      characterName: 'The Red Queen',
+      roleArchetype: 'Villain, warrior queen, cult leader',
+      backstory: 'She is a vicious villain who rules her personal cult in the back woods of Washington state from an abandoned summer camp. She and her followers worship a Lovecraftian cosmic horror that reveals itself to her and her followers. This costume is what she wears to meet her dark god and show it and her followers that she is the future ruler of the earth realm and its warrior queen.',
+      worldContext: 'Backwoods Washington state, Lovecraftian horror, abandoned summer camp',
+      designIntent: 'Gothic punk industrial version of techwear without any electronics or future technology. Modern cutting edge, high fashion. She has assembled this costume from hardware stores and thrift shops as an attempt to become a symbol of terror.',
+      directors: [
+        'Clive Barker \u2014 visceral body horror, organic-mechanical',
+        'A24 \u2014 elevated restrained auteur horror',
+        'Tim Burton \u2014 gothic whimsy, exaggerated silhouette, high contrast',
+      ],
+      customDirector: 'Tim Burton executive produced with his unique visual style',
+      toneTags: ['Feminine', 'Powerful', 'Bold', 'Wicked', 'Modern', 'Cutting edge', 'High fashion', 'Blockbuster movie quality'],
+    },
+  },
+  charPreservationLock: {
+    style: { width: 320, height: 560 },
+    data: {
+      lockToggles: { keepFace: true, keepHair: true, keepHairColor: true, keepPose: false, keepBodyType: true, keepCameraAngle: false, keepLighting: false, keepBackground: false },
+      lockNegatives: ['No crown', 'No fantasy elements', 'No dress', 'No cape', 'No electronics / future technology'],
+    },
+  },
+  costumeDirector: {
+    style: { width: 440, height: 900 },
+    data: {
+      costumeStyles: ['Heavy metal', 'Punk rock', 'Industrial', 'Gothic', 'Art nouveau'],
+      costumeCustomStyles: '',
+      costumeMaterials: ['leatherDistressed', 'metalBronze', 'metalBlackened', 'mesh', 'satin'],
+      costumePrimaryColor: 'Black and dark grey',
+      costumeSecondaryColor: 'Dark indigo purple',
+      costumeAccentColor: 'Hints of red',
+      costumeHardwareColor: 'bronze',
+      costumeHwDetails: ['buckles', 'snaps'],
+      costumeOrigin: ['hardware-thrift', 'found-assembled'],
+      costumeTextureRule: true,
+      costumeNotes: 'Costume for meeting her dark god. Should communicate power, menace, and ritual authority without looking like a fantasy costume. Art nouveau trim.',
+    },
+  },
+  charStyleFusion: {
+    style: { width: 380, height: 600 },
+    data: {
+      fusionSlots: [
+        { label: 'High fashion eclipse silhouette', weight: 60, takeFrom: 'silhouette', imageBase64: '', imageMime: '' },
+        { label: 'Rugged practical military cut', weight: 40, takeFrom: 'material & texture', imageBase64: '', imageMime: '' },
+      ],
+    },
+  },
+  envPlacement: {
+    style: { width: 340, height: 600 },
+    data: {
+      envLocation: 'Pacific Northwest rainforest',
+      envTimeOfDay: 'Dawn \u2014 cold blue',
+      envLighting: 'Dappled forest light',
+      envPose: 'Standing \u2014 soldier\'s stance',
+      envProps: 'AK-47',
+      envCamera: 'Full body',
+      envOutputFormat: '3:4 \u2014 portrait',
+    },
+  },
   meshyImageTo3D: { style: { width: 340, height: 620 } },
   meshyModelViewer: { style: { width: 480, height: 640 } },
   hitem3dImageTo3D: { style: { width: 340, height: 640 } },
@@ -432,6 +521,19 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
       { type: 'charRestore', label: 'Restore Quality', desc: 'AI redraw to remove artifacts', color: '#00c853' },
       { type: 'charSaveGroup', label: 'Save Group', desc: 'Save images as named group', color: '#009688' },
       { type: 'charShowXML', label: 'Show XML', desc: 'View character config', color: '#8d6e63' },
+    ],
+  },
+  /* ━━ Costume & Production Design ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  {
+    key: 'costumeDesign',
+    label: 'Costume & Production',
+    icon: '\u{1F3AD}',
+    items: [
+      { type: 'charBible', label: 'Character Bible', desc: 'Persistent character context — backstory, world, production style', color: '#d84315' },
+      { type: 'charPreservationLock', label: 'Preservation Lock', desc: 'Toggle constraints — face, hair, pose, negatives', color: '#37474f' },
+      { type: 'costumeDirector', label: 'Costume Director', desc: 'Structured costume design — runs 5-phase gauntlet', color: '#ad1457' },
+      { type: 'charStyleFusion', label: 'Style Fusion', desc: 'Combine 2-4 references with weights & labels', color: '#6a1b9a' },
+      { type: 'envPlacement', label: 'Environment Placement', desc: 'Scene composition — location, lighting, pose, camera', color: '#1b5e20' },
     ],
   },
   /* ━━ 3D Generation ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */

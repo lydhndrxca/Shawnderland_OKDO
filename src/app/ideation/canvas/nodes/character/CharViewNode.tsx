@@ -27,6 +27,89 @@ const VIEW_CONFIG: Record<ViewKey, { label: string; color: string; compactW: num
 const EDIT_PREFIX = 'VISUAL EDIT TASK:\nPreserve 100% of the existing design, only apply the following modification:\n';
 const EDIT_SUFFIX = '\nApply ONLY the above modification. Do NOT change anything else.\nBackground: Solid flat grey (#D3D3D3). No floor, no shadows, no environment.';
 
+const CONTEXT_NODE_TYPES = new Set(['charBible', 'charPreservationLock', 'costumeDirector', 'charStyleFusion', 'envPlacement']);
+
+function gatherUpstreamContext(
+  nodeId: string,
+  getNode: (id: string) => { id: string; type?: string; data: Record<string, unknown> } | undefined,
+  getEdges: () => Array<{ source: string; target: string }>,
+): string {
+  const edges = getEdges();
+  const visited = new Set<string>();
+  const queue = [nodeId];
+  let bibleContext = '';
+  let lockConstraints = '';
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (visited.has(current)) continue;
+    visited.add(current);
+
+    for (const e of edges) {
+      let neighbor: string | null = null;
+      if (e.source === current) neighbor = e.target;
+      else if (e.target === current) neighbor = e.source;
+      if (!neighbor || visited.has(neighbor)) continue;
+
+      const node = getNode(neighbor);
+      if (!node) continue;
+
+      if (node.type === 'charGate') {
+        const gateEnabled = (node.data as Record<string, unknown>).enabled;
+        if (gateEnabled === false) continue;
+      }
+      if ((node.data as Record<string, unknown>)._sleeping) {
+        queue.push(neighbor);
+        continue;
+      }
+
+      if (node.type === 'charBible') {
+        const d = node.data;
+        const parts: string[] = [];
+        if (d.characterName) parts.push(`Character: ${d.characterName}`);
+        if (d.roleArchetype) parts.push(`Role: ${d.roleArchetype}`);
+        if (d.backstory) parts.push(`Backstory: ${d.backstory}`);
+        if (d.worldContext) parts.push(`World: ${d.worldContext}`);
+        if (d.designIntent) parts.push(`Design intent: ${d.designIntent}`);
+        const dirs = d.directors as string[] | undefined;
+        if (dirs?.length) parts.push(`Production style: ${dirs.join('. ')}`);
+        if (d.customDirector) parts.push(`Production note: ${d.customDirector}`);
+        const tones = d.toneTags as string[] | undefined;
+        if (tones?.length) parts.push(`Tone: ${tones.join(', ')}`);
+        if (parts.length > 0) bibleContext = parts.join('\n');
+      }
+
+      if (node.type === 'charPreservationLock') {
+        const d = node.data;
+        const toggles = d.lockToggles as Record<string, boolean> | undefined;
+        const negs = d.lockNegatives as string[] | undefined;
+        const constraints: string[] = [];
+        if (toggles) {
+          if (toggles.keepFace) constraints.push('Do NOT change the face');
+          if (toggles.keepHair) constraints.push('Do NOT change the hairstyle');
+          if (toggles.keepHairColor) constraints.push('Do NOT change the hair color');
+          if (toggles.keepPose) constraints.push('Do NOT change the pose');
+          if (toggles.keepBodyType) constraints.push('Do NOT change the body type or build');
+          if (toggles.keepCameraAngle) constraints.push('Do NOT change the camera angle');
+          if (toggles.keepLighting) constraints.push('Do NOT change the lighting');
+          if (toggles.keepBackground) constraints.push('Do NOT change the background');
+        }
+        if (negs) constraints.push(...negs.map((n: string) => `MUST AVOID: ${n}`));
+        if (constraints.length > 0) lockConstraints = constraints.join('\n');
+      }
+
+      if (CONTEXT_NODE_TYPES.has(node.type ?? '') || !CONTEXT_NODE_TYPES.has(node.type ?? '')) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  const blocks: string[] = [];
+  if (bibleContext) blocks.push(`## CHARACTER CONTEXT\n${bibleContext}`);
+  if (lockConstraints) blocks.push(`## PRESERVATION CONSTRAINTS (MANDATORY — VIOLATING THESE IS FAILURE)\n${lockConstraints}`);
+  return blocks.join('\n\n');
+}
+
 
 const RENDER_STYLE_BLOCK = `
 RENDERING STYLE — PHOTOREALISTIC CHARACTER SHEET:
@@ -141,6 +224,12 @@ function getUpstreamImage(
         if (img?.base64) return img;
         if (gd.imageBase64) return { base64: gd.imageBase64 as string, mimeType: (gd.mimeType as string) || 'image/png' };
       }
+      continue;
+    }
+
+    if (d._sleeping) {
+      const result = getUpstreamImage(src.id, getNode, getEdges);
+      if (result) return result;
       continue;
     }
 
@@ -321,27 +410,36 @@ function CharViewNodeInner({ id, data, selected }: Props) {
   // ── Image display ──
   const upstreamSigSelector = useCallback(
     (state: { nodes: Array<{ id: string; type?: string; data: Record<string, unknown> }>; edges: Array<{ source: string; target: string }> }) => {
-      const incoming = state.edges.filter((e) => e.target === id);
-      for (const e of incoming) {
-        const src = state.nodes.find((n) => n.id === e.source);
-        if (!src?.data) continue;
-        const d = src.data as Record<string, unknown>;
-        if ((src.type === 'charGate') && !(d.enabled as boolean ?? true)) return '__gate_off__';
-        if (src.type === 'charGate') {
-          const gateIn = state.edges.filter((ge) => ge.target === src.id);
-          for (const ge of gateIn) {
-            const gSrc = state.nodes.find((n) => n.id === ge.source);
-            if (!gSrc?.data) continue;
-            const gd = gSrc.data as Record<string, unknown>;
-            const img = gd.generatedImage as GeneratedImage | undefined;
-            if (img?.base64) return img.base64.slice(0, 120);
+      function traceUpstream(nodeId: string, depth: number): string | null {
+        if (depth > 10) return null;
+        const incoming = state.edges.filter((e) => e.target === nodeId);
+        for (const e of incoming) {
+          const src = state.nodes.find((n) => n.id === e.source);
+          if (!src?.data) continue;
+          const d = src.data as Record<string, unknown>;
+          if ((src.type === 'charGate') && !(d.enabled as boolean ?? true)) return '__gate_off__';
+          if (src.type === 'charGate') {
+            const gateIn = state.edges.filter((ge) => ge.target === src.id);
+            for (const ge of gateIn) {
+              const gSrc = state.nodes.find((n) => n.id === ge.source);
+              if (!gSrc?.data) continue;
+              const gd = gSrc.data as Record<string, unknown>;
+              const img = gd.generatedImage as GeneratedImage | undefined;
+              if (img?.base64) return img.base64.slice(0, 120);
+            }
+            continue;
           }
-          continue;
+          if (d._sleeping) {
+            const result = traceUpstream(src.id, depth + 1);
+            if (result) return result;
+            continue;
+          }
+          const img = d.generatedImage as GeneratedImage | undefined;
+          if (img?.base64) return img.base64.slice(0, 120);
         }
-        const img = d.generatedImage as GeneratedImage | undefined;
-        if (img?.base64) return img.base64.slice(0, 120);
+        return null;
       }
-      return null;
+      return traceUpstream(id, 0);
     },
     [id],
   );
@@ -577,6 +675,12 @@ function CharViewNodeInner({ id, data, selected }: Props) {
       let prompt: string;
       let refImages: GeneratedImage | GeneratedImage[];
 
+      const upstreamCtx = gatherUpstreamContext(
+        id,
+        getNode as (id: string) => { id: string; type?: string; data: Record<string, unknown> } | undefined,
+        getEdges as () => Array<{ source: string; target: string }>,
+      );
+
       if (isMain) {
         prompt = EDIT_PREFIX + editText.trim() + EDIT_SUFFIX;
         refImages = srcImage;
@@ -585,6 +689,10 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         const contextNote = `This is a ${(isCustom ? (customLabel || cfg.label) : cfg.label).toLowerCase()} of the character shown in the first reference image (the main/canonical view).\n`;
         prompt = contextNote + EDIT_PREFIX + editText.trim() + EDIT_SUFFIX;
         refImages = mainImg ? [mainImg, srcImage] : srcImage;
+      }
+
+      if (upstreamCtx) {
+        prompt = upstreamCtx + '\n\n' + prompt;
       }
 
       console.log(`[CharView:${viewKey}] editing image (${Array.isArray(refImages) ? refImages.length + ' images' : (srcImage.base64.length / 1024).toFixed(0) + 'KB'})...`);

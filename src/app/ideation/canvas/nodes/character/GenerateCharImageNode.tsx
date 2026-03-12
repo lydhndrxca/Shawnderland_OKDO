@@ -45,6 +45,34 @@ interface ContentRef {
   callout: string;
 }
 
+function buildCostumeBriefFromData(d: Record<string, unknown>): string {
+  const lines: string[] = [];
+  const styles = d.costumeStyles as string[] | undefined;
+  const custom = d.costumeCustomStyles as string | undefined;
+  if (styles?.length || custom?.trim()) {
+    const all = [...(styles ?? [])];
+    if (custom?.trim()) all.push(custom.trim());
+    lines.push(`Style influences: ${all.join(', ')}`);
+  }
+  const mats = d.costumeMaterials as string[] | undefined;
+  if (mats?.length) lines.push(`Materials: ${mats.join(', ')}`);
+  const colors: string[] = [];
+  if (d.costumePrimaryColor) colors.push(`primary: ${d.costumePrimaryColor}`);
+  if (d.costumeSecondaryColor) colors.push(`secondary: ${d.costumeSecondaryColor}`);
+  if (d.costumeAccentColor) colors.push(`accent: ${d.costumeAccentColor}`);
+  if (d.costumeHardwareColor) colors.push(`hardware: ${d.costumeHardwareColor}`);
+  if (colors.length) lines.push(`Color palette: ${colors.join('; ')}`);
+  if (d.costumeTextureRule) lines.push('Ensure rich texture reads across all lighting conditions.');
+  if (d.costumeNotes) lines.push(`Direction: ${d.costumeNotes}`);
+  const result = d.costumeResult as { overallVision?: string; points?: { title: string; direction: string }[] } | undefined;
+  if (result?.overallVision) lines.push(`Costume vision: ${result.overallVision}`);
+  if (result?.points?.length) {
+    lines.push('Costume directions:');
+    result.points.forEach((p, i) => lines.push(`  ${i + 1}. ${p.title}: ${p.direction}`));
+  }
+  return lines.join('\n');
+}
+
 function gatherInputs(
   nodeId: string,
   getNode: ReturnType<typeof useReactFlow>['getNode'],
@@ -62,13 +90,43 @@ function gatherInputs(
   const contentRefs: ContentRef[] = [];
   let projectName = '';
   let outputDir = '';
+  let bibleContext = '';
+  let lockConstraints = '';
+  let costumeBrief = '';
+  let fusionBrief = '';
+  let envBrief = '';
 
-  console.log(`[gatherInputs] ${incoming.length} incoming edge(s) to node ${nodeId}`);
+  function resolveGate(sourceId: string): Array<{ node: ReturnType<typeof getNode>; data: Record<string, unknown> }> {
+    const n = getNode(sourceId);
+    if (!n?.data) return [];
+    const d = n.data as Record<string, unknown>;
+    if (n.type === 'charGate') {
+      if (d.enabled === false) return [];
+      const upstream = edges.filter((e) => e.target === sourceId);
+      const results: Array<{ node: ReturnType<typeof getNode>; data: Record<string, unknown> }> = [];
+      for (const ue of upstream) results.push(...resolveGate(ue.source));
+      return results;
+    }
+    if (d._sleeping) {
+      const upstream = edges.filter((e) => e.target === sourceId);
+      const results: Array<{ node: ReturnType<typeof getNode>; data: Record<string, unknown> }> = [];
+      for (const ue of upstream) results.push(...resolveGate(ue.source));
+      return results;
+    }
+    return [{ node: n, data: d }];
+  }
+
+  const resolvedSources: Array<{ node: NonNullable<ReturnType<typeof getNode>>; data: Record<string, unknown> }> = [];
   for (const e of incoming) {
-    const src = getNode(e.source);
-    if (!src?.data) { console.log(`[gatherInputs] edge ${e.id}: source ${e.source} has no data`); continue; }
-    const d = src.data as Record<string, unknown>;
-    console.log(`[gatherInputs] edge ${e.id}: source type="${src.type}", keys=[${Object.keys(d).join(', ')}]`);
+    const resolved = resolveGate(e.source);
+    for (const r of resolved) {
+      if (r.node) resolvedSources.push({ node: r.node as NonNullable<ReturnType<typeof getNode>>, data: r.data });
+    }
+  }
+
+  console.log(`[gatherInputs] ${incoming.length} incoming edge(s) to node ${nodeId}, ${resolvedSources.length} after gate resolution`);
+  for (const { node: src, data: d } of resolvedSources) {
+    console.log(`[gatherInputs] source type="${src.type}", keys=[${Object.keys(d).join(', ')}]`);
 
     if (src.type === 'charIdentity') {
       const id = d.identity as CharacterIdentity | undefined;
@@ -104,6 +162,42 @@ function gatherInputs(
       } else {
         console.warn(`[gatherInputs]   ✗ RefCallout image NOT found for "${callout}"`);
       }
+    } else if (src.type === 'charBible') {
+      const parts: string[] = [];
+      if (d.characterName) parts.push(`Character: ${d.characterName as string}`);
+      if (d.roleArchetype) parts.push(`Role: ${d.roleArchetype as string}`);
+      if (d.backstory) parts.push(`Backstory: ${d.backstory as string}`);
+      if (d.worldContext) parts.push(`World: ${d.worldContext as string}`);
+      if (d.designIntent) parts.push(`Design intent: ${d.designIntent as string}`);
+      const dirs = d.directors as string[] | undefined;
+      if (dirs?.length) parts.push(`Production style: ${dirs.join('. ')}`);
+      if (d.customDirector) parts.push(`Production note: ${d.customDirector as string}`);
+      const tones = d.toneTags as string[] | undefined;
+      if (tones?.length) parts.push(`Tone: ${tones.join(', ')}`);
+      if (parts.length > 0) bibleContext = parts.join('\n');
+    } else if (src.type === 'charPreservationLock') {
+      const toggles = d.lockToggles as Record<string, boolean> | undefined;
+      const negs = d.lockNegatives as string[] | undefined;
+      const constraints: string[] = [];
+      if (toggles) {
+        if (toggles.keepFace) constraints.push('Do NOT change the face');
+        if (toggles.keepHair) constraints.push('Do NOT change the hairstyle');
+        if (toggles.keepHairColor) constraints.push('Do NOT change the hair color');
+        if (toggles.keepPose) constraints.push('Do NOT change the pose');
+        if (toggles.keepBodyType) constraints.push('Do NOT change the body type or build');
+        if (toggles.keepCameraAngle) constraints.push('Do NOT change the camera angle');
+        if (toggles.keepLighting) constraints.push('Do NOT change the lighting');
+        if (toggles.keepBackground) constraints.push('Do NOT change the background');
+      }
+      if (negs) constraints.push(...negs.map((n) => `MUST AVOID: ${n}`));
+      if (constraints.length > 0) lockConstraints = constraints.join('\n');
+    } else if (src.type === 'costumeDirector') {
+      const brief = buildCostumeBriefFromData(d);
+      if (brief) costumeBrief = brief;
+    } else if (src.type === 'charStyleFusion') {
+      if (d.fusionBrief) fusionBrief = d.fusionBrief as string;
+    } else if (src.type === 'envPlacement') {
+      if (d.envBrief) envBrief = d.envBrief as string;
     } else if (src.type === 'charProject') {
       if (d.projectName) projectName = d.projectName as string;
       if (d.outputDir) outputDir = d.outputDir as string;
@@ -128,7 +222,7 @@ function gatherInputs(
   const refImages = contentRefs.map((r) => r.image);
   const callouts = contentRefs.map((r) => r.callout);
 
-  return { identity, description, attributes, pose, styleText, styleImages, refImages, callouts, contentRefs, projectName, outputDir };
+  return { identity, description, attributes, pose, styleText, styleImages, refImages, callouts, contentRefs, projectName, outputDir, bibleContext, lockConstraints, costumeBrief, fusionBrief, envBrief };
 }
 
 function findDownstreamMainViewers(
@@ -279,7 +373,7 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
       anim.markEdgesFrom(id, true);
 
       const inputs = gatherInputs(id, getNode, getEdges);
-      const { identity, attributes, styleText, styleImages, contentRefs, projectName, outputDir } = inputs;
+      const { identity, attributes, styleText, styleImages, contentRefs, projectName, outputDir, bibleContext, lockConstraints, costumeBrief, fusionBrief, envBrief } = inputs;
       let { description, pose } = inputs;
 
       const refImages = contentRefs.map((r) => r.image);
@@ -308,6 +402,12 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
       if (styleText) {
         fullPrompt = `ART STYLE: ${styleText}\n\n${fullPrompt}\n\nIMPORTANT: The image MUST be rendered in the art style described above. This style directive takes priority over any default rendering style.`;
       }
+
+      if (bibleContext) fullPrompt = `## CHARACTER BIBLE\n${bibleContext}\n\n${fullPrompt}`;
+      if (costumeBrief) fullPrompt += `\n\n## COSTUME DIRECTION\n${costumeBrief}`;
+      if (fusionBrief) fullPrompt += `\n\n## STYLE FUSION\n${fusionBrief}`;
+      if (envBrief) fullPrompt += `\n\n## ENVIRONMENT\n${envBrief}`;
+      if (lockConstraints) fullPrompt += `\n\n## PRESERVATION CONSTRAINTS (MANDATORY — VIOLATING THESE IS FAILURE)\n${lockConstraints}`;
 
       const genMode = styleImages.length > 0
         ? `${mmDef.label} + ${styleImages.length} style ref${contentRefs.length > 0 ? ` + ${contentRefs.length} content ref` : ''}`

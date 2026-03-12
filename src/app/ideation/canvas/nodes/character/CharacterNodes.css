@@ -18,8 +18,9 @@
   height: auto !important;
 }
 
-/* Creative Director needs full width — override .char-node max-width */
-.react-flow__node-charCreativeDirector .char-node {
+/* Creative Director & Costume Director need full width — override .char-node max-width */
+.react-flow__node-charCreativeDirector .char-node,
+.react-flow__node-costumeDirector .char-node {
   max-width: none;
   width: 100%;
 }

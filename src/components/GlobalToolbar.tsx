@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useSyncExternalStore } from 'react';
-import { Undo2, Redo2, Copy, Maximize2, Trash2, Upload, Download, LayoutGrid, ChevronDown, Layers, Save, XCircle } from 'lucide-react';
+import { Undo2, Redo2, Copy, Maximize2, Trash2, Upload, Download, LayoutGrid, ChevronDown, Layers, Save, XCircle, RotateCcw } from 'lucide-react';
 import { cancelAll, getActiveCount, subscribe } from '@/lib/activeRequests';
 import './GlobalToolbar.css';
 
@@ -27,6 +27,7 @@ export interface GlobalToolbarProps {
   onFitView?: () => void;
   onAutoLayout?: () => void;
   onClear?: () => void;
+  onResetNodes?: () => void;
   onImportLayout?: () => void;
 
   onExportSelectedNodesOnly?: () => void;
@@ -76,6 +77,7 @@ export default function GlobalToolbar({
   onFitView,
   onAutoLayout,
   onClear,
+  onResetNodes,
   onImportLayout,
   onExportSelectedNodesOnly,
   onExportSelectedWithConnections,
@@ -477,6 +479,13 @@ export default function GlobalToolbar({
               )}
             </div>
           </>
+        )}
+
+        {onResetNodes && (
+          <button className="global-toolbar-btn" onClick={onResetNodes} title="Reset all node data (keep layout &amp; connections)">
+            <RotateCcw size={14} />
+            <span>Reset Data</span>
+          </button>
         )}
 
         {onClear && (

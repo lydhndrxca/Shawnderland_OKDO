@@ -163,8 +163,21 @@ export default function GeminiEditorOverlay({ editorNodeId, onClose }: Props) {
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    const area = canvasAreaRef.current;
+    if (!area) return;
+    const rect = area.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left - rect.width / 2;
+    const mouseY = e.clientY - rect.top - rect.height / 2;
     const factor = e.deltaY > 0 ? 1 / ZOOM_FACTOR : ZOOM_FACTOR;
-    setZoom((z) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z * factor)));
+    setZoom((prevZoom) => {
+      const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, prevZoom * factor));
+      const ratio = newZoom / prevZoom;
+      setPan((p) => ({
+        x: mouseX - ratio * (mouseX - p.x),
+        y: mouseY - ratio * (mouseY - p.y),
+      }));
+      return newZoom;
+    });
   }, []);
 
   const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
@@ -421,8 +434,8 @@ Only modify what is at or immediately around that specific point. Do NOT change 
     pushHistory(activeImage, 'Before edit');
     const controller = registerRequest();
     try {
-      const modelLabel = editModel === 'gemini-flash-image' ? 'Flash' : 'Pro';
-      setEditStatus(`Waiting for Gemini ${modelLabel}...`);
+      const modelLabel = editModel === 'gemini-flash-image' ? 'NB2' : 'NB Pro';
+      setEditStatus(`Waiting for ${modelLabel}...`);
       const results = await generateWithGeminiRef(prompt, refImages, editModel);
       if (!mountedRef.current || controller.signal.aborted) return;
       const img = results[0];
@@ -894,8 +907,11 @@ ABSOLUTE CONSTRAINTS:
                 onChange={(e) => setEditModel(e.target.value as GeminiImageModel)}
                 disabled={editBusy}
               >
-                <option value="gemini-flash-image">⚡ Flash — 1024×1024 — ~5-10s</option>
-                <option value="gemini-3-pro">✦ Pro — 2048×2048 — ~20-30s</option>
+                <option value="gemini-flash-image">⚡ NB2 (Gemini 3.1 Flash) — 4K — ~5-15s</option>
+                <option value="gemini-3-pro">✦ NB Pro (Gemini 3 Pro) — 4K — ~20-40s</option>
+                <option value="gemini-2.5-flash">⚡ Gemini 2.5 Flash — 1K — ~5-10s</option>
+                <option value="gemini-2.0-flash">⚡ Gemini 2.0 Flash — 1K — ~3-8s</option>
+                <option value="gemini-2.0-flash-lite">⚡ Gemini 2.0 Flash Lite — 1K — ~2-5s</option>
               </select>
               {editStatus && (
                 <div className="ge-edit-status">

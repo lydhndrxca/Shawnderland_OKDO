@@ -15,7 +15,7 @@ import {
   type CharacterAttributes,
 } from '@/lib/ideation/engine/conceptlab/characterPrompts';
 import {
-  generateWithImagen4,
+  generateWithNanoBanana,
   generateText,
   type GeneratedImage,
 } from '@/lib/ideation/engine/conceptlab/imageGenApi';
@@ -63,7 +63,7 @@ function CharacterNodeInner({ id, selected }: CharacterNodeProps) {
       const desc = buildCharacterDescription(identity, attributes, description);
       const influenceBlock = resolveNodeInfluences(id, getNode as (id: string) => { id: string; type?: string; data: Record<string, unknown> } | undefined, getEdges as () => { source: string; target: string }[]);
       const fullPrompt = buildCharacterViewPrompt('main', desc) + influenceBlock;
-      const result = await generateWithImagen4(fullPrompt, '9:16', 1);
+      const result = await generateWithNanoBanana(fullPrompt, '9:16', 1);
       setImages(result);
       setViewIdx(0);
       setNodes((nds) =>

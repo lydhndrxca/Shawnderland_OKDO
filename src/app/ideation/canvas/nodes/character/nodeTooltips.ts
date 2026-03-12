@@ -55,8 +55,10 @@ export const NODE_TOOLTIPS: Record<string, string> = {
     'AI-powered image upscaler using Imagen 4. Connect input ← any image viewer node. Choose x2, x3, or x4 and click Upscale.',
   charRestore:
     'Restore Quality — fixes accumulated artifacts from iterative editing. Sends the image through Gemini for a clean AI redraw, preserving all content while removing compression artifacts, noise, blur, and degradation. Optional Imagen upscale afterward.',
+  charModelSettings:
+    'Model Settings — Choose which AI models to use for image generation and multimodal tasks. Image Gen model handles main stage creation (text-to-image). Multimodal model handles ortho views, edits, and reference-based generation. Save as preset to persist across sessions.',
   charCreativeDirector:
-    'Creative Director — Hollywood-level design critique. Connect input ← Main Stage Viewer or any image viewer. AI analyzes the character and suggests specific design pushes. Click "Apply" to inject a suggestion into a connected Description node.',
+    'Art Direction Output — Hollywood-level design critique. Auto-runs when Main Stage generates an image. Provides actionable design suggestions with Apply Edit to push changes back to the character.',
   // ── 3D Gen AI ──
   meshyImageTo3D:
     'Convert character images to a 3D model using Meshy AI. Connect inputs ← Main Stage Viewer, Front/Back/Side views. All Meshy API parameters exposed. Connect output → 3D Model Viewer.',

@@ -10,7 +10,7 @@ import {
   type WeaponComponents,
 } from '@/lib/ideation/engine/conceptlab/weaponPrompts';
 import {
-  generateWithImagen4,
+  generateWithNanoBanana,
   generateWithGeminiRef,
   generateText,
   type GeneratedImage,
@@ -122,7 +122,7 @@ function WeapBaseNodeInner({ id, data, selected }: WeapBaseNodeProps) {
       const refImg = getRefImage();
       const result = refImg
         ? await generateWithGeminiRef(fullPrompt, refImg)
-        : await generateWithImagen4(fullPrompt, '16:9', 1);
+        : await generateWithNanoBanana(fullPrompt, '16:9', 1);
 
       setImages(result);
       setViewIdx(0);
@@ -176,7 +176,7 @@ function WeapBaseNodeInner({ id, data, selected }: WeapBaseNodeProps) {
         getNode as (nid: string) => { id: string; type?: string; data: Record<string, unknown> } | undefined,
         getEdges as () => Array<{ source: string; target: string }>,
       );
-      const result = await generateWithImagen4(
+      const result = await generateWithNanoBanana(
         randomPrompt + influenceBlock,
         '16:9',
         1,

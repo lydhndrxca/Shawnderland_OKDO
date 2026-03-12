@@ -12,26 +12,46 @@ export { getActiveBackend } from '../apiConfig';
 
 /* ── Model definitions ── */
 
-export type GeminiImageModel = 'gemini-3-pro' | 'gemini-flash-image';
+export type GeminiImageModel =
+  | 'gemini-flash-image'
+  | 'gemini-3-pro'
+  | 'gemini-2.5-flash'
+  | 'gemini-2.0-flash'
+  | 'gemini-2.0-flash-lite';
 
 export const GEMINI_IMAGE_MODELS: Record<GeminiImageModel, {
   id: string;
   label: string;
   description: string;
 }> = {
-  'gemini-3-pro': {
-    id: 'gemini-3-pro-image-preview',
-    label: 'Gemini 3 Pro',
-    description: 'Pro-quality reference-based generation. Higher fidelity, slower.',
-  },
   'gemini-flash-image': {
     id: 'gemini-3.1-flash-image-preview',
-    label: 'Gemini Flash Image',
-    description: 'Flash-speed image generation (Nano Banana 2). Faster, good for iteration.',
+    label: 'Nano Banana 2',
+    description: '4K multimodal image generation. Excellent prompt following, fast.',
+  },
+  'gemini-3-pro': {
+    id: 'gemini-3-pro-image-preview',
+    label: 'Nano Banana Pro',
+    description: 'Pro-quality reference-based generation. Higher fidelity, slower.',
+  },
+  'gemini-2.5-flash': {
+    id: 'gemini-2.5-flash-image',
+    label: 'Gemini 2.5 Flash',
+    description: 'Fast multimodal with image gen. Good balance of speed and quality.',
+  },
+  'gemini-2.0-flash': {
+    id: 'gemini-2.0-flash-exp',
+    label: 'Gemini 2.0 Flash',
+    description: 'Original Gemini Flash image generation. Fast, reliable.',
+  },
+  'gemini-2.0-flash-lite': {
+    id: 'gemini-2.0-flash-lite',
+    label: 'Gemini 2.0 Flash Lite',
+    description: 'Lightweight and fastest Gemini option. Lower quality, minimal latency.',
   },
 };
 
-const DEFAULT_GEMINI_IMAGE_MODEL: GeminiImageModel = 'gemini-3-pro';
+const DEFAULT_GEMINI_IMAGE_MODEL: GeminiImageModel = 'gemini-flash-image';
 
 export interface GeneratedImage {
   base64: string;
@@ -41,7 +61,7 @@ export interface GeneratedImage {
 /* ── Dual-path call: proxy → direct fallback ── */
 
 const PROXY_URL = '/api/ai-generate';
-const DEFAULT_TIMEOUT_MS = 120_000;
+const DEFAULT_TIMEOUT_MS = 180_000;
 
 type MethodKind = 'generateContent' | 'predict' | 'predictLongRunning' | 'streamGenerateContent';
 
@@ -136,6 +156,7 @@ export async function generateWithImagen4(
   count: number = 1,
   model: string = 'imagen-4.0-generate-001',
   subjectRefs?: ImagenSubjectRef[],
+  negativePrompt?: string,
 ): Promise<GeneratedImage[]> {
   const modelId = model;
   const supports2K = model !== 'imagen-4.0-fast-generate-001';
@@ -148,16 +169,19 @@ export async function generateWithImagen4(
     }));
   }
 
+  const params: Record<string, unknown> = {
+    sampleCount: count,
+    aspectRatio,
+    ...(supports2K ? { sampleImageSize: '2K' } : {}),
+  };
+  if (negativePrompt) params.negativePrompt = negativePrompt;
+
   const json = await callApi(
     modelId,
     'predict',
     {
       instances: [instance],
-      parameters: {
-        sampleCount: count,
-        aspectRatio,
-        ...(supports2K ? { sampleImageSize: '2K' } : {}),
-      },
+      parameters: params,
     },
     'Imagen 4',
     180_000,
@@ -174,6 +198,87 @@ export async function generateWithImagen4(
   }));
 }
 
+/* ── Nano Banana 2 — text-to-image (no reference) ── */
+
+const NB2_MODEL_ID = 'gemini-3.1-flash-image-preview';
+const NB2_LABEL = 'Nano Banana 2';
+
+const RESOLUTION_PRESET_KEY = 'okdo-model-settings-preset';
+
+export function getConfiguredResolution(): string {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(RESOLUTION_PRESET_KEY) : null;
+    if (!raw) return '2K';
+    const preset = JSON.parse(raw) as { imageResolution?: string };
+    return preset.imageResolution ?? '2K';
+  } catch { return '2K'; }
+}
+
+const NB2_CAPABLE = new Set([
+  'gemini-3.1-flash-image-preview',
+  'gemini-3-pro-image-preview',
+]);
+
+function getImageConfig(modelId: string): Record<string, unknown> | undefined {
+  if (!NB2_CAPABLE.has(modelId)) return undefined;
+  const res = getConfiguredResolution();
+  if (res === '1K') return undefined;
+  return { imageSize: res };
+}
+
+export async function generateWithNanoBanana(
+  prompt: string,
+  aspectRatio: string = '9:16',
+  count: number = 1,
+): Promise<GeneratedImage[]> {
+  const parts: Array<Record<string, unknown>> = [
+    { text: `${prompt}\n\nAspect ratio: ${aspectRatio}. Generate ${count} image(s).` },
+  ];
+
+  const imgCfg = getImageConfig(NB2_MODEL_ID);
+  const json = await callApi(
+    NB2_MODEL_ID,
+    'generateContent',
+    {
+      contents: [{ parts }],
+      generationConfig: {
+        responseModalities: ['TEXT', 'IMAGE'],
+        ...(imgCfg && { imageConfig: imgCfg }),
+      },
+    },
+    NB2_LABEL,
+    180_000,
+  );
+
+  if ((json as { usageMetadata?: object }).usageMetadata) {
+    recordUsage(
+      (json as { usageMetadata: { promptTokenCount?: number; candidatesTokenCount?: number } }).usageMetadata,
+      NB2_MODEL_ID,
+    );
+  }
+
+  const responseParts =
+    ((json as { candidates?: Array<{ content?: { parts?: Array<Record<string, unknown>> } }> })
+      .candidates?.[0]?.content?.parts) ?? [];
+
+  const imageParts = responseParts.filter(
+    (p: Record<string, unknown>) => (p as { inlineData?: object }).inlineData,
+  );
+
+  if (imageParts.length === 0) {
+    const textContent = responseParts
+      .filter((p: Record<string, unknown>) => (p as { text?: string }).text)
+      .map((p: Record<string, unknown>) => (p as { text: string }).text)
+      .join('\n');
+    throw new Error(`No image returned from ${NB2_LABEL}${textContent ? ': ' + textContent.slice(0, 100) : ''}`);
+  }
+
+  return imageParts.map((p: Record<string, unknown>) => {
+    const d = (p as { inlineData: { mimeType: string; data: string } }).inlineData;
+    return { base64: d.data, mimeType: d.mimeType };
+  });
+}
+
 /* ── Gemini reference-based image generation ── */
 
 async function _geminiRefCall(
@@ -183,12 +288,16 @@ async function _geminiRefCall(
   const t0 = Date.now();
   console.log(`[generateWithGeminiRef] calling callApi (${modelDef.label})...`);
 
+  const imgCfg = getImageConfig(modelDef.id);
   const json = await callApi(
     modelDef.id,
     'generateContent',
     {
       contents: [{ parts }],
-      generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+      generationConfig: {
+        responseModalities: ['TEXT', 'IMAGE'],
+        ...(imgCfg && { imageConfig: imgCfg }),
+      },
     },
     modelDef.label,
   );
@@ -228,7 +337,7 @@ async function _geminiRefCall(
   });
 }
 
-const FALLBACK_ORDER: GeminiImageModel[] = ['gemini-3-pro', 'gemini-flash-image'];
+const FALLBACK_ORDER: GeminiImageModel[] = ['gemini-flash-image', 'gemini-3-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'];
 const PRO_RETRY_DELAY_MS = 2000;
 const PRO_MAX_RETRIES = 2;
 
@@ -386,18 +495,24 @@ export async function generateText(prompt: string, image?: GeneratedImage): Prom
 /* ── Quality Restoration (describe → regenerate with subject anchor) ── */
 
 const DESCRIBE_FOR_RESTORE_PROMPT =
-  'Describe this image in EXHAUSTIVE detail for exact reproduction. Cover every aspect:\n' +
-  '1. SUBJECT: Who/what — age, gender, ethnicity, build, face, expression, hair\n' +
-  '2. POSE: Exact body position, posture, hands, gaze direction\n' +
-  '3. CLOTHING: Every garment head-to-toe — type, exact color, fit, fabric, wear\n' +
-  '4. ACCESSORIES: Every item — belt, watch, bag, jewelry — exact placement & material\n' +
-  '5. COLORS: Precise shades (not "blue" — "steel blue", "warm caramel", etc.)\n' +
-  '6. MATERIALS: Surface qualities — matte, glossy, leather grain, metal finish\n' +
-  '7. LIGHTING: Direction, temperature, shadows, highlights\n' +
-  '8. BACKGROUND: Exact description (solid grey, gradient, environment)\n' +
-  '9. CAMERA: Framing (full body/3-quarter/close-up), angle, focal length feel\n' +
-  '10. ART STYLE: Photorealistic, rendered, illustrated?\n\n' +
-  'Write as one continuous image generation prompt. Start directly, no preamble. Be specific.';
+  'You are a forensic character analyst. Describe this image with OBSESSIVE precision so it can be exactly recreated. ' +
+  'Ignore any blur, artifacts, noise, or compression — describe what the character ACTUALLY looks like underneath the degradation.\n\n' +
+  'Cover EVERY aspect in this exact order:\n' +
+  '1. POSE & STANCE: Exact body position — which leg bears weight, arm positions, hand positions (open/fist/relaxed), head tilt, gaze direction, torso angle\n' +
+  '2. FACE: Exact features — eye shape/color, brow shape, nose shape, lip shape/color, jaw shape, skin tone (precise shade), expression, any facial hair\n' +
+  '3. HAIR: Style, length, color (precise shade), texture (straight/wavy/curly), how it falls, any accessories in hair\n' +
+  '4. HEAD-TO-TOE CLOTHING — describe each garment separately:\n' +
+  '   • Headwear/masks/helmets\n' +
+  '   • Upper body: collar type, sleeve length, fit, closures, layering order\n' +
+  '   • Lower body: type, fit, length\n' +
+  '   • Footwear: type, height, closures, sole\n' +
+  '5. MATERIALS for each garment: exact material (leather, denim, silk, etc.), surface finish (matte/glossy/worn), texture pattern, color (precise shade like "oxblood leather" not "red")\n' +
+  '6. ACCESSORIES: Every single item — belts, buckles, chains, jewelry, weapons, pouches, straps — exact placement on body, material, color\n' +
+  '7. MARKINGS: Any tattoos, scars, face paint, body paint — exact location, design, colors\n' +
+  '8. PROPORTIONS: Body type, height impression, shoulder width relative to hips\n' +
+  '9. CAMERA: Framing (full body/3-quarter), angle (eye-level/low/high), approximate focal length feel\n' +
+  '10. BACKGROUND: Describe exactly what is behind the character\n\n' +
+  'Write as one continuous, dense image generation prompt. No preamble, no commentary. Be surgically specific.';
 
 function detectAspectRatio(w: number, h: number): string {
   const ratio = w / h;
@@ -440,17 +555,31 @@ export async function restoreImageQuality(
     : '3:4';
 
   const prompt =
-    'EXACT REPRODUCTION at maximum quality and resolution. ' +
-    'Reproduce this precise image with no changes whatsoever — same pose, same outfit, same colors, same background, same everything. ' +
-    'Just render at the highest possible fidelity:\n\n' + description;
+    'QUALITY RESTORATION — RECREATE THIS EXACT CHARACTER AT MAXIMUM FIDELITY.\n\n' +
+    'The reference image has suffered quality degradation (blur, artifacts, noise, compression). ' +
+    'Your job: recreate this SAME EXACT PERSON in the SAME EXACT POSE with the SAME EXACT OUTFIT — but rendered fresh with full resolution detail.\n\n' +
+    'WHAT MUST STAY IDENTICAL:\n' +
+    '• Same person — same face, same expression, same skin tone, same hair\n' +
+    '• Same pose — same weight distribution, same arm/hand/leg positions, same head tilt, same gaze\n' +
+    '• Same outfit — same garments, same colors, same layering, same fit\n' +
+    '• Same accessories — same items in same positions\n' +
+    '• Same camera angle and framing\n' +
+    '• Same proportions and body type\n\n' +
+    'WHAT MUST BE FRESHLY RENDERED AT FULL QUALITY:\n' +
+    '• SKIN: Natural pores, subsurface scattering, clean tone — no muddy patches or blotchy areas\n' +
+    '• MATERIALS: Leather shows real grain and sheen. Metal is properly reflective. Fabric has visible weave and natural drape. Everything has correct specular response\n' +
+    '• EDGES: All edges crisp and clean — no blur halos, no ringing, no smearing\n' +
+    '• HAIR: Individual strand definition, natural flow, proper highlights\n' +
+    '• BACKGROUND: Clean solid neutral grey (#D3D3D3) — smooth gradient-free, no artifacts from the original\n' +
+    '• LIGHTING: Proper studio lighting — soft key, gentle fill, subtle rim light for depth\n' +
+    '• ZERO artifacts, noise, banding, blur, or compression anywhere in the image\n\n' +
+    'DETAILED CHARACTER DESCRIPTION (recreate this exactly):\n' + description;
 
-  onStatus?.('Regenerating at 2K quality…');
-  const results = await generateWithImagen4(
+  onStatus?.('Recreating at max quality (Nano Banana 2)…');
+  const results = await generateWithGeminiRef(
     prompt,
-    ar,
-    1,
-    'imagen-4.0-generate-001',
-    [{ image: sourceImage, referenceType: 'REFERENCE_TYPE_SUBJECT' }],
+    sourceImage,
+    'gemini-flash-image',
   );
 
   const result = results[0];

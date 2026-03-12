@@ -370,8 +370,7 @@ function MainStageViewerNodeInner({ id, data, selected }: Props) {
         )}
       </div>
       <div className="char-viewer-toolbar">
-        <button type="button" className="char-btn nodrag" onClick={handleOpenImage}>Open</button>
-        <button type="button" className="char-btn nodrag" onClick={handleResetView}>Reset View</button>
+        <button type="button" className="char-btn nodrag" onClick={handleOpenImage}>Open IMG</button>
         <button
           type="button"
           className="char-btn nodrag"
@@ -395,7 +394,7 @@ function MainStageViewerNodeInner({ id, data, selected }: Props) {
             } catch { /* clipboard may be unavailable */ }
           }}
         >
-          Paste
+          Paste IMG
         </button>
         {displayImage && (
           <button
@@ -409,9 +408,10 @@ function MainStageViewerNodeInner({ id, data, selected }: Props) {
               } catch { /* clipboard may be unavailable */ }
             }}
           >
-            Copy
+            Copy IMG
           </button>
         )}
+        <button type="button" className="char-btn nodrag" onClick={handleResetView}>Reset View</button>
         <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
         <span className="char-viewer-zoom-info">{Math.round(zoom * 100)}%</span>
       </div>

@@ -947,6 +947,22 @@ function FlowCanvasInner() {
         onDuplicate={flow.duplicateSelected}
         onFitView={handleFitView}
         onAutoLayout={autoLayout}
+        onResetNodes={() => {
+          const snapshot = flow.nodes.map((n) => ({
+            id: n.id,
+            position: n.position,
+            type: n.type,
+            style: n.style,
+            data: {} as Record<string, unknown>,
+          }));
+          const edgeSnapshot = [...flow.edges];
+          flow.setNodes([]);
+          flow.setEdges([]);
+          requestAnimationFrame(() => {
+            flow.setNodes(snapshot as typeof flow.nodes);
+            flow.setEdges(edgeSnapshot);
+          });
+        }}
         onClear={() => { flow.setNodes([]); flow.setEdges([]); }}
         onExportSelectedNodesOnly={flow.exportSelectedNodesOnly}
         onExportSelectedWithConnections={flow.exportSelectedWithConnections}

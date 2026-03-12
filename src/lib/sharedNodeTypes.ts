@@ -98,6 +98,7 @@ import CharHistoryNode from '@/app/ideation/canvas/nodes/character/CharHistoryNo
 import ResetCharacterNode from '@/app/ideation/canvas/nodes/character/ResetCharacterNode';
 import SendToPhotoshopNode from '@/app/ideation/canvas/nodes/character/SendToPhotoshopNode';
 import ProjectSettingsNode from '@/app/ideation/canvas/nodes/character/ProjectSettingsNode';
+import ModelSettingsNode from '@/app/ideation/canvas/nodes/character/ModelSettingsNode';
 import DetachedViewerNode from '@/app/ideation/canvas/nodes/character/DetachedViewerNode';
 
 // ── 3D Gen AI nodes ─────────────────────────────────────────────
@@ -234,6 +235,7 @@ export const ALL_RAW_NODE_TYPES: NodeTypes = {
   charReset: ResetCharacterNode,
   charSendPS: SendToPhotoshopNode,
   charProject: ProjectSettingsNode,
+  charModelSettings: ModelSettingsNode,
   detachedViewer: DetachedViewerNode,
 
   // 3D Gen AI
@@ -275,9 +277,9 @@ export const NODE_DEFAULTS: Record<string, { style?: { width: number; height: nu
   charImageViewer: { style: { width: 600, height: 700 } },
   charViewer: { style: { width: 600, height: 700 } },
   charMainViewer: { style: { width: 600, height: 700 }, data: { viewKey: 'main' } },
-  charFrontViewer: { style: { width: 400, height: 720 }, data: { viewKey: 'front' } },
-  charBackViewer: { style: { width: 400, height: 720 }, data: { viewKey: 'back' } },
-  charSideViewer: { style: { width: 400, height: 720 }, data: { viewKey: 'side' } },
+  charFrontViewer: { style: { width: 500, height: 720 }, data: { viewKey: 'front' } },
+  charBackViewer: { style: { width: 500, height: 720 }, data: { viewKey: 'back' } },
+  charSideViewer: { style: { width: 500, height: 720 }, data: { viewKey: 'side' } },
   charIdentity: { style: { width: 360, height: 500 } },
   charAttributes: { style: { width: 400, height: 1600 } },
   charGate: { style: { width: 160, height: 80 }, data: { enabled: true } },
@@ -290,6 +292,8 @@ export const NODE_DEFAULTS: Record<string, { style?: { width: number; height: nu
   charUpscale: { style: { width: 240, height: 260 } },
   charRestore: { style: { width: 260, height: 320 } },
   charCreativeDirector: { style: { width: 820, height: 500 } },
+  charGenerate: { style: { width: 320, height: 420 } },
+  charModelSettings: { style: { width: 320, height: 560 } },
   meshyImageTo3D: { style: { width: 340, height: 620 } },
   meshyModelViewer: { style: { width: 480, height: 640 } },
   hitem3dImageTo3D: { style: { width: 340, height: 640 } },
@@ -398,6 +402,7 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
     label: 'Character \u2014 Generate',
     icon: '\u{1F3A8}',
     items: [
+      { type: 'charModelSettings', label: 'Model Settings', desc: 'Choose image gen & multimodal models, save as preset', color: '#7c4dff' },
       { type: 'charGenerate', label: 'Generate Character', desc: 'Generate all enabled views', color: '#e91e63' },
       { type: 'charExtractAttrs', label: 'Extract Attributes', desc: 'AI reads image \u2192 fills Identity/Desc/Attrs', color: '#ffab40' },
       { type: 'charEnhanceDesc', label: 'Enhance Description', desc: 'AI enriches description text', color: '#66bb6a' },
@@ -421,7 +426,7 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
     label: 'Character \u2014 Tools',
     icon: '\u{1F528}',
     items: [
-      { type: 'charCreativeDirector', label: 'Creative Director', desc: 'AI design critique & suggestions', color: '#ff6f00' },
+      { type: 'charCreativeDirector', label: 'Art Direction Output', desc: 'AI design critique & suggestions — auto-runs from Main Stage', color: '#ff6f00' },
       { type: 'imageStudio', label: 'Image Studio', desc: 'Full-screen editor with inpainting', color: '#00bcd4' },
       { type: 'charUpscale', label: 'Upscale Image', desc: 'AI upscale (x2/x3/x4)', color: '#e040fb' },
       { type: 'charRestore', label: 'Restore Quality', desc: 'AI redraw to remove artifacts', color: '#00c853' },

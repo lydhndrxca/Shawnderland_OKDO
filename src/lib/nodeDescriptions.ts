@@ -310,9 +310,9 @@ export const NODE_DESCRIPTIONS: Record<string, NodeDescription> = {
     connectsFrom: ['Main Stage Viewer', 'Front View', 'Back View', 'Side View', 'Custom View', 'Any image viewer'],
   },
   charCreativeDirector: {
-    label: 'Creative Director',
+    label: 'Art Direction Output',
     color: '#ff6f00',
-    description: 'A Hollywood-caliber character designer reviews your character and provides 4-6 specific, actionable design suggestions to elevate the design. Analyzes silhouette, color story, materials, proportions, accessories, and overall attitude.\n\nConnect an image viewer (Main Stage Viewer, Front View, etc.) to the input. Optionally connect Identity, Description, and Attributes nodes for context. Click "Get Critique" and the AI studies every detail of your character.\n\nEach suggestion appears as a card you can click "Apply" to inject into a connected Description node.',
+    description: 'A Hollywood-caliber character designer reviews your character and provides 4-6 specific, actionable design suggestions to elevate the design. Auto-runs when an upstream image (Main Stage, Art Director, or any image node) generates.\n\nEach suggestion appears as a card with "Apply Edit" to push changes directly back to the character image.',
     connectsTo: ['Character Description'],
     connectsFrom: ['Main Stage Viewer', 'Front View', 'Back View', 'Side View', 'Custom View', 'Any image viewer', 'Character Identity', 'Character Description', 'Character Attributes'],
   },

@@ -43,13 +43,19 @@ const CATEGORY_COLORS: Record<string, string> = {
 const IMAGE_SOURCE_TYPES = new Set([
   'charMainViewer', 'charViewer', 'charImageViewer',
   'charFrontViewer', 'charBackViewer', 'charSideViewer', 'charCustomView',
-  'charGenerate', 'imageOutput', 'detachedViewer',
+  'charGenerate', 'charQuickGen', 'charEditImage',
+  'imageOutput', 'imageReference', 'detachedViewer',
+  'videoOutput', 'videoAnalysis',
+  'adDirectionResult', 'ldDirectionResult',
+  'imageStudio',
+  'artDirector',
 ]);
 
 const VIEWER_TYPES = new Set([
   'charMainViewer', 'charViewer', 'charImageViewer',
   'charFrontViewer', 'charBackViewer', 'charSideViewer',
   'charCustomView', 'detachedViewer',
+  'imageOutput', 'imageReference',
 ]);
 
 function gatherContext(
@@ -70,9 +76,21 @@ function gatherContext(
     if (!src?.data) continue;
     const d = src.data as Record<string, unknown>;
 
-    if (IMAGE_SOURCE_TYPES.has(src.type ?? '')) {
+    if (IMAGE_SOURCE_TYPES.has(src.type ?? '') && !image) {
       const img = d.generatedImage as GeneratedImage | undefined;
-      if (img?.base64 && !image) image = img;
+      if (img?.base64) {
+        image = img;
+      } else if (typeof d.imageBase64 === 'string' && d.imageBase64) {
+        image = { base64: d.imageBase64, mimeType: (d.mimeType as string) || 'image/png' };
+      } else if (src.type === 'artDirector') {
+        const mediaList = d.media as Array<{ type: string; base64?: string; mimeType?: string }> | undefined;
+        if (mediaList) {
+          const imgMedia = mediaList.find((m) => m.type === 'image' && m.base64);
+          if (imgMedia) {
+            image = { base64: imgMedia.base64!, mimeType: imgMedia.mimeType || 'image/png' };
+          }
+        }
+      }
     }
 
     if (src.type === 'charDescription' && typeof d.description === 'string') {
@@ -290,6 +308,13 @@ function CreativeDirectorNodeInner({ id, data, selected }: Props) {
           if (IMAGE_SOURCE_TYPES.has(src.type ?? '')) {
             const img = src.data?.generatedImage as { base64?: string } | undefined;
             if (img?.base64) return img.base64.slice(0, 64);
+            const raw = src.data?.imageBase64 as string | undefined;
+            if (raw) return raw.slice(0, 64);
+            if (src.type === 'artDirector') {
+              const mediaList = src.data?.media as Array<{ type: string; base64?: string }> | undefined;
+              const imgMedia = mediaList?.find((m) => m.type === 'image' && m.base64);
+              if (imgMedia?.base64) return imgMedia.base64.slice(0, 64);
+            }
           }
         }
         return null;
@@ -440,7 +465,7 @@ RULES:
       {/* ── Header ── */}
       <div className="char-node-header" style={{ background: '#ff6f00', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          Creative Director
+          Art Direction Output
           {history.length > 0 && (
             <span style={{ fontSize: 8, opacity: 0.7, fontWeight: 400 }}>
               ({history.length} past note{history.length !== 1 ? 's' : ''})

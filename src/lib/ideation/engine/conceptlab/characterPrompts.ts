@@ -39,6 +39,31 @@ export interface AttributeGroup {
 
 export const ATTRIBUTE_GROUPS: AttributeGroup[] = [
   {
+    label: 'Skin Detail', key: 'skindetail',
+    common: ['Porcelain pale, cool undertone','Fair with warm peach undertone','Light olive, Mediterranean','Medium tan, golden','Deep brown, warm undertone','Dark ebony, cool undertone','Freckled fair skin','Sun-kissed bronze','Ruddy complexion','Ashen pale, almost translucent'],
+    rare: ['Albino pale, pink undertone','Grey-tinted skin, otherworldly','Blue-grey, deathly pale','Greenish tint, sickly','Scarred and mottled texture','Weathered and sun-damaged','Porcelain with visible veins','Flushed pink, cold exposure'],
+  },
+  {
+    label: 'Eye Detail', key: 'eyedetail',
+    common: ['Brown, warm and deep','Blue, clear sky','Green, forest','Hazel, shifting gold-green','Dark brown, nearly black','Grey, steel','Blue-green, teal','Amber, warm honey','Light brown, cognac','Dark blue, midnight'],
+    rare: ['Milky white, no visible iris','Heterochromia — one blue, one brown','Pale lavender, almost silver','Blood red, supernatural','Golden, inhuman','Black sclera, demon-like','Glowing cyan','Reflective silver, metallic','Clouded blind eye, one side','Violet, vivid'],
+  },
+  {
+    label: 'Hair Detail', key: 'hairdetail',
+    common: ['Black, straight, shoulder-length','Brown, wavy, mid-back','Blonde, straight, long','Auburn, curly, chin-length','Dark brown, short, cropped','Red, wavy, past shoulders','Black, slicked back','Dirty blonde, messy, medium','Grey, short, neat','Brown, ponytail, tight'],
+    rare: ['Platinum white, wavy, past shoulders','Silver-grey, long, loose','Jet black with blue sheen','Shaved sides, long top','Dreadlocks, waist-length','Mohawk, styled up','Two-tone split dye','Bald, smooth','White streak in dark hair','Bright unnatural color'],
+  },
+  {
+    label: 'Makeup Detail', key: 'makeupdetail',
+    common: ['No visible makeup','Natural, minimal','Dark lipstick, smoky eye','Red lip, clean skin','Subtle foundation, nude lip','Heavy eyeliner, winged','Glossy lip, light blush','Matte skin, dark lip','Bold eyebrow pencil','Concealer only'],
+    rare: ['Dark burgundy lip, pale foundation','Black lipstick, white powder','Theatrical stage makeup','Scar-covering concealer','Gothic — dark eyes, dark lips, pale base','Avant-garde, artistic','Smudged/running eye makeup','Glitter accents','Face paint, tribal','Bruise/wound prosthetic makeup'],
+  },
+  {
+    label: 'Neckwear', key: 'neckwear',
+    common: ['No neckwear','Simple chain necklace','Dog tags','Scarf — wrapped loosely','Bandana — knotted','Turtleneck collar visible','Hoodie drawstrings','Lanyard','Thin leather cord','Collar popped'],
+    rare: ['Black lace choker with pendant','Velvet choker, ornate clasp','Studded leather collar','Multi-chain layered necklace','Cross pendant on chain','Tribal necklace, bone/stone','Spiked collar','Pearl strand','Gem pendant, large','Tooth/claw necklace'],
+  },
+  {
     label: 'Headwear', key: 'headwear',
     common: ['Ball cap — sun-faded, curved brim','Knit beanie — ribbed cuff','Hood up — jersey-lined','Trucker cap — mesh back','Baseball cap — blank velcro patch','Snapback — flat brim','Watch cap — rolled cuff','Bucket hat — canvas','No visible headwear','Headband — sweat-wicking'],
     rare: ['Boonie hat — ripstop, chin cord','Beret — soft wool, tilted','Ushanka — ear flaps down','Desert shemagh — wrapped crown','Newsboy cap — worn tweed','Hard hat — scuffed ABS','Panama hat — natural straw','Ivy cap — matte leather','Flight cap — vintage leather','Visor — translucent brim','Cowboy hat — modern felt','Trapper hat — faux fur lining','Ski helmet — stickered','Riot helmet — visor up'],
@@ -89,6 +114,21 @@ export const ATTRIBUTE_GROUPS: AttributeGroup[] = [
     rare: ['Drone remote — hand strap','Thermal camera — handheld','Microphone — handheld','Tablet — ruggedized case','Monocular — compact','Compass — lensatic','Spray paint can — capped','Multitool — unfolded','Bolt cutters — small','Binoculars — compact roof prism'],
   },
   {
+    label: 'Under-Legwear', key: 'underlegwear',
+    common: ['Bare legs','Sheer nude stockings','Black opaque tights','Knee-high socks','Ankle socks — white','Ankle socks — black','Compression tights','Thermal leggings — under pants','No under-legwear visible','Thigh-high stockings'],
+    rare: ['Black fishnet stockings','White fishnet tights','Patterned lace stockings','Torn/ripped tights','Striped knee-highs','Net/mesh leggings','Garter-attached stockings','Leg wraps — bandage style','Shin guards underneath','Colored opaque tights'],
+  },
+  {
+    label: 'Jewelry', key: 'jewelry',
+    common: ['No jewelry','Single ring — silver band','Stud earrings — small','Hoop earrings — small','Watch — simple','Bracelet — thin chain','Ring — gold band','Pendant necklace — simple','Two rings — different fingers','Ear cuff — minimal'],
+    rare: ['Multiple silver rings, left hand','Skull ring — detailed','Gemstone ring — large','Layered bracelets — mixed material','Nose ring — septum','Lip ring — small hoop','Eyebrow piercing','Full ear piercings — multiple','Knuckle rings — set','Ornate brooch — vintage'],
+  },
+  {
+    label: 'Tattoos & Marks', key: 'tattoos_marks',
+    common: ['No visible tattoos or marks','Small wrist tattoo','Forearm sleeve tattoo','Neck tattoo — small','Shoulder tattoo','Scar — face, small','Birthmark — subtle','Freckles across nose','Beauty mark — cheek','Scar — across eyebrow'],
+    rare: ['Chest tattoo — symbol, centered','Full sleeve tattoo — both arms','Face tattoo — tribal/geometric','Hand tattoos — knuckle text','Cross/religious symbol — chest','Runic symbols — neck/collarbone','Burn scar — large area','Ritual scarification','Glowing marks — supernatural','Brand mark — stylized'],
+  },
+  {
     label: 'Accessories', key: 'accessories',
     common: ['Analog watch — brushed metal','Digital watch — rugged','Dog tags — generic','Leather bracelet — braided','Paracord bracelet — cobra weave','Necklace — simple pendant','Stud earrings — minimal','Ring — signet style','Lanyard — utility key set','Sunglass cord — retainer'],
     rare: ['Clip-on compass — watch band','Whistle — anodized','Utility pen — bolt action','Badge holder — clear','Ear cuff — industrial','Spacer ring — titanium','Smart ring — understated','Glow fob — tritium style','Tactical pen — blunt','AirTag holder — discreet'],
@@ -127,12 +167,13 @@ export interface CharacterAttributes {
 export const CHARACTER_STYLE_NOTES = `CRITICAL IMAGE FORMAT: 9:16 vertical portrait (1536 x 2816).
 
 MANDATORY FULL-BODY FRAMING (DO NOT VIOLATE):
-- The ENTIRE character must be visible from the TOP OF THE HEAD (including hair) to the BOTTOM OF THE FEET (including soles).
-- Leave at LEAST 5% padding above the head and below the feet — NEVER crop or cut off ANY body part.
-- The head, face, and hair must be FULLY visible and not touching or exceeding the top edge.
-- The feet and shoes must be FULLY visible and not touching or exceeding the bottom edge.
-- If the character is tall or has tall hair/headwear, ZOOM OUT to fit everything. NEVER crop to fit.
-- This is NOT a portrait or headshot. This is a FULL-BODY character sheet image.
+- The character should occupy approximately 75% of the frame height, centered vertically.
+- Leave at LEAST 12% empty space above the top of the head and 12% below the bottom of the feet.
+- The ENTIRE character must be visible: TOP OF THE HEAD (including all hair/headwear) to the BOTTOM OF THE FEET (including shoe soles touching the ground line).
+- The feet/shoes MUST be clearly visible — this is the #1 most common error. If in doubt, ZOOM OUT MORE.
+- If the character is tall, zoom the camera out further rather than cropping. NEVER crop any body part.
+- Think of it as a full-length mirror photo — you can always see the shoes.
+- This is NOT a portrait, NOT a headshot, NOT waist-up. This is a FULL-LENGTH character reference.
 
 FOLLOW THE DESCRIPTION LITERALLY:
 - Wardrobe, props, colors, materials, condition, and wear must match the attribute list.
@@ -154,7 +195,7 @@ CAMERA & COMPOSITION:
 - Centered full-body framing. ZOOM OUT enough so the full character fits with padding on all sides.`;
 
 export const VIEW_REQUESTS: Record<string, string> = {
-  main: 'Casual standing pose, FULL BODY from head to toe, three-quarter front view of the character. Camera at chest height, rotated about 9 degrees to the right from the front view. Primarily front-facing with just a hint of the right side visible. Keep proportions natural, lens normal, no extreme perspective. The TOP OF THE HEAD and the BOTTOM OF THE FEET must both be clearly visible with padding — do NOT crop the head or feet.',
+  main: 'FULL-LENGTH standing pose showing the COMPLETE character from head to shoes. Camera pulled back far enough that the character fills only about 75% of the vertical frame — with visible empty grey space above the head and below the feet. Three-quarter front view, camera at chest height, rotated about 9 degrees right. Proportions natural, standard lens. The character\'s SHOES/FEET must be clearly visible near the bottom of the frame. If feet would be cropped, the camera MUST zoom out further. This is a full-length reference photo, not a portrait.',
 
   front: `Recompose to a dead-center orthographic front view at 0 degrees azimuth. Orthographic or 200mm+ lens, zero perspective distortion. Left and right halves perfectly symmetrical. No 3/4 turn, no yaw, no rotation. Neutral A-pose, arms 30 degrees from body, palms forward, feet shoulder-width. Show face dead-on, chest, belt, front of both arms/legs/shoes, all front-facing gear. Full body from top of head to bottom of feet with padding, no cropping. Solid grey background, no floor.`,
 
@@ -218,9 +259,12 @@ export function buildCharacterDescription(
   parts.push('- Zoom out enough so the entire figure fits comfortably with space above and below.');
   parts.push('');
 
-  parts.push('## NEGATIVE CONSTRAINTS');
-  parts.push('- NO TEXT, LOGOS, OR WATERMARKS.');
-  parts.push('- NO TACTICAL GEAR, NO HEROIC PROPS, NO SUNGLASSES UNLESS REQUESTED.');
+  parts.push('## NEGATIVE CONSTRAINTS (MUST AVOID)');
+  parts.push('- NO cropped body, NO cut off feet, NO cut off head.');
+  parts.push('- NO close-up, NO portrait framing, NO headshot, NO bust shot, NO waist-up framing.');
+  parts.push('- NO text, logos, or watermarks.');
+  parts.push('- NO background environment, cityscape, or scene — ONLY solid grey.');
+  parts.push('- NO tactical gear, heroic props, or sunglasses unless explicitly requested.');
 
   return parts.join('\n');
 }
@@ -233,21 +277,33 @@ export function buildCharacterViewPrompt(
 
   if (viewKey === 'main') {
     return [
+      'CRITICAL RENDERING REQUIREMENTS (READ FIRST — ALL ARE MANDATORY):',
+      '',
+      'FRAMING: This is a FULL-LENGTH photo. The character must occupy about 75% of the frame height. The character\'s SHOES and FEET must be clearly visible near the bottom. There must be visible empty grey space ABOVE the head and BELOW the feet. Think of a full-length mirror photo — you always see the shoes. If the character would be cropped at the shins/knees/waist, the camera is TOO CLOSE — zoom out.',
+      '',
+      'STYLE: PHOTOREALISTIC — like a high-resolution photograph of a real person in a real costume. NOT a painting, NOT an illustration, NOT concept art.',
+      '',
+      'BACKGROUND: Solid flat grey (#D3D3D3) ONLY. No environment, no cityscape, no room, no floor, no gradients — JUST flat grey.',
+      '',
+      'LIGHTING: Soft, even studio lighting. No dramatic cinematic lighting, no neon, no volumetric effects.',
+      '',
       characterDescription,
       '',
-      'Grounded, realistic character study with flat, natural overcast lighting.',
-      'No dramatic highlights or hero-lighting on muscles.',
-      'Text-only generation; do not rely on any reference images.',
       view,
       '',
       `Style Requirements:\n${CHARACTER_STYLE_NOTES}`,
       '',
-      'FINAL CHECK — ABSOLUTELY MANDATORY: The generated image MUST show the COMPLETE character from the very top of the head to the very bottom of the feet. If the head or feet would be cut off, zoom out further. This is non-negotiable.',
+      'FINAL MANDATORY CHECK:',
+      '• Are the character\'s SHOES/FEET visible? If NO → zoom out more.',
+      '• Is the background solid grey with no environment? If NO → remove environment.',
+      '• Does it look like a photograph (not illustration)? If NO → make photorealistic.',
     ].join('\n');
   }
 
   return [
     'Do not render any text, titles, labels, letters, numbers, logos, captions, or annotations in the image. The image must contain only the character on a plain background.',
+    '',
+    'CRITICAL: This must be a PHOTOREALISTIC image — like a high-resolution photograph, NOT an illustration, painting, or concept art.',
     '',
     'Using the provided character image as reference, recompose to the specified view,',
     'preserving EXACT character design, body type, materials, colors, clothing, accessories, and all details.',
@@ -264,7 +320,7 @@ export function buildCharacterViewPrompt(
 
 /* ── Extract Attributes Schema ── */
 
-export const EXTRACT_ATTRIBUTES_PROMPT = `You are a character design extrapolation tool. Your job is to produce a COMPLETE full-body character outfit from the provided image — head to toe, front and back — even if the image only shows part of the character.
+export const EXTRACT_ATTRIBUTES_PROMPT = `You are a forensic-level character design extraction tool. Study both the image AND the description below. Your job is to produce PRECISE, SPECIFIC attributes — not generic summaries.
 
 Return JSON only with this exact schema:
 {
@@ -272,33 +328,55 @@ Return JSON only with this exact schema:
   "race": string,
   "gender": string,
   "build": string,
+  "skindetail": string,
+  "eyedetail": string,
+  "hairdetail": string,
+  "makeupdetail": string,
   "headwear": string,
+  "neckwear": string,
   "outerwear": string,
   "top": string,
   "legwear": string,
+  "underlegwear": string,
   "footwear": string,
   "gloves": string,
   "facegear": string,
   "utilityrig": string,
   "backcarry": string,
   "handprop": string,
+  "jewelry": string,
+  "tattoos_marks": string,
   "accessories": string,
   "coloraccents": string,
   "detailing": string
 }
 
-IDENTITY FIELDS — you MUST pick one of these exact strings:
+IDENTITY FIELDS — pick one of these exact strings:
 - age: ${AGE_OPTIONS.map((o) => `"${o}"`).join(' | ')}
 - race: ${RACE_OPTIONS.map((o) => `"${o}"`).join(' | ')}
 - gender: ${GENDER_OPTIONS.map((o) => `"${o}"`).join(' | ')}
 - build: ${BUILD_OPTIONS.map((o) => `"${o}"`).join(' | ')}
 
+FIELD GUIDANCE:
+- skindetail: exact skin tone with undertone (e.g. "porcelain pale with cool blue undertone")
+- eyedetail: exact eye color + unique qualities (e.g. "milky white with no visible iris, supernatural appearance")
+- hairdetail: exact color, length, texture, style, parting (e.g. "platinum white, wavy, past shoulders, center-parted, loose")
+- makeupdetail: lip color, eye makeup, blush, etc. (e.g. "dark burgundy lipstick, subtle smoky eye shadow")
+- neckwear: chokers, necklaces — describe pendant shape, chain type, material (e.g. "black lace choker with gold heart-shaped pendant")
+- outerwear: outermost layer with EXACT construction details (e.g. "black leather jacket with three rows of silver dome studs along each sleeve, cropped at waist")
+- top: layer under outerwear (e.g. "black boned corset with front button closure and lace trim along neckline")
+- legwear: skirt/pants — type, material, length, shape (e.g. "black velvet high-low skirt, mid-calf front, ankle-length back")
+- underlegwear: stockings/tights/fishnets under legwear (e.g. "black fishnet stockings, mid-opacity")
+- footwear: exact boot/shoe type, height, closure, material (e.g. "black leather mid-calf lace-up combat boots with thick rubber sole")
+- jewelry: rings, bracelets, earrings — which hand/finger, material (e.g. "two silver rings on left hand ring and middle fingers")
+- tattoos_marks: visible tattoos, birthmarks, scars — symbol, size, body placement (e.g. "small cross/star symbol tattoo on upper chest, centered above corset line")
+- coloraccents: 3-5 dominant colors, comma-separated
+- detailing: wear, texture details, scuffs, patina, fabric condition
+
 CRITICAL RULES:
-1. EVERY clothing/gear field MUST contain a specific, descriptive value. Describe color, material, pattern, fit, and condition.
-2. You are building a FULL-BODY character. If feet are cropped out, INVENT appropriate footwear. If hands are hidden, INVENT appropriate gloves or describe bare hands. If a field has no obvious match, DESIGN something that fits the character's overall aesthetic, era, and style.
-3. NEVER write "not visible", "none", "n/a", "unknown", or "not shown". These are FORBIDDEN values. Every field must describe an actual garment, accessory, or design choice.
-4. If a slot genuinely wouldn't have an item (e.g. no gloves), describe what the bare body part looks like instead (e.g. "bare hands, calloused knuckles with a faded scar across the right palm").
-5. Think like a character designer completing a concept sheet — extrapolate from the visible style, silhouette, color palette, materials, and era to fill in anything not shown.
-- coloraccents: 2-5 primary colors, comma-separated
-- detailing: specific wear, stains, damage, dust, wrinkles, scuffs, repairs, etc.
+1. Be HYPER-SPECIFIC. "Black studded leather jacket with rows of silver dome studs on sleeves" NOT "studded leather jacket".
+2. Look at the IMAGE directly — do not rely only on the text description. The image is the ground truth.
+3. Capture EVERY distinctive/unique feature: unusual eye colors, tattoos, specific jewelry, visible marks.
+4. NEVER write "not visible", "none", "n/a", or "unknown". If a slot has no item, describe the bare body part.
+5. If something is partially hidden, extrapolate from visible style.
 Return ONLY JSON. No markdown, no extra text.`;

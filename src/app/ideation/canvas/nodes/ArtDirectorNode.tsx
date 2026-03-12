@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useState, useRef, useMemo } from 'react';
+import { useCallback, useState, useRef, useMemo, useEffect } from 'react';
 import type { NodeProps } from '@xyflow/react';
-import { Handle, Position, useReactFlow } from '@xyflow/react';
+import { Handle, Position, useReactFlow, useStore } from '@xyflow/react';
 import { Image, Video, FileText, X, ChevronDown, ChevronUp, Copy, Download } from 'lucide-react';
 import { createGeminiProvider } from '@/lib/ideation/engine/provider/geminiProvider';
 import type { MediaPart } from '@/lib/ideation/engine/provider/types';
@@ -319,8 +319,14 @@ function renderMarkdown(text: string): string {
 
 const AD_FOCUS_OPTIONS: ADFocus[] = ['character', 'environment', 'props'];
 
+const UPSTREAM_IMAGE_TYPES = new Set([
+  'charMainViewer', 'charViewer', 'charImageViewer',
+  'charFrontViewer', 'charBackViewer', 'charSideViewer', 'charCustomView',
+  'charGenerate', 'imageOutput', 'imageReference', 'detachedViewer',
+]);
+
 export default function ArtDirectorNode({ id, selected }: NodeProps) {
-  const { setNodes, addNodes, addEdges, getNode } = useReactFlow();
+  const { setNodes, getNode, getEdges } = useReactFlow();
 
   const [description, setDescription] = useState('');
   const [media, setMedia] = useState<SeedMediaItem[]>([]);
@@ -330,7 +336,54 @@ export default function ArtDirectorNode({ id, selected }: NodeProps) {
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(true);
   const resultRef = useRef<HTMLDivElement>(null);
-  const spawnedRef = useRef(false);
+  const lastUpstreamSigRef = useRef<string | null>(null);
+
+  const upstreamImageSig = useStore(
+    useCallback(
+      (s: { nodeLookup: Map<string, { type?: string; data: Record<string, unknown> }>; edges: Array<{ source: string; target: string }> }) => {
+        for (const e of s.edges) {
+          if (e.target !== id) continue;
+          const src = s.nodeLookup.get(e.source);
+          if (!src) continue;
+          if (UPSTREAM_IMAGE_TYPES.has(src.type ?? '')) {
+            const img = src.data?.generatedImage as { base64?: string } | undefined;
+            if (img?.base64) return img.base64.slice(0, 64);
+          }
+        }
+        return null;
+      },
+      [id],
+    ),
+  );
+
+  useEffect(() => {
+    if (!upstreamImageSig) return;
+    if (lastUpstreamSigRef.current === upstreamImageSig) return;
+    lastUpstreamSigRef.current = upstreamImageSig;
+
+    const edges = getEdges();
+    for (const e of edges) {
+      if (e.target !== id) continue;
+      const src = getNode(e.source);
+      if (!src?.data) continue;
+      if (!UPSTREAM_IMAGE_TYPES.has(src.type ?? '')) continue;
+      const d = src.data as Record<string, unknown>;
+      const img = d.generatedImage as { base64?: string; mimeType?: string } | undefined;
+      if (img?.base64) {
+        const item: SeedMediaItem = {
+          type: 'image',
+          base64: img.base64,
+          mimeType: (img.mimeType as string) || 'image/png',
+          fileName: 'upstream-character',
+        };
+        setMedia((prev) => {
+          const filtered = prev.filter((m) => m.fileName !== 'upstream-character');
+          return [item, ...filtered];
+        });
+        break;
+      }
+    }
+  }, [upstreamImageSig, id, getNode, getEdges]);
 
   const hasInput = description.trim().length > 0 || media.length > 0;
 
@@ -434,51 +487,11 @@ export default function ArtDirectorNode({ id, selected }: NodeProps) {
     } catch { /* clipboard access may fail */ }
   }, [addMedia]);
 
-  /* ── Spawn result nodes for each direction point ── */
-  const spawnResultNodes = useCallback((points: FinalResult['points']) => {
-    const parentNode = getNode(id);
-    if (!parentNode) return;
-    const baseX = parentNode.position.x + 420;
-    const baseY = parentNode.position.y - 100;
-    const spacing = 280;
-
-    const sourceImage = media.find((m) => (m.type === 'image' || m.type === 'video') && m.base64);
-    const sourceImgData = sourceImage
-      ? { base64: sourceImage.base64!, mimeType: sourceImage.mimeType }
-      : undefined;
-
-    setNodes((nds) => nds.filter((n) => !n.id.startsWith(`${id}-dir-`)));
-
-    const newNodes = points.map((point, i) => ({
-      id: `${id}-dir-${i + 1}`,
-      type: 'adDirectionResult',
-      position: { x: baseX, y: baseY + i * spacing },
-      data: {
-        point,
-        pointIndex: i + 1,
-        sourceImage: sourceImgData,
-        focus,
-      },
-    }));
-
-    const newEdges = points.map((_, i) => ({
-      id: `${id}-edge-dir-${i + 1}`,
-      source: id,
-      target: `${id}-dir-${i + 1}`,
-      type: 'default',
-    }));
-
-    setTimeout(() => {
-      addNodes(newNodes);
-      addEdges(newEdges);
-    }, 50);
-  }, [id, getNode, media, focus, setNodes, addNodes, addEdges]);
 
   /* ── Run the full 6-phase ideation gauntlet ── */
   const handleRun = useCallback(async () => {
     setError(null);
     setResult(null);
-    spawnedRef.current = false;
     try {
       const provider = createGeminiProvider(undefined, 'standard');
       const mediaParts = buildMediaParts(media);
@@ -546,16 +559,15 @@ export default function ArtDirectorNode({ id, selected }: NodeProps) {
 
       setResult(final);
       setPhase('done');
-
-      if (final.points.length > 0 && !spawnedRef.current) {
-        spawnedRef.current = true;
-        spawnResultNodes(final.points);
-      }
+      setNodes((nds) => nds.map((n) =>
+        n.id === id ? { ...n, data: { ...n.data, artDirectionResult: final, artDirectionFocus: focus } } : n,
+      ));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setPhase('idle');
     }
-  }, [description, media, focus, spawnResultNodes]);
+  }, [description, media, focus]);
+
 
   /* ── Export helpers ── */
   const markdownExport = useMemo(() => {

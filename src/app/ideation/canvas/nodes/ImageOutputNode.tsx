@@ -7,6 +7,7 @@ import { IMAGE_MODELS, ASPECT_RATIOS, type ModelOption } from './modelCatalog';
 import { recordUsage, recordImagenUsage } from '@/lib/ideation/engine/provider/costTracker';
 import { logGeneration, buildLineageContext, type SessionSnapshot } from '@/lib/ideation/engine/generationLog';
 import { proxyGenerate } from '@/lib/ideation/engine/aiProxy';
+import { getConfiguredResolution } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { ImageContextMenu } from '@/components/ImageContextMenu';
 import './ImageOutputNode.css';
 
@@ -134,14 +135,21 @@ function ImageOutputNodeInner({ id, selected }: ImageOutputNodeProps) {
 
         persistImages(newImages);
       } else {
-        const json = await proxyGenerate('gemini-2.0-flash-exp', 'generateContent', {
+        const geminiModelId = model.modelId || 'gemini-3.1-flash-image-preview';
+        const nb2Capable = geminiModelId === 'gemini-3.1-flash-image-preview' || geminiModelId === 'gemini-3-pro-image-preview';
+        const configuredRes = getConfiguredResolution();
+        const imgCfg = nb2Capable && configuredRes !== '1K' ? { imageSize: configuredRes } : undefined;
+        const json = await proxyGenerate(geminiModelId, 'generateContent', {
           contents: [{ parts: [{ text: `Generate an image: ${effectivePrompt}. Aspect ratio: ${aspectRatio}.` }] }],
-          generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+          generationConfig: {
+            responseModalities: ['TEXT', 'IMAGE'],
+            ...(imgCfg && { imageConfig: imgCfg }),
+          },
         }) as { usageMetadata?: object; candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { mimeType: string; data: string } }> } }> };
 
         if (!mountedRef.current) return;
 
-        if (json?.usageMetadata) recordUsage(json.usageMetadata as { promptTokenCount?: number; candidatesTokenCount?: number }, 'gemini-2.0-flash-exp');
+        if (json?.usageMetadata) recordUsage(json.usageMetadata as { promptTokenCount?: number; candidatesTokenCount?: number }, geminiModelId);
         const parts = json?.candidates?.[0]?.content?.parts ?? [];
         const imageParts = parts.filter((p) => p.inlineData);
 
@@ -154,7 +162,7 @@ function ImageOutputNodeInner({ id, selected }: ImageOutputNodeProps) {
         const w2 = window as unknown as Record<string, unknown>;
         const sid2 = (w2.__sessionId as string) ?? 'unknown';
         const snap2 = w2.__sessionSnapshot as SessionSnapshot | undefined;
-        logGeneration({ sessionId: sid2, category: 'image', source: 'ImageOutputNode', model: 'gemini-2.0-flash-exp', prompt: effectivePrompt, output: { imageCount: newImages.length, aspectRatio, mimeTypes: newImages.map((img: { mimeType: string }) => img.mimeType) }, lineage: snap2 ? buildLineageContext(snap2) : undefined });
+        logGeneration({ sessionId: sid2, category: 'image', source: 'ImageOutputNode', model: geminiModelId, prompt: effectivePrompt, output: { imageCount: newImages.length, aspectRatio, mimeTypes: newImages.map((img: { mimeType: string }) => img.mimeType) }, lineage: snap2 ? buildLineageContext(snap2) : undefined });
 
         persistImages(newImages);
       }

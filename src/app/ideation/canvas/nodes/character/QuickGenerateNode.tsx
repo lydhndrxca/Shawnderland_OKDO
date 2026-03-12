@@ -9,7 +9,7 @@ import {
   type CharacterIdentity,
   type CharacterAttributes,
 } from '@/lib/ideation/engine/conceptlab/characterPrompts';
-import { generateText, generateWithImagen4 } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import { generateText, generateWithNanoBanana } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import type { GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { getGlobalSettings } from '@/lib/globalSettings';
 import { createProcessingAnimator } from '@/lib/processingAnimation';
@@ -238,7 +238,7 @@ function QuickGenerateNodeInner({ id, data, selected }: Props) {
 
       if (!mountedRef.current || cancelledRef.current) return;
 
-      setStatus('Generating character image (Imagen 4)…');
+      setStatus('Generating character image (Nano Banana 2)…');
       const generateNodeIds = findDownstreamByType(new Set(['charGenerate']));
       anim.markNodes(generateNodeIds, true);
 
@@ -258,7 +258,7 @@ function QuickGenerateNodeInner({ id, data, selected }: Props) {
 
       const charDesc = buildCharacterDescription(identity, attributes, description);
       const fullPrompt = buildCharacterViewPrompt('main', charDesc);
-      const images = await generateWithImagen4(fullPrompt, '9:16', 1);
+      const images = await generateWithNanoBanana(fullPrompt, '9:16', 1);
       if (!mountedRef.current || cancelledRef.current) return;
       const mainImage = images[0] as GeneratedImage;
 

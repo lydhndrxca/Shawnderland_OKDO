@@ -3,7 +3,7 @@
 import { memo, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Handle, Position, NodeResizer, useReactFlow, useStore } from '@xyflow/react';
 import { ImageContextMenu } from '@/components/ImageContextMenu';
-import { generateWithGeminiRef, upscaleWithImagen, type GeneratedImage, type GeminiImageModel } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import { generateWithGeminiRef, restoreImageQuality, type GeneratedImage, type GeminiImageModel } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { registerRequest, unregisterRequest } from '@/lib/activeRequests';
 import { NODE_TOOLTIPS } from './nodeTooltips';
 import './CharacterNodes.css';
@@ -27,26 +27,14 @@ const VIEW_CONFIG: Record<ViewKey, { label: string; color: string; compactW: num
 const EDIT_PREFIX = 'VISUAL EDIT TASK:\nPreserve 100% of the existing design, only apply the following modification:\n';
 const EDIT_SUFFIX = '\nApply ONLY the above modification. Do NOT change anything else.\nBackground: Solid flat grey (#D3D3D3). No floor, no shadows, no environment.';
 
-const RESTORE_PROMPT =
-  'QUALITY RESTORATION — EXACT REPRODUCTION AT MAXIMUM QUALITY.\n\n' +
-  'Your task is to perfectly reproduce this image at the highest possible quality and resolution.\n\n' +
-  'CRITICAL RULES (violating any rule is a failure):\n' +
-  '• Reproduce EVERY detail exactly: character pose, expression, face, hair, clothing, accessories, colors, proportions, composition, background — change ABSOLUTELY NOTHING.\n' +
-  '• Your ONLY job is to eliminate quality degradation: compression artifacts, noise, blur, banding, blockiness, color shifts, and resolution loss.\n' +
-  '• Output a clean, crisp, sharp, artifact-free version of this EXACT image.\n' +
-  '• Match the original art style, rendering quality, and visual aesthetic at its BEST possible quality.\n' +
-  '• If the background has accumulated artifacts or noise, restore it to a clean, smooth state while preserving whatever background was intended.\n' +
-  '• Do NOT add, remove, modify, reposition, or reinterpret ANY element.\n' +
-  '• Do NOT change the camera angle, framing, cropping, or composition.\n' +
-  '• Do NOT change the lighting, color grading, or saturation.\n' +
-  '• This is NOT an edit — this is a QUALITY RESTORATION. The subject matter must be identical.\n' +
-  '• Treat the input image as a degraded version of a high-quality original. Your job is to recover that original.';
 
 const RENDER_STYLE_BLOCK = `
-RENDERING STYLE — MATCH REFERENCE EXACTLY:
-• You MUST match the EXACT rendering style, visual quality, lighting, color grading, saturation, contrast, and level of detail from the provided reference image.
-• Study the reference image's style carefully — whether it is photorealistic, stylized, painterly, cel-shaded, or anything else — and reproduce that SAME style precisely.
-• This must look like the SAME character rendered from a different camera angle in the SAME engine/pipeline. Do NOT change the art style.`;
+RENDERING STYLE — PHOTOREALISTIC CHARACTER SHEET:
+• Render this as a PHOTOREALISTIC character reference sheet. Clean, high-fidelity, detailed rendering with natural skin texture, real fabric weave, and physically accurate materials.
+• Lighting: soft, even studio lighting. Neutral color grading. No dramatic cinematic lighting, no lens flares, no bloom, no volumetric fog.
+• The character must look like a high-resolution photograph of a real person/costume, NOT a painting, illustration, concept art, or digital art.
+• Match the character's exact design details (body type, face, hair, clothing, materials, colors, accessories) from the reference image.
+• Do NOT stylize, do NOT add painterly brush strokes, do NOT use cel-shading or cartoon rendering. This must look photographic.`;
 
 const NO_TEXT_RULE = 'DO NOT render any text, titles, labels, letters, numbers, logos, captions, annotations, watermarks, or headers anywhere in the image. The image must contain ONLY the character on a plain background — absolutely nothing else.';
 
@@ -54,6 +42,8 @@ const FULL_BODY_RULE = 'Show the COMPLETE character from the very top of the hea
 
 const PERSPECTIVE_PROMPTS: Record<'front' | 'back' | 'side', string> = {
   front: `${NO_TEXT_RULE}
+
+CRITICAL: This must be a PHOTOREALISTIC image — like a high-resolution photograph, NOT an illustration, painting, or concept art.
 
 Recompose the provided character reference into a dead-center orthographic front view.
 
@@ -70,6 +60,8 @@ Background: solid flat grey (#D3D3D3). No floor, no shadows, no environment.`,
 
   back: `${NO_TEXT_RULE}
 
+CRITICAL: This must be a PHOTOREALISTIC image — like a high-resolution photograph, NOT an illustration, painting, or concept art.
+
 Recompose the provided character reference into a dead-center orthographic rear view.
 
 Camera: locked at exactly 180 degrees azimuth (dead-center rear), orthographic or 200mm+ telephoto lens, zero perspective distortion, chest height, centered on the character's midline. Only the back is visible — the face must be completely hidden. The left and right halves of the back must be perfectly symmetrical. No 3/4 turn, no yaw, no rotation.
@@ -84,6 +76,8 @@ ${FULL_BODY_RULE}
 Background: solid flat grey (#D3D3D3). No floor, no shadows, no environment.`,
 
   side: `${NO_TEXT_RULE}
+
+CRITICAL: This must be a PHOTOREALISTIC image — like a high-resolution photograph, NOT an illustration, painting, or concept art.
 
 Recompose the provided character reference into a pure left-side orthographic profile view.
 
@@ -153,6 +147,18 @@ function getUpstreamImage(
     const img = d.generatedImage as GeneratedImage | undefined;
     if (img?.base64) return img;
     if (d.imageBase64) return { base64: d.imageBase64 as string, mimeType: (d.mimeType as string) || 'image/png' };
+  }
+  return null;
+}
+
+function getMultimodalModelFromGraph(
+  getNodes: () => Array<{ id: string; type?: string; data: Record<string, unknown> }>,
+): GeminiImageModel | null {
+  const nodes = getNodes();
+  for (const n of nodes) {
+    if (n.type !== 'charModelSettings' && n.type !== 'charGenerate') continue;
+    const apiId = n.data?.multimodalApiId as string | undefined;
+    if (apiId) return apiId as GeminiImageModel;
   }
   return null;
 }
@@ -507,7 +513,8 @@ function CharViewNodeInner({ id, data, selected }: Props) {
 
     (async () => {
       try {
-        const results = await generateWithGeminiRef(prompt, refImages, 'gemini-flash-image');
+        const mmModel = getMultimodalModelFromGraph(getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>) ?? 'gemini-flash-image';
+        const results = await generateWithGeminiRef(prompt, refImages, mmModel);
         if (!autoGenMountedRef.current || session.signal.aborted) return;
 
         const img = results[0];
@@ -540,7 +547,9 @@ function CharViewNodeInner({ id, data, selected }: Props) {
   const [editStatus, setEditStatus] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [editElapsed, setEditElapsed] = useState(0);
-  const [editModel, setEditModel] = useState<GeminiImageModel>('gemini-flash-image');
+  const [editModel, setEditModel] = useState<GeminiImageModel>(() => {
+    return getMultimodalModelFromGraph(getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>) ?? 'gemini-flash-image';
+  });
   const editTimerRef = useRef<ReturnType<typeof setInterval>>(undefined);
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -580,8 +589,8 @@ function CharViewNodeInner({ id, data, selected }: Props) {
 
       console.log(`[CharView:${viewKey}] editing image (${Array.isArray(refImages) ? refImages.length + ' images' : (srcImage.base64.length / 1024).toFixed(0) + 'KB'})...`);
 
-      const modelLabel = editModel === 'gemini-flash-image' ? 'Flash' : 'Pro';
-      setEditStatus(`Waiting for Gemini ${modelLabel}…`);
+      const modelLabel = editModel === 'gemini-flash-image' ? 'NB2' : 'NB Pro';
+      setEditStatus(`Waiting for ${modelLabel}…`);
       const results = await generateWithGeminiRef(prompt, refImages, editModel);
 
       console.log(`[CharView:${viewKey}] API returned. mounted=${mountedRef.current}, aborted=${session.signal.aborted}, results=${results?.length}`);
@@ -660,7 +669,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
     }
   }, [viewImage, editText, editBusy, viewKey, id, isMain, isCustom, customLabel, cfg, getNode, getNodes, getEdges, setNodes, pushHistory, editModel]);
 
-  // ── Restore Quality (inline) ──
+  // ── Restore Quality (inline — two-step: describe then regenerate fresh) ──
   const [restoreBusy, setRestoreBusy] = useState(false);
   const handleRestore = useCallback(async () => {
     const srcImage = viewImage;
@@ -678,25 +687,14 @@ function CharViewNodeInner({ id, data, selected }: Props) {
     const session = registerRequest();
 
     try {
-      setEditStatus('Restoring quality (Gemini Pro)\u2026');
-      const results = await generateWithGeminiRef(RESTORE_PROMPT, srcImage, 'gemini-3-pro');
+      const { image: restored } = await restoreImageQuality(srcImage, {
+        onStatus: (msg) => { if (mountedRef.current) setEditStatus(msg); },
+      });
 
-      if (!mountedRef.current || session.signal.aborted) return;
-
-      let restored = results[0];
-      if (!restored) throw new Error('No image returned from restoration');
-
-      // Try upscale but don't fail the whole restore if it errors
-      try {
-        setEditStatus('Upscaling restored image\u2026');
-        restored = await upscaleWithImagen(restored, 'x2');
-      } catch (upErr) {
-        console.warn('[CharView] Upscale after restore failed (using restored image as-is):', upErr);
-      }
       if (!mountedRef.current || session.signal.aborted) return;
 
       const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
-      setEditStatus(`Quality restored in ${elapsed}s \u2713`);
+      setEditStatus(`Restored fresh in ${elapsed}s \u2713`);
 
       setEditedImage(restored);
       setNodes((nds) =>
@@ -704,7 +702,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
           n.id === id ? { ...n, data: { ...n.data, generatedImage: restored } } : n,
         ),
       );
-      pushHistory(restored, 'Quality Restored');
+      pushHistory(restored, `Restore (${elapsed}s)`);
       setTimeout(() => { if (mountedRef.current) setEditStatus(null); }, 4000);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -911,8 +909,8 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         fullPrompt += `\n\nAdditional instructions: ${userEdit}`;
       }
 
-      const modelLabel = editModel === 'gemini-flash-image' ? 'Flash' : 'Pro';
-      setEditStatus(`Generating (Gemini ${modelLabel})…`);
+      const modelLabel = editModel === 'gemini-flash-image' ? 'NB2' : 'NB Pro';
+      setEditStatus(`Generating (${modelLabel})…`);
 
       const results = await generateWithGeminiRef(fullPrompt, refImages, editModel);
 
@@ -1196,7 +1194,35 @@ function CharViewNodeInner({ id, data, selected }: Props) {
 
       {!compact && (
         <div className="char-viewer-toolbar">
-          <button className="char-btn nodrag" onClick={handleOpenImage}>Open</button>
+          <button className="char-btn nodrag" onClick={handleOpenImage}>Open IMG</button>
+          <button className="char-btn nodrag" onClick={async () => {
+            try {
+              const items = await navigator.clipboard.read();
+              for (const item of items) {
+                const imgType = item.types.find((t) => t.startsWith('image/'));
+                if (imgType) {
+                  const blob = await item.getType(imgType);
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    const url = reader.result as string;
+                    const parts = url.split(',');
+                    const mime = parts[0].match(/:(.*?);/)?.[1] ?? 'image/png';
+                    handlePasteImage({ base64: parts[1], mimeType: mime });
+                  };
+                  reader.readAsDataURL(blob);
+                }
+              }
+            } catch { /* clipboard may be unavailable */ }
+          }}>Paste IMG</button>
+          {viewImage && (
+            <button className="char-btn nodrag" onClick={async () => {
+              try {
+                const resp = await fetch(`data:${viewImage.mimeType};base64,${viewImage.base64}`);
+                const blob = await resp.blob();
+                await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+              } catch { /* clipboard may be unavailable */ }
+            }}>Copy IMG</button>
+          )}
           {!isMain && (
             <button
               className="char-btn nodrag"
@@ -1291,8 +1317,11 @@ function CharViewNodeInner({ id, data, selected }: Props) {
                 opacity: anyBusy ? 0.5 : 1,
               }}
             >
-              <option value="gemini-flash-image">⚡ Gemini Flash — 1024×1024 — ~5-10s</option>
-              <option value="gemini-3-pro">✦ Gemini 3 Pro — 2048×2048 — ~20-30s</option>
+              <option value="gemini-flash-image">⚡ NB2 (Gemini 3.1 Flash) — 4K — ~5-15s</option>
+              <option value="gemini-3-pro">✦ NB Pro (Gemini 3 Pro) — 4K — ~20-40s</option>
+              <option value="gemini-2.5-flash">⚡ Gemini 2.5 Flash — 1K — ~5-10s</option>
+              <option value="gemini-2.0-flash">⚡ Gemini 2.0 Flash — 1K — ~3-8s</option>
+              <option value="gemini-2.0-flash-lite">⚡ Gemini 2.0 Flash Lite — 1K — ~2-5s</option>
             </select>
           </div>
           {!isMain && !mainStageImage && (

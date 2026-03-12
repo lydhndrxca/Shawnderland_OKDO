@@ -9,13 +9,18 @@ import {
   type CharacterAttributes,
 } from '@/lib/ideation/engine/conceptlab/characterPrompts';
 import {
-  generateWithImagen4,
+  generateWithNanoBanana,
   generateWithGeminiRef,
+  generateWithImagen4,
+  getConfiguredResolution,
   type GeneratedImage,
+  type GeminiImageModel,
 } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { resolveNodeInfluences } from '@/lib/ideation/engine/conceptlab/resolveInfluences';
 import { getGlobalSettings } from '@/lib/globalSettings';
 import { createProcessingAnimator } from '@/lib/processingAnimation';
+import { IMAGE_GEN_MODELS, MULTIMODAL_MODELS, IMAGE_RESOLUTIONS, PRESET_KEY, loadPreset } from './ModelSettingsNode';
+import type { PresetData } from './ModelSettingsNode';
 import { NODE_TOOLTIPS } from './nodeTooltips';
 import './CharacterNodes.css';
 
@@ -26,39 +31,6 @@ interface Props {
 }
 
 const MAIN_VIEWER_TYPES = new Set(['charMainViewer', 'charViewer', 'charImageViewer']);
-
-/* ── Text-to-Image model options ── */
-interface ImagenModelDef {
-  id: string;
-  label: string;
-  timeEstimate: string;
-  supports2K: boolean;
-  maxRes: Record<string, string>;
-}
-
-const IMAGEN_MODELS: ImagenModelDef[] = [
-  {
-    id: 'imagen-4.0-generate-001',
-    label: 'Imagen 4',
-    timeEstimate: '~15-25s',
-    supports2K: true,
-    maxRes: { '1:1': '2048×2048', '9:16': '1536×2816', '16:9': '2816×1536', '3:4': '1792×2560', '4:3': '2560×1792' },
-  },
-  {
-    id: 'imagen-4.0-ultra-generate-001',
-    label: 'Imagen 4 Ultra',
-    timeEstimate: '~30-60s',
-    supports2K: true,
-    maxRes: { '1:1': '2048×2048', '9:16': '1536×2816', '16:9': '2816×1536', '3:4': '1792×2560', '4:3': '2560×1792' },
-  },
-  {
-    id: 'imagen-4.0-fast-generate-001',
-    label: 'Imagen 4 Fast',
-    timeEstimate: '~5-10s',
-    supports2K: false,
-    maxRes: { '1:1': '1024×1024', '9:16': '768×1408', '16:9': '1408×768', '3:4': '896×1280', '4:3': '1280×896' },
-  },
-];
 
 const ASPECT_RATIOS = [
   { value: '9:16', label: 'Portrait 9:16' },
@@ -111,26 +83,32 @@ function gatherInputs(
     } else if (src.type === 'charStyle') {
       if (d.styleText) styleText = d.styleText as string;
       const imgs = d.styleImages as GeneratedImage[] | undefined;
-      console.log(`[gatherInputs] Style node found — styleText="${(d.styleText as string || '').slice(0, 30)}", styleImages=${imgs ? imgs.length : 'undefined'}, hasBase64=${imgs?.[0]?.base64 ? 'yes(' + imgs[0].base64.length + ')' : 'no'}`);
       if (imgs && imgs.length > 0) styleImages.push(...imgs);
     } else if (src.type === 'charRefCallout') {
       const callout = (d.calloutText as string) || 'incorporate this item';
       const refEdges = edges.filter((re) => re.target === src.id);
+      console.log(`[gatherInputs] RefCallout "${callout}" — ${refEdges.length} incoming edges to callout node`);
       let foundImage: GeneratedImage | null = null;
       for (const re of refEdges) {
         const refSrc = getNode(re.source);
         if (!refSrc?.data) continue;
         const rd = refSrc.data as Record<string, unknown>;
+        console.log(`[gatherInputs]   → RefCallout source type="${refSrc.type}", hasGeneratedImage=${!!(rd.generatedImage as { base64?: string })?.base64}, hasImageBase64=${!!rd.imageBase64}`);
         const rImg = rd.generatedImage as GeneratedImage | undefined;
         if (rImg?.base64) { foundImage = rImg; break; }
         if (rd.imageBase64) { foundImage = { base64: rd.imageBase64 as string, mimeType: (rd.mimeType as string) || 'image/png' }; break; }
       }
       if (foundImage) {
+        console.log(`[gatherInputs]   ✓ RefCallout image found (${(foundImage.base64.length / 1024).toFixed(0)}KB), callout="${callout}"`);
         contentRefs.push({ image: foundImage, callout });
+      } else {
+        console.warn(`[gatherInputs]   ✗ RefCallout image NOT found for "${callout}"`);
       }
     } else if (src.type === 'charProject') {
       if (d.projectName) projectName = d.projectName as string;
       if (d.outputDir) outputDir = d.outputDir as string;
+    } else if (src.type === 'charModelSettings') {
+      // Model settings are handled separately now — ignore
     } else {
       const img = d.generatedImage as GeneratedImage | undefined;
       const callout = (d.calloutText as string) || '';
@@ -147,14 +125,12 @@ function gatherInputs(
     }
   }
 
-  // Extract parallel arrays for backward compat
   const refImages = contentRefs.map((r) => r.image);
   const callouts = contentRefs.map((r) => r.callout);
 
   return { identity, description, attributes, pose, styleText, styleImages, refImages, callouts, contentRefs, projectName, outputDir };
 }
 
-/** Find only main-stage viewer nodes downstream (through gates). */
 function findDownstreamMainViewers(
   nodeId: string,
   getNode: ReturnType<typeof useReactFlow>['getNode'],
@@ -224,6 +200,20 @@ async function autoSaveImage(
   }
 }
 
+function savePreset(data: PresetData) {
+  localStorage.setItem(PRESET_KEY, JSON.stringify(data));
+}
+
+const selectStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '5px 6px',
+  fontSize: 11,
+  background: '#1a1a2e',
+  color: '#eee',
+  border: '1px solid #444',
+  borderRadius: 4,
+};
+
 function GenerateCharImageNodeInner({ id, data, selected }: Props) {
   const { setNodes, setEdges, getNode, getEdges } = useReactFlow();
   const [generating, setGenerating] = useState(false);
@@ -231,29 +221,52 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [hasImage, setHasImage] = useState(!!data?.generatedImage);
   const mountedRef = useRef(true);
+  const [saved, setSaved] = useState(false);
 
-  const [selectedModel, setSelectedModel] = useState<string>(
-    (data?.selectedModel as string) ?? 'imagen-4.0-generate-001',
+  const preset = loadPreset();
+  const [imageGenModel, setImageGenModel] = useState<string>(
+    (data?.imageGenModelId as string) ?? preset?.imageGenModelId ?? IMAGE_GEN_MODELS[0].id,
   );
-  const [selectedAspectRatio, setSelectedAspectRatio] = useState<string>(
-    (data?.selectedAspectRatio as string) ?? '9:16',
+  const [multimodalModel, setMultimodalModel] = useState<string>(
+    (data?.multimodalModelId as string) ?? preset?.multimodalModelId ?? MULTIMODAL_MODELS[0].id,
   );
+  const [aspectRatio, setAspectRatio] = useState<string>(
+    (data?.aspectRatio as string) ?? preset?.aspectRatio ?? '9:16',
+  );
+  const [imageResolution, setImageResolution] = useState<string>(
+    (data?.imageResolution as string) ?? preset?.imageResolution ?? '2K',
+  );
+
+  const imgDef = IMAGE_GEN_MODELS.find((m) => m.id === imageGenModel) ?? IMAGE_GEN_MODELS[0];
+  const mmDef = MULTIMODAL_MODELS.find((m) => m.id === multimodalModel) ?? MULTIMODAL_MODELS[0];
 
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
 
-  const persistSetting = useCallback((updates: Record<string, unknown>) => {
+  const persist = useCallback((updates: Record<string, unknown>) => {
     setNodes((nds) =>
-      nds.map((n) =>
-        n.id === id ? { ...n, data: { ...n.data, ...updates } } : n,
-      ),
+      nds.map((n) => n.id === id ? { ...n, data: { ...n.data, ...updates } } : n),
     );
   }, [id, setNodes]);
 
-  const currentModelDef = IMAGEN_MODELS.find((m) => m.id === selectedModel) ?? IMAGEN_MODELS[0];
-  const currentMaxRes = currentModelDef.maxRes[selectedAspectRatio] ?? 'auto';
+  useEffect(() => {
+    persist({
+      imageGenModelId: imageGenModel,
+      imageGenApiId: imgDef.apiId,
+      multimodalModelId: multimodalModel,
+      multimodalApiId: mmDef.apiId,
+      aspectRatio,
+      imageResolution,
+    });
+  }, [imageGenModel, multimodalModel, aspectRatio, imageResolution, imgDef.apiId, mmDef.apiId, persist]);
+
+  const handleSavePreset = useCallback(() => {
+    savePreset({ imageGenModelId: imageGenModel, multimodalModelId: multimodalModel, aspectRatio, imageResolution });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }, [imageGenModel, multimodalModel, aspectRatio, imageResolution]);
 
   const handleGenerate = useCallback(async () => {
     setGenerating(true);
@@ -273,6 +286,7 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
       const callouts = contentRefs.map((r) => r.callout);
 
       console.log(`[GenerateCharImage] Inputs — style imgs: ${styleImages.length}, content refs: ${contentRefs.length} [${callouts.join('; ')}], styleText: "${styleText.slice(0, 50)}", desc: ${description.length} chars`);
+      console.log(`[GenerateCharImage] Models — imageGen: ${imgDef.label} (${imgDef.apiId}), multimodal: ${mmDef.label} (${mmDef.apiId}), resolution: ${imageResolution}`);
       setProgress(`Inputs: ${styleImages.length} style img${styleImages.length !== 1 ? 's' : ''}, ${contentRefs.length} content ref${contentRefs.length !== 1 ? 's' : ''}${callouts.length > 0 ? ` (${callouts.join(', ')})` : ''}`);
 
       if (!pose && attributes.pose) {
@@ -296,10 +310,10 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
       }
 
       const genMode = styleImages.length > 0
-        ? `Gemini + ${styleImages.length} style ref${contentRefs.length > 0 ? ` + ${contentRefs.length} content ref` : ''}`
+        ? `${mmDef.label} + ${styleImages.length} style ref${contentRefs.length > 0 ? ` + ${contentRefs.length} content ref` : ''}`
         : contentRefs.length > 0
-          ? `Gemini + ${contentRefs.length} content ref`
-          : `${currentModelDef.label}, ${selectedAspectRatio}, ${currentMaxRes}`;
+          ? `${mmDef.label} + ${contentRefs.length} content ref`
+          : `${imgDef.label}, ${aspectRatio}, ${imageResolution}`;
       setProgress(`Generating (${genMode})...`);
       const mainViewerIdsEarly = findDownstreamMainViewers(id, getNode, getEdges);
       setNodes((nds) =>
@@ -311,13 +325,13 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
         }),
       );
 
-      // Helper: classify callout intent for more explicit AI instructions
       function calloutVerb(text: string): string {
         const t = text.toLowerCase();
         if (t.includes('hold') || t.includes('carry') || t.includes('grip')) return 'be holding';
         if (t.includes('wear') || t.includes('put on') || t.includes('dress')) return 'be wearing';
         if (t.includes('ride') || t.includes('sit on') || t.includes('mount')) return 'be riding/sitting on';
         if (t.includes('stand on') || t.includes('stand in')) return 'be standing on/in';
+        if (t.includes('add') || t.includes('include')) return 'incorporate';
         return 'have';
       }
 
@@ -326,7 +340,6 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
         const allRefImages = [...styleImages, ...refImages];
         const styleDesc = styleText ? `The user describes the target style as: "${styleText}". Use this description to further guide your style analysis. ` : '';
 
-        // Build image layout with precise numbering
         const imageLines: string[] = [];
         styleImages.forEach((_, i) => {
           imageLines.push(`• Image ${i + 1}: STYLE REFERENCE — extract ONLY the art style. Do NOT copy characters, objects, or scene from this image.`);
@@ -337,7 +350,6 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
         });
         const imageIndexing = `IMAGE LAYOUT — I am providing ${allRefImages.length} image(s) in this order:\n${imageLines.join('\n')}`;
 
-        // Build mandatory content reference instructions
         const calloutSection = contentRefs.length > 0
           ? `\n\n⚠️ CONTENT REFERENCE INSTRUCTIONS — MANDATORY, DO NOT SKIP:\n${contentRefs.map((ref, i) => {
   const imgIdx = styleImages.length + i + 1;
@@ -370,9 +382,13 @@ ${styleDesc}${hasStyleRefs ? 'Now generate a NEW image depicting the following c
 ${fullPrompt}
 ${styleRules}
 ${contentRefs.length > 0 ? `- Every content reference item MUST appear on the character. This is MANDATORY — do not skip any.` : ''}`;
-        result = await generateWithGeminiRef(prompt, allRefImages);
+
+        console.log(`[GenerateCharImage] Using multimodal (${mmDef.label}) with ${allRefImages.length} ref images. Prompt length: ${prompt.length}`);
+        result = await generateWithGeminiRef(prompt, allRefImages, mmDef.apiId as GeminiImageModel);
+      } else if (imgDef.apiId.startsWith('imagen-')) {
+        result = await generateWithImagen4(fullPrompt, aspectRatio, 1, imgDef.apiId);
       } else {
-        result = await generateWithImagen4(fullPrompt, selectedAspectRatio, 1, selectedModel);
+        result = await generateWithNanoBanana(fullPrompt, aspectRatio, 1);
       }
       const mainImage = result[0];
       setHasImage(true);
@@ -386,7 +402,7 @@ ${contentRefs.length > 0 ? `- Every content reference item MUST appear on the ch
                 ...n.data,
                 generatedImage: mainImage,
                 characterDescription: desc,
-                aspectRatio: selectedAspectRatio,
+                aspectRatio,
               },
             };
           }
@@ -427,7 +443,7 @@ ${contentRefs.length > 0 ? `- Every content reference item MUST appear on the ch
       );
       anim.clearAll();
     }
-  }, [id, getNode, getEdges, setNodes, setEdges, selectedModel, selectedAspectRatio, currentModelDef, currentMaxRes]);
+  }, [id, getNode, getEdges, setNodes, setEdges, imgDef, mmDef, aspectRatio, imageResolution]);
 
   return (
     <div className={`char-node ${selected ? 'selected' : ''} ${generating ? 'char-node-processing' : ''}`}
@@ -435,72 +451,108 @@ ${contentRefs.length > 0 ? `- Every content reference item MUST appear on the ch
       <div className="char-node-header" style={{ background: '#e91e63' }}>
         Generate Character Image
       </div>
-      <div className="char-node-body">
-        {/* ── Model Selector ── */}
-        <div style={{ marginBottom: 6 }}>
-          <label style={{ fontSize: 10, color: '#aaa', display: 'block', marginBottom: 2 }}>Model</label>
-          <select
-            className="nodrag nowheel"
-            value={selectedModel}
-            onChange={(e) => { setSelectedModel(e.target.value); persistSetting({ selectedModel: e.target.value }); }}
-            disabled={generating}
-            style={{
-              width: '100%',
-              padding: '5px 6px',
-              fontSize: 11,
-              background: '#1a1a2e',
-              color: '#eee',
-              border: '1px solid #444',
-              borderRadius: 4,
-            }}
-          >
-            {IMAGEN_MODELS.map((m) => (
+      <div className="char-node-body" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+        {/* Image Gen Model */}
+        <div>
+          <label style={{ fontSize: 10, color: '#aaa', display: 'block', marginBottom: 2, fontWeight: 600 }}>
+            Image Generation Model
+          </label>
+          <span style={{ fontSize: 8, color: '#555', display: 'block', marginBottom: 2 }}>
+            Main stage character generation (text-to-image)
+          </span>
+          <select className="nodrag nowheel" value={imageGenModel} disabled={generating}
+            onChange={(e) => setImageGenModel(e.target.value)} style={selectStyle}>
+            {IMAGE_GEN_MODELS.map((m) => (
               <option key={m.id} value={m.id}>
-                {m.label} — {m.maxRes[selectedAspectRatio] ?? 'auto'} — {m.timeEstimate}
+                {m.label} — {m.maxRes[aspectRatio] ?? 'auto'} — {m.timeEstimate}
+              </option>
+            ))}
+          </select>
+          <div style={{ fontSize: 8, color: '#666', marginTop: 2 }}>{imgDef.note}</div>
+        </div>
+
+        {/* Multimodal Model */}
+        <div>
+          <label style={{ fontSize: 10, color: '#aaa', display: 'block', marginBottom: 2, fontWeight: 600 }}>
+            Multimodal Model
+          </label>
+          <span style={{ fontSize: 8, color: '#555', display: 'block', marginBottom: 2 }}>
+            Ortho views, edits, reference-based generation
+          </span>
+          <select className="nodrag nowheel" value={multimodalModel} disabled={generating}
+            onChange={(e) => setMultimodalModel(e.target.value)} style={selectStyle}>
+            {MULTIMODAL_MODELS.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label} — {m.timeEstimate}
               </option>
             ))}
           </select>
         </div>
 
-        {/* ── Aspect Ratio ── */}
-        <div style={{ marginBottom: 6 }}>
-          <label style={{ fontSize: 10, color: '#aaa', display: 'block', marginBottom: 2 }}>Aspect Ratio</label>
-          <select
-            className="nodrag nowheel"
-            value={selectedAspectRatio}
-            onChange={(e) => { setSelectedAspectRatio(e.target.value); persistSetting({ selectedAspectRatio: e.target.value }); }}
-            disabled={generating}
-            style={{
-              width: '100%',
-              padding: '5px 6px',
-              fontSize: 11,
-              background: '#1a1a2e',
-              color: '#eee',
-              border: '1px solid #444',
-              borderRadius: 4,
-            }}
-          >
+        {/* Aspect Ratio */}
+        <div>
+          <label style={{ fontSize: 10, color: '#aaa', display: 'block', marginBottom: 2, fontWeight: 600 }}>
+            Aspect Ratio
+          </label>
+          <select className="nodrag nowheel" value={aspectRatio} disabled={generating}
+            onChange={(e) => setAspectRatio(e.target.value)} style={selectStyle}>
             {ASPECT_RATIOS.map((ar) => (
-              <option key={ar.value} value={ar.value}>
-                {ar.label}
-              </option>
+              <option key={ar.value} value={ar.value}>{ar.label}</option>
             ))}
           </select>
         </div>
 
-        {/* ── Max Resolution Info ── */}
-        <div style={{ fontSize: 9, color: '#888', marginBottom: 8, textAlign: 'center' }}>
-          Output: {currentMaxRes}{currentModelDef.supports2K ? ' (2K mode)' : ''}
+        {/* Resolution */}
+        <div>
+          <label style={{ fontSize: 10, color: '#aaa', display: 'block', marginBottom: 2, fontWeight: 600 }}>
+            Output Resolution
+          </label>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {IMAGE_RESOLUTIONS.map((r) => (
+              <button key={r.value} type="button" className="nodrag"
+                onClick={() => setImageResolution(r.value)} disabled={generating}
+                style={{
+                  flex: 1, padding: '5px 2px', fontSize: 10, fontWeight: imageResolution === r.value ? 700 : 500,
+                  borderRadius: 4, cursor: generating ? 'default' : 'pointer',
+                  border: imageResolution === r.value ? '1px solid rgba(233,30,99,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                  background: imageResolution === r.value ? 'rgba(233,30,99,0.15)' : 'transparent',
+                  color: imageResolution === r.value ? '#f48fb1' : '#777',
+                  transition: 'all 0.15s',
+                }}>
+                {r.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <button type="button" className="char-btn primary nodrag" onClick={handleGenerate} disabled={generating}>
+        {/* Save Preset */}
+        <button type="button" className="nodrag" onClick={handleSavePreset}
+          style={{
+            width: '100%', height: 26, fontSize: 9, padding: 0,
+            background: saved ? 'rgba(105,240,174,0.12)' : 'rgba(233,30,99,0.08)',
+            border: saved ? '1px solid rgba(105,240,174,0.3)' : '1px solid rgba(233,30,99,0.2)',
+            borderRadius: 4, color: saved ? '#69f0ae' : '#f48fb1',
+            fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+          }}>
+          {saved ? '✓ Saved as Default' : 'Save as Default Preset'}
+        </button>
+
+        {/* Generate Button */}
+        <button type="button" className="nodrag" onClick={handleGenerate} disabled={generating}
+          style={{
+            width: '100%', height: 34, padding: 0, fontSize: 12, fontWeight: 700,
+            background: 'var(--accent)', border: '1px solid var(--accent)',
+            borderRadius: 4, color: '#fff', cursor: generating ? 'default' : 'pointer',
+            opacity: generating ? 0.5 : 1, transition: 'all 0.15s',
+          }}>
           {generating ? 'Generating...' : 'Generate Character Image'}
         </button>
         {generating && <div className="char-progress">{progress || 'Creating character...'}</div>}
         {error && <div className="char-error">{error}</div>}
         {hasImage && !generating && (
           <div style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'center' }}>
-            Image sent to Main Stage — ortho views auto-generate
+            Image sent to Main Stage
           </div>
         )}
       </div>

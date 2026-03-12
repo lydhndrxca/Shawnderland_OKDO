@@ -8,6 +8,7 @@ import {
   type ModelOption,
 } from '@/app/ideation/canvas/nodes/modelCatalog';
 import { proxyGenerate } from '@/lib/ideation/engine/aiProxy';
+import { getConfiguredResolution } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { ImageContextMenu } from '@/components/ImageContextMenu';
 
 interface ImageGenNodeProps {
@@ -97,9 +98,16 @@ function ImageGenNodeInner({ id, selected }: ImageGenNodeProps) {
         const parts: Array<Record<string, unknown>> = [];
         parts.push({ inlineData: { mimeType: refImage!.mimeType, data: refImage!.base64 } });
         parts.push({ text: prompt });
+        const nb2CapRef = model.modelId === 'gemini-3.1-flash-image-preview' || model.modelId === 'gemini-3-pro-image-preview';
+        const resRef = getConfiguredResolution();
+        const imgCfgRef = nb2CapRef && resRef !== '1K' ? { imageSize: resRef } : undefined;
         const json = await proxyGenerate(model.modelId, 'generateContent', {
           contents: [{ parts }],
-          generationConfig: { responseModalities: ['TEXT', 'IMAGE'], temperature: 0.8 },
+          generationConfig: {
+            responseModalities: ['TEXT', 'IMAGE'],
+            temperature: 0.8,
+            ...(imgCfgRef && { imageConfig: imgCfgRef }),
+          },
         }) as { candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { mimeType: string; data: string } }> } }> };
 
         const resParts = json?.candidates?.[0]?.content?.parts ?? [];
@@ -119,10 +127,16 @@ function ImageGenNodeInner({ id, selected }: ImageGenNodeProps) {
       } else {
         const modelId = model.modelId.includes('gemini')
           ? model.modelId
-          : 'gemini-2.0-flash-exp';
+          : 'gemini-3.1-flash-image-preview';
+        const nb2CapGen = modelId === 'gemini-3.1-flash-image-preview' || modelId === 'gemini-3-pro-image-preview';
+        const resGen = getConfiguredResolution();
+        const imgCfgGen = nb2CapGen && resGen !== '1K' ? { imageSize: resGen } : undefined;
         const json = await proxyGenerate(modelId, 'generateContent', {
           contents: [{ parts: [{ text: `Generate an image: ${prompt}. Aspect ratio: ${aspectRatio}.` }] }],
-          generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+          generationConfig: {
+            responseModalities: ['TEXT', 'IMAGE'],
+            ...(imgCfgGen && { imageConfig: imgCfgGen }),
+          },
         }) as { candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { mimeType: string; data: string } }> } }> };
 
         const resParts = json?.candidates?.[0]?.content?.parts ?? [];

@@ -3,7 +3,7 @@
 import { memo, useState, useCallback, useRef } from 'react';
 import { Handle, Position, NodeResizer, useReactFlow } from '@xyflow/react';
 import {
-  generateWithImagen4,
+  generateWithNanoBanana,
   generateWithGeminiRef,
   type GeneratedImage,
 } from '@/lib/ideation/engine/conceptlab/imageGenApi';
@@ -63,7 +63,7 @@ function CustomViewNodeInner({ id, data, selected }: Props) {
         const prompt = `Create a custom view of this character as described:\n${viewPrompt.trim()}\n\nPreserve the exact character design, clothing, and details.`;
         result = await generateWithGeminiRef(prompt, sourceImage);
       } else {
-        result = await generateWithImagen4(viewPrompt.trim(), '9:16', 1);
+        result = await generateWithNanoBanana(viewPrompt.trim(), '9:16', 1);
       }
       if (result[0]) {
         setResultImage(result[0]);
@@ -213,7 +213,39 @@ function CustomViewNodeInner({ id, data, selected }: Props) {
       </div>
       {error && <div className="char-error" style={{ margin: '0 10px 6px' }}>{error}</div>}
       <div className="char-viewer-toolbar">
-        <button type="button" className="char-btn nodrag" onClick={handleOpenImage}>Open</button>
+        <button type="button" className="char-btn nodrag" onClick={handleOpenImage}>Open IMG</button>
+        <button type="button" className="char-btn nodrag" onClick={async () => {
+          try {
+            const items = await navigator.clipboard.read();
+            for (const item of items) {
+              const imgType = item.types.find((t) => t.startsWith('image/'));
+              if (imgType) {
+                const blob = await item.getType(imgType);
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const url = reader.result as string;
+                  const parts = url.split(',');
+                  const mime = parts[0].match(/:(.*?);/)?.[1] ?? 'image/png';
+                  const img: GeneratedImage = { base64: parts[1], mimeType: mime };
+                  setResultImage(img);
+                  setNodes((nds) => nds.map((n) =>
+                    n.id === id ? { ...n, data: { ...n.data, generatedImage: img } } : n,
+                  ));
+                };
+                reader.readAsDataURL(blob);
+              }
+            }
+          } catch { /* clipboard may be unavailable */ }
+        }}>Paste IMG</button>
+        {resultImage && (
+          <button type="button" className="char-btn nodrag" onClick={async () => {
+            try {
+              const resp = await fetch(`data:${resultImage.mimeType};base64,${resultImage.base64}`);
+              const blob = await resp.blob();
+              await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+            } catch { /* clipboard may be unavailable */ }
+          }}>Copy IMG</button>
+        )}
         <button type="button" className="char-btn nodrag" onClick={handleResetView}>Reset</button>
         <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
         <span className="char-viewer-zoom-info">{Math.round(zoom * 100)}%</span>

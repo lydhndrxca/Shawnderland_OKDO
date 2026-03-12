@@ -265,6 +265,22 @@ function ConceptLabCanvas() {
         onRedo={cs.redo}
         onDuplicate={cs.duplicateSelected}
         onFitView={handleFitView}
+        onResetNodes={() => {
+          const snapshot = cs.nodes.map((n: any) => ({
+            id: n.id,
+            position: n.position,
+            type: n.type,
+            style: n.style,
+            data: {},
+          }));
+          const edgeSnapshot = [...cs.edges];
+          cs.setNodes([]);
+          cs.setEdges([]);
+          requestAnimationFrame(() => {
+            cs.setNodes(snapshot);
+            cs.setEdges(edgeSnapshot);
+          });
+        }}
         onClear={handleClear}
         onExportSelectedNodesOnly={cs.exportSelectedNodesOnly}
         onExportSelectedWithConnections={cs.exportSelectedWithConnections}

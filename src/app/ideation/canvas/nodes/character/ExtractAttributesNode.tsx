@@ -20,13 +20,30 @@ interface Props {
   selected?: boolean;
 }
 
-const DESCRIBE_IMAGE_PROMPT = `Analyze this image and write a 2-3 paragraph FULL-BODY character appearance summary — from head to toe — even if the image only shows part of the character.
-Focus on appearance: age, race, build, face, hair (color, length, texture, style), and clothing/gear from head to toe (materials, colors, condition, fit).
-Do NOT describe actions, pose, or what the person is doing. Do NOT mention background, setting, environment, or props outside the outfit.
-IMPORTANT: Explicitly state the body build using ONE of these exact terms: ${BUILD_OPTIONS.join(', ')}.
-Also describe body size/weight in plain language so it is unmistakable.
-CRITICAL: You must describe the ENTIRE character head-to-toe. If any part of the body is cropped, obscured, or not shown (lower body, feet, hands, back), you MUST extrapolate and describe what those parts would look like — design appropriate clothing, footwear, gloves, accessories, etc. that match the visible style, materials, era, and color palette. Write your extrapolations as confident descriptions, not guesses. NEVER say "not visible", "not shown", or "unknown".
-Return ONLY the description text, no JSON or formatting.`;
+const DESCRIBE_IMAGE_PROMPT = `You are a forensic-level character appearance analyst. Study this image with extreme precision and write a DETAILED head-to-toe description that another artist could use to recreate this EXACT character.
+
+STRUCTURE your description in this exact order:
+
+1. FACE & HEAD: Exact skin tone (not just "pale" — specify undertone), eye color and any unusual qualities (e.g. milky, glowing, heterochromia), eyebrow shape/color, lip color/shape, facial marks/scars/tattoos, makeup details. Hair: exact color (platinum blonde vs ash blonde vs silver-white), length, texture (straight/wavy/curly), styling, parting.
+
+2. NECK & UPPER BODY: Necklaces/chokers (exact pendant shapes, materials, chain type), visible tattoos/marks/scars on chest/neck (describe symbol, size, placement precisely), collar details.
+
+3. TORSO CLOTHING: Layer by layer from outermost to innermost. For EACH layer specify: garment type, exact material (leather, velvet, cotton, mesh), color, construction details (buttons, zippers, lacing, studs — count/pattern/placement), fit (tight, loose, cropped), and condition.
+
+4. ARMS & HANDS: Sleeve details, gloves or bare hands, rings (which fingers, material, design), bracelets, watches, arm tattoos.
+
+5. LOWER BODY: Skirt/pants type, material, length, shape (A-line, pencil, high-low hem). Underneath layers: stockings/tights/fishnets (material, color, opacity). Specify if legs are bare.
+
+6. FOOTWEAR: Boot/shoe type, height (ankle, mid-calf, knee-high), material, color, closure (laces, zippers, buckles), sole type, condition.
+
+RULES:
+- Be SPECIFIC not generic. "Black studded leather jacket with three rows of silver dome studs along each sleeve" NOT "studded leather jacket".
+- Name exact colors: "milky white with no visible iris" NOT "light eyes".
+- If something is UNIQUE or DISTINCTIVE (unusual eyes, tattoos, specific jewelry), emphasize it prominently.
+- Body build MUST use one of: ${BUILD_OPTIONS.join(', ')}.
+- If any body part is cropped/hidden, extrapolate confidently from the visible style. Never say "not visible".
+- Do NOT describe pose, actions, background, or setting.
+- Return ONLY the description text, no JSON or formatting.`;
 
 function bestMatch(value: string, options: string[]): string {
   if (!value) return '';

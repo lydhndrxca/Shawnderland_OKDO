@@ -8,7 +8,11 @@ export type ShotType =
   | "aerial"
   | "low-angle"
   | "dutch-angle"
-  | "tracking";
+  | "tracking"
+  | "insert"
+  | "reaction"
+  | "ambient"
+  | "transition";
 
 export type CameraMove =
   | "static"
@@ -50,6 +54,10 @@ export interface Shot {
   audioNote: string;
   sfxNote: string;
   order: number;
+  visualDescription: string;
+  narration: string;
+  onScreenText: string;
+  soundNotes: string;
 }
 
 export interface Beat {
@@ -58,13 +66,16 @@ export interface Beat {
   description: string;
   color: string;
   order: number;
+  startMs: number;
+  endMs: number;
+  breakdown: string;
 }
 
 export interface ArcTemplate {
   id: string;
   name: string;
   description: string;
-  beats: Omit<Beat, "id">[];
+  beats: Omit<Beat, "id" | "startMs" | "endMs" | "breakdown">[];
 }
 
 export interface WalterProject {
@@ -78,4 +89,22 @@ export interface WalterProject {
   fps: number;
   createdAt: number;
   updatedAt: number;
+  storyOverview: string;
+}
+
+export type TabId = "episode" | "storyboard" | "timeline" | "ideation" | "export";
+
+export interface ToastItem {
+  id: string;
+  message: string;
+  type: "info" | "success" | "error" | "warning";
+}
+
+export interface IdeaCard {
+  id: string;
+  text: string;
+  operator: string;
+  starred: boolean;
+  stage: "diverge" | "expand";
+  parentId?: string;
 }

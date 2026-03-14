@@ -158,6 +158,23 @@ src/app/
       WeapComponentsNode.tsx    Weapon component fields
       ConceptLabNodes.css       Shared ConceptLab node styles
 
+  walter/                       Walter Storyboarding (AI storyboard generator)
+    WalterShell.tsx/.css        Main shell (topbar + 3-panel layout + timeline)
+    store.ts                    External store (projects, beats, shots)
+    types.ts                    Shot, Beat, WalterProject types
+    arcTemplates.ts             Arc templates (3-Act, Hero's Journey, etc.)
+    episodePresets.ts            Episode presets + WALTER_CONTEXT prompt
+    aiWriter.ts                 AI pipeline (ideate, critique, breakdown, detail, refine)
+    components/
+      BeatSidebar.tsx           Left panel: beat list
+      ShotGrid.tsx              Center: shot cards by beat
+      ShotEditor.tsx            Right panel: shot property editor
+      Timeline.tsx              Bottom: timeline segments
+      AIWriterPanel.tsx         Multi-step AI storyboard generator
+      SceneRefiner.tsx          Per-scene AI rework
+      ExportDialog.tsx          CapCut-ready JSON export
+      ConceptCard.tsx           AI concept card with scores
+
   gemini-studio/                Gemini Studio (consumer AI media generation)
     GeminiStudioShell.tsx/.css  Canvas shell with useCanvasSession
     GeminiStudioDock.tsx        Node template dock
@@ -301,6 +318,9 @@ scroll position, and in-flight requests.
   useSyncExternalStore. No React Context — the store is a module-level
   singleton accessed via hook. GlobalToolbar and CanvasContextMenu
   map to store actions.
+- **Walter**: Singleton external store (`useWalterStore`) with
+  `useSyncExternalStore`. Projects, beats, shots persisted to localStorage.
+  AI Writer calls Gemini via `generateText()` from `imageGenApi.ts`.
 - **UI Lab**: React Context (UILabContext).
 - **Hub**: WorkspaceContext for navigation and keep-alive.
 

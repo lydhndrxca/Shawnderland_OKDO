@@ -1,5 +1,8 @@
 import { useSyncExternalStore } from "react";
-import type { WalterProject, Shot, Beat, ShotType, CameraMove, TransitionType } from "./types";
+import type {
+  WalterProject, Shot, Beat, ShotType, CameraMove, TransitionType,
+  TabId, ToastItem, IdeaCard,
+} from "./types";
 import { ARC_TEMPLATES } from "./arcTemplates";
 
 function uid() {
@@ -27,6 +30,11 @@ interface StoreState {
   activeProjectId: string | null;
   selectedShotId: string | null;
   selectedBeatId: string | null;
+  activeTab: TabId;
+  playheadMs: number;
+  toasts: ToastItem[];
+  ideas: IdeaCard[];
+  seedPrompt: string;
 }
 
 let state: StoreState = {
@@ -34,6 +42,11 @@ let state: StoreState = {
   activeProjectId: localStorage.getItem(LS_ACTIVE) || null,
   selectedShotId: null,
   selectedBeatId: null,
+  activeTab: "episode",
+  playheadMs: 0,
+  toasts: [],
+  ideas: [],
+  seedPrompt: "",
 };
 
 const listeners = new Set<() => void>();
@@ -72,13 +85,42 @@ function updateProject(id: string, updater: (p: WalterProject) => WalterProject)
   persistProjects();
 }
 
+function defaultShot(beatId: string, order: number, totalShots: number): Shot {
+  return {
+    id: uid(),
+    beatId,
+    title: `Shot ${totalShots + 1}`,
+    description: "",
+    dialogue: "",
+    voiceOver: "",
+    shotType: "medium",
+    cameraMove: "static",
+    transition: "cut",
+    durationSec: 3,
+    thumbnailUrl: "",
+    audioNote: "",
+    sfxNote: "",
+    order,
+    visualDescription: "",
+    narration: "",
+    onScreenText: "",
+    soundNotes: "",
+  };
+}
+
 export const walterActions = {
   createProject(name: string, arcTemplateId: string) {
     const template = ARC_TEMPLATES.find((t) => t.id === arcTemplateId);
+    const totalMs = 60000;
+    const beatCount = template?.beats.length || 1;
+    const msPerBeat = totalMs / beatCount;
     const beats: Beat[] = (template?.beats ?? []).map((b, i) => ({
       ...b,
       id: uid(),
       order: i,
+      startMs: Math.round(i * msPerBeat),
+      endMs: Math.round((i + 1) * msPerBeat),
+      breakdown: "",
     }));
     const project: WalterProject = {
       id: uid(),
@@ -87,20 +129,27 @@ export const walterActions = {
       arcTemplateId,
       beats,
       shots: [],
-      aspectRatio: "16:9",
+      aspectRatio: "9:16",
       fps: 30,
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      storyOverview: "",
     };
     const projects = [...state.projects, project];
-    update({ projects, activeProjectId: project.id, selectedShotId: null, selectedBeatId: null });
+    update({
+      projects,
+      activeProjectId: project.id,
+      selectedShotId: null,
+      selectedBeatId: null,
+      activeTab: "episode",
+    });
     localStorage.setItem(LS_ACTIVE, project.id);
     persistProjects();
     return project.id;
   },
 
   openProject(id: string) {
-    update({ activeProjectId: id, selectedShotId: null, selectedBeatId: null });
+    update({ activeProjectId: id, selectedShotId: null, selectedBeatId: null, activeTab: "episode" });
     localStorage.setItem(LS_ACTIVE, id);
   },
 
@@ -113,10 +162,14 @@ export const walterActions = {
     persistProjects();
   },
 
-  updateProjectMeta(fields: Partial<Pick<WalterProject, "name" | "description" | "aspectRatio" | "fps">>) {
+  updateProjectMeta(fields: Partial<Pick<WalterProject, "name" | "description" | "aspectRatio" | "fps" | "storyOverview">>) {
     const p = getActiveProject();
     if (!p) return;
     updateProject(p.id, (proj) => ({ ...proj, ...fields }));
+  },
+
+  setActiveTab(tab: TabId) {
+    update({ activeTab: tab });
   },
 
   selectShot(id: string | null) {
@@ -127,15 +180,35 @@ export const walterActions = {
     update({ selectedBeatId: id });
   },
 
+  setPlayhead(ms: number) {
+    update({ playheadMs: Math.max(0, ms) });
+  },
+
+  addToast(message: string, type: ToastItem["type"] = "info") {
+    const toast: ToastItem = { id: uid(), message, type };
+    update({ toasts: [...state.toasts, toast] });
+    setTimeout(() => {
+      update({ toasts: state.toasts.filter((t) => t.id !== toast.id) });
+    }, 4000);
+  },
+
+  removeToast(id: string) {
+    update({ toasts: state.toasts.filter((t) => t.id !== id) });
+  },
+
   addBeat(label: string) {
     const p = getActiveProject();
     if (!p) return;
+    const totalMs = p.shots.reduce((sum, s) => sum + s.durationSec * 1000, 0) || 60000;
     const beat: Beat = {
       id: uid(),
       label,
       description: "",
       color: "#64748b",
       order: p.beats.length,
+      startMs: totalMs,
+      endMs: totalMs + 5000,
+      breakdown: "",
     };
     updateProject(p.id, (proj) => ({ ...proj, beats: [...proj.beats, beat] }));
     return beat.id;
@@ -165,22 +238,7 @@ export const walterActions = {
     const p = getActiveProject();
     if (!p) return;
     const shotsInBeat = p.shots.filter((s) => s.beatId === beatId);
-    const shot: Shot = {
-      id: uid(),
-      beatId,
-      title: `Shot ${p.shots.length + 1}`,
-      description: "",
-      dialogue: "",
-      voiceOver: "",
-      shotType: "medium",
-      cameraMove: "static",
-      transition: "cut",
-      durationSec: 3,
-      thumbnailUrl: "",
-      audioNote: "",
-      sfxNote: "",
-      order: shotsInBeat.length,
-    };
+    const shot = defaultShot(beatId, shotsInBeat.length, p.shots.length);
     updateProject(p.id, (proj) => ({ ...proj, shots: [...proj.shots, shot] }));
     update({ selectedShotId: shot.id });
     return shot.id;
@@ -205,31 +263,6 @@ export const walterActions = {
     if (state.selectedShotId === shotId) update({ selectedShotId: null });
   },
 
-  reorderShots(beatId: string, orderedIds: string[]) {
-    const p = getActiveProject();
-    if (!p) return;
-    updateProject(p.id, (proj) => ({
-      ...proj,
-      shots: proj.shots.map((s) => {
-        if (s.beatId !== beatId) return s;
-        const idx = orderedIds.indexOf(s.id);
-        return idx >= 0 ? { ...s, order: idx } : s;
-      }),
-    }));
-  },
-
-  reorderBeats(orderedIds: string[]) {
-    const p = getActiveProject();
-    if (!p) return;
-    updateProject(p.id, (proj) => ({
-      ...proj,
-      beats: proj.beats.map((b) => {
-        const idx = orderedIds.indexOf(b.id);
-        return idx >= 0 ? { ...b, order: idx } : b;
-      }),
-    }));
-  },
-
   duplicateShot(shotId: string) {
     const p = getActiveProject();
     if (!p) return;
@@ -245,23 +278,74 @@ export const walterActions = {
     update({ selectedShotId: shot.id });
   },
 
+  reorderShots(beatId: string, orderedIds: string[]) {
+    const p = getActiveProject();
+    if (!p) return;
+    updateProject(p.id, (proj) => ({
+      ...proj,
+      shots: proj.shots.map((s) => {
+        if (s.beatId !== beatId) return s;
+        const idx = orderedIds.indexOf(s.id);
+        return idx >= 0 ? { ...s, order: idx } : s;
+      }),
+    }));
+  },
+
   applyArcTemplate(arcTemplateId: string) {
     const p = getActiveProject();
     if (!p) return;
     const template = ARC_TEMPLATES.find((t) => t.id === arcTemplateId);
     if (!template) return;
+    const totalMs = 60000;
+    const beatCount = template.beats.length || 1;
+    const msPerBeat = totalMs / beatCount;
     const beats: Beat[] = template.beats.map((b, i) => ({
       ...b,
       id: uid(),
       order: i,
+      startMs: Math.round(i * msPerBeat),
+      endMs: Math.round((i + 1) * msPerBeat),
+      breakdown: "",
     }));
     updateProject(p.id, (proj) => ({
       ...proj,
       arcTemplateId,
       beats,
       shots: [],
+      storyOverview: "",
     }));
     update({ selectedShotId: null, selectedBeatId: null });
+  },
+
+  updateBeatTiming(beatId: string, startMs: number, endMs: number) {
+    const p = getActiveProject();
+    if (!p) return;
+    updateProject(p.id, (proj) => ({
+      ...proj,
+      beats: proj.beats.map((b) =>
+        b.id === beatId ? { ...b, startMs, endMs } : b
+      ),
+    }));
+  },
+
+  setSeedPrompt(prompt: string) {
+    update({ seedPrompt: prompt });
+  },
+
+  setIdeas(ideas: IdeaCard[]) {
+    update({ ideas });
+  },
+
+  toggleStarIdea(id: string) {
+    update({
+      ideas: state.ideas.map((i) =>
+        i.id === id ? { ...i, starred: !i.starred } : i
+      ),
+    });
+  },
+
+  removeIdea(id: string) {
+    update({ ideas: state.ideas.filter((i) => i.id !== id) });
   },
 
   createProjectFromStructure(input: {
@@ -284,12 +368,19 @@ export const walterActions = {
       sfxNote?: string;
     }>;
   }): string {
+    const totalMs = input.shots.reduce((sum, s) => sum + s.durationSec * 1000, 0) || 60000;
+    const beatCount = input.beats.length || 1;
+    const msPerBeat = totalMs / beatCount;
+
     const beats: Beat[] = input.beats.map((b, i) => ({
       id: uid(),
       label: b.label,
       description: b.description,
       color: b.color,
       order: i,
+      startMs: Math.round(i * msPerBeat),
+      endMs: Math.round((i + 1) * msPerBeat),
+      breakdown: "",
     }));
 
     const shots: Shot[] = input.shots.map((s, i) => ({
@@ -307,6 +398,10 @@ export const walterActions = {
       audioNote: s.audioNote ?? "",
       sfxNote: s.sfxNote ?? "",
       order: i,
+      visualDescription: s.description,
+      narration: s.voiceOver ?? "",
+      onScreenText: "",
+      soundNotes: s.sfxNote ?? "",
     }));
 
     const project: WalterProject = {
@@ -320,6 +415,7 @@ export const walterActions = {
       fps: 30,
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      storyOverview: "",
     };
     const projects = [...state.projects, project];
     update({ projects, activeProjectId: project.id, selectedShotId: null, selectedBeatId: null });
@@ -342,15 +438,16 @@ export const walterActions = {
         const entry = {
           type: "video",
           name: shot.title,
-          description: shot.description,
+          description: shot.description || shot.visualDescription,
           beat: beat.label,
           shotType: shot.shotType,
           cameraMove: shot.cameraMove,
           transition: shot.transition,
           dialogue: shot.dialogue,
-          voiceOver: shot.voiceOver,
-          sfx: shot.sfxNote,
+          voiceOver: shot.voiceOver || shot.narration,
+          sfx: shot.sfxNote || shot.soundNotes,
           audio: shot.audioNote,
+          onScreenText: shot.onScreenText,
           startMs: offsetMs,
           endMs: offsetMs + durationMs,
           durationMs,

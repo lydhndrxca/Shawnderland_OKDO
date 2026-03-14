@@ -351,9 +351,43 @@ categories from `ALL_DOCK_CATEGORIES` in `sharedNodeTypes.ts`.
 
 All keys are server-side only — the client calls local proxy routes.
 
+## Walter Storyboarding — Storyboard Generator
+
+Full-application storyboard editor with AI-powered generation via Gemini.
+
+### Layout
+
+- **Top bar**: File menu (New, AI Generate, Recent Projects), project name,
+  beat/shot/duration stats, AI Writer button, Settings, Export
+- **Beat sidebar** (left): ordered list of narrative beats with color coding
+- **Shot grid** (center): shot cards grouped by beat with thumbnails,
+  shot type, camera move, transition, duration
+- **Shot editor** (right): detailed property editor for selected shot
+  with AI Rework (Scene Refiner)
+- **Timeline** (bottom): proportional shot segments with beat colors
+
+### AI Writer (Gemini)
+
+Multi-phase storyboard generation pipeline:
+
+1. **Ideate** — 4 distinct episode concepts from a user idea
+2. **Critique** — AI scores concepts on hook, emotion, visuals, pacing
+3. **Breakdown** — timed scene breakdown matching the arc template
+4. **Detail** — shot-level info (camera, transition, dialogue, SFX)
+5. **Refine** — per-scene AI rework with context awareness
+
+### Features
+
+- Auto-creates a project on first open (no landing page)
+- File menu with New Project, Generate with AI, Recent Projects
+- 8 arc templates (3-Act, Hero's Journey, Before/After, etc.)
+- 4 episode presets (Micro 18s, Short 35s, Standard 60s, Full 80s)
+- CapCut-ready JSON export with shot timings and audio notes
+- Project settings (name, description, aspect ratio, FPS, arc template)
+- localStorage persistence for all projects
+
 ## Pending
 
 - Sprite Lab sub-tool navigation and workspace pages
-- Walter web integration (extract timeline/storyboard from Electron)
 - Cross-tool data flow wiring on the hub canvas
 - Production build and deployment configuration

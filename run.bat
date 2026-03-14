@@ -8,10 +8,15 @@ echo.
 
 where node >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] Node.js not found in PATH.
-    echo         Install Node.js 18+ from https://nodejs.org
-    pause
-    exit /b 1
+    if exist "%LOCALAPPDATA%\node-portable\node-v22.16.0-win-x64\node.exe" (
+        echo       Using portable Node.js...
+        set "PATH=%LOCALAPPDATA%\node-portable\node-v22.16.0-win-x64;%PATH%"
+    ) else (
+        echo [ERROR] Node.js not found in PATH.
+        echo         Install Node.js 18+ from https://nodejs.org
+        pause
+        exit /b 1
+    )
 )
 
 echo [1/3] Checking dependencies...

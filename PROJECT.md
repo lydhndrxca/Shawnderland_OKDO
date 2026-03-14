@@ -11,7 +11,7 @@ Unified hub for AI creative tools. One interface, integrated toolsets.
 | AI UI Lab | Game UI generation, layout planning | PySide6, FastAPI, Gemini | Workspace UI |
 | AI ConceptLab | Unified canvas (same node set as ShawnderMind) | React, @xyflow/react, Imagen 4/Gemini | Functional |
 | Gemini Studio | Consumer AI media generation (image + video) | React, @xyflow/react, Imagen 4/Gemini/Veo | Functional |
-| Walter Storyboarding | Arc-guided video storyboarding | Electron, React, Zustand | Launcher only |
+| Walter Storyboarding | Arc-guided video storyboarding | React, Gemini | Functional |
 | Tool Editor | Visual tool designer with exportable AI-readable specs | React, @xyflow/react | Functional |
 
 ## ShawnderMind Features

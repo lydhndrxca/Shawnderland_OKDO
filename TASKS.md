@@ -51,6 +51,7 @@
 - [ ] Test ConceptLab end-to-end: Character generation + Turnaround views
 - [ ] Test dual-backend: verify Vertex AI endpoint format with live credentials
 - [ ] Test node compatibility: verify all error/warning scenarios fire correctly
+- [x] Walter: convert from landing page to functional application shell
 
 ## Next
 

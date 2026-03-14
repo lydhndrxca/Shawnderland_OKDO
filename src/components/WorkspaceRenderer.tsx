@@ -29,7 +29,7 @@ const ConceptLabShell = dynamic(
 );
 
 const WalterShell = dynamic(
-  () => import("@/app/walter/WalterShell"),
+  () => import("@tools/walter").then((m) => ({ default: m.WalterShell })),
   { ssr: false }
 );
 

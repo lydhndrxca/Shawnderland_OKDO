@@ -230,3 +230,58 @@ Two Gemini-powered companion nodes (Voice Designer, Dialogue Writer)
 generate text content that feeds into the ElevenLabs TTS node, creating
 a character-voice-prototyping pipeline: image → voice description →
 dialogue lines → synthesized audio.
+
+## 023 — Walter: Staged AI generation over single-prompt
+
+Walter uses a three-stage pipeline (story overview → beat breakdown →
+shot expansion) rather than a single large prompt. Rationale: staged
+generation gives finer controllability, allows user review between stages,
+and reduces risk of the model "forgetting" earlier context in long outputs.
+
+## 024 — Walter: Story blocks map to beats
+
+The timeline block library (Hook, Reveal, Dialogue Beat, etc.) uses the
+same concept as beats — adding a block creates a beat. Rationale:
+consistent naming avoids confusion between "block" and "beat" terminology;
+the UI presents blocks as building blocks that become beats on the timeline.
+
+## 025 — Walter: Canon memory in localStorage
+
+Walter Brain (characters, locations, lore, archived episodes) is stored
+in localStorage, consistent with existing project storage. Rationale:
+no new persistence layer; same portability and offline behavior as
+Walter projects; brain data is small enough for localStorage limits.
+
+## 026 — Walter: Scoped AI rewrite preserves surrounding narrative
+
+Double-clicking a beat band triggers AI rewrite of only that block.
+Rationale: full regeneration is destructive — users lose manual edits
+and surrounding context. Scoped rewrite lets users refine one beat
+without risking the rest of the storyboard.
+
+## 027 — Walter: Shoot sheet as plaintext format
+
+The shoot sheet export uses a plaintext format (not JSON or PDF).
+Rationale: portable, printable, no dependencies; filmmakers can paste
+into any document or print for on-set use; avoids PDF generation libraries.
+
+## 028 — Walter Brain seeded from real canon
+
+Walter Brain is seeded from analysis of 28 real Walter Instagram episodes,
+not synthetic data. Rationale: authentic canon produces more faithful
+AI output; characters, locations, and tone reflect actual series content.
+
+## 029 — Monorepo workspace extraction for tool isolation
+
+Tools are extracted into `tools/` as npm workspace packages. Rationale:
+keeps codebases separate, enables per-tool Cursor workspaces, shared UI
+propagates via `@shawnderland/ui` tokens, tools lazy-load via
+`next/dynamic`. Walter is the first extracted tool. Future tools
+(ShawnderMind, Gemini Studio) follow the same pattern.
+
+## 030 — Profile system for work/personal tool filtering
+
+Each tool is tagged with profiles (work, personal, or both). Sidebar,
+command palette, and home page filter by active profile. Stored in
+localStorage. Rationale: user needs work tools hidden during personal
+use and vice versa; no access control needed, just UI filtering.

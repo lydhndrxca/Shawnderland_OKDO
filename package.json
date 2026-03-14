@@ -2,6 +2,10 @@
   "name": "shawnderland-okdo",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "packages/*",
+    "tools/*"
+  ],
   "scripts": {
     "dev": "node scripts/kill-stale-dev.js && next dev",
     "build": "next build",

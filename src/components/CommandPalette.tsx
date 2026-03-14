@@ -5,6 +5,7 @@ import { Search, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { TOOLS } from "@/lib/registry";
 import { useWorkspace } from "@/lib/workspace/WorkspaceContext";
+import { getVisibleTools } from "@/lib/profiles";
 
 interface PaletteItem {
   id: string;
@@ -19,7 +20,7 @@ function buildItems(): PaletteItem[] {
     { id: "home", label: "Home", section: "Navigation", href: "/" },
   ];
 
-  for (const tool of TOOLS) {
+  for (const tool of getVisibleTools(TOOLS)) {
     items.push({
       id: tool.id,
       label: tool.name,
@@ -32,8 +33,6 @@ function buildItems(): PaletteItem[] {
   return items;
 }
 
-const ALL_ITEMS = buildItems();
-
 interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
@@ -45,13 +44,14 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const workspace = useWorkspace();
 
+  const allItems = buildItems();
   const filtered = query.trim()
-    ? ALL_ITEMS.filter(
+    ? allItems.filter(
         (item) =>
           item.label.toLowerCase().includes(query.toLowerCase()) ||
           item.section.toLowerCase().includes(query.toLowerCase())
       )
-    : ALL_ITEMS;
+    : allItems;
 
   const navigate = useCallback(
     (href: string) => {

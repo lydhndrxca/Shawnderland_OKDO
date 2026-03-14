@@ -1,3 +1,5 @@
+export type AppProfile = "work" | "personal";
+
 export interface ToolRegistryEntry {
   id: string;
   name: string;
@@ -12,6 +14,7 @@ export interface ToolRegistryEntry {
   startCommand: string;
   mode: "web" | "desktop" | "electron-only";
   hidden?: boolean;
+  profiles?: AppProfile[];
 }
 
 export interface ToolResponse<T = unknown> {

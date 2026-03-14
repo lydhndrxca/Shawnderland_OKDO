@@ -21,6 +21,7 @@ export const TOOLS: ToolRegistryEntry[] = [
     ],
     startCommand: "cd AI-Sprite-Lab && run.bat",
     mode: "web",
+    profiles: ["work"],
   },
   {
     id: "ideation",
@@ -42,6 +43,7 @@ export const TOOLS: ToolRegistryEntry[] = [
     ],
     startCommand: "cd ShawnderMind && npm run dev:web",
     mode: "web",
+    profiles: ["work", "personal"],
   },
   {
     id: "ui-lab",
@@ -62,6 +64,7 @@ export const TOOLS: ToolRegistryEntry[] = [
     ],
     startCommand: "cd AI_UI_Lab/service && run.bat",
     mode: "web",
+    profiles: ["work"],
   },
   {
     id: "concept-lab",
@@ -83,6 +86,7 @@ export const TOOLS: ToolRegistryEntry[] = [
     ],
     startCommand: 'cd "AI ConceptLab" && npm run dev:web',
     mode: "web",
+    profiles: ["work", "personal"],
   },
   {
     id: "gemini-studio",
@@ -103,6 +107,7 @@ export const TOOLS: ToolRegistryEntry[] = [
     ],
     startCommand: "",
     mode: "web",
+    profiles: ["work", "personal"],
   },
   {
     id: "walter",
@@ -123,7 +128,7 @@ export const TOOLS: ToolRegistryEntry[] = [
     ],
     startCommand: "",
     mode: "web",
-    hidden: false,
+    profiles: ["personal"],
   },
 ];
 

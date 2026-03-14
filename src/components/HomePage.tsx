@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { TOOLS } from '@/lib/registry';
+import { getVisibleTools } from '@/lib/profiles';
 import { useWorkspace } from '@/lib/workspace/WorkspaceContext';
 import { useStyleStore } from '@/lib/styles/useStyleStore';
 import './Home.css';
@@ -111,7 +112,7 @@ export default function HomePage() {
         <div className="home-section">
           <div className="home-section-title">Tools</div>
           <div className="home-tools-grid">
-            {TOOLS.filter((t) => !t.hidden).map((tool) => (
+            {getVisibleTools(TOOLS).map((tool) => (
               <div
                 key={tool.id}
                 className="home-tool-card"

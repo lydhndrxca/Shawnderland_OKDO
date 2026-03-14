@@ -26,7 +26,9 @@ unless they explicitly say otherwise (e.g. "only in Gemini Studio", "just for th
 2. **Gemini Studio** — `src/app/gemini-studio/`
 3. **Tool Editor** — `src/app/tool-editor/`
 4. **Shared components** — `src/components/` (e.g. ImageContextMenu, Sidebar)
-5. **Any future application** added to the project
+5. **Walter Storyboarding** — `tools/walter/src/` (extracted workspace package)
+6. **Shared design tokens** — `packages/ui/src/tokens.css`
+7. **Any future tool** added to `tools/*/`
 
 ## How to propagate
 

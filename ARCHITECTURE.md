@@ -50,9 +50,39 @@ from this module. No other file should construct API URLs directly.
 ## Project Structure
 
 ```
-packages/ui/                    @shawnderland/ui design system
-  src/canvas/                   PipelineEdge (used by HubCanvas)
-  src/                          Button, Input, Select, Textarea, tokens
+tools/                          Extracted tool workspace packages
+  walter/                       @tools/walter — Walter Storyboard Builder
+    src/
+      WalterShell.tsx/.css      Main shell (topbar + 3-panel layout + timeline)
+      walterBrain.ts            Canon memory: characters, locations, lore, 28 episodes
+      store.ts                  External store (projects, beats, shots); migrates old schema
+      types.ts                  Shot, Beat, WalterProject, brain entities, wizard steps
+      arcTemplates.ts           Arc templates (3-Act, Hero's Journey, etc.)
+      episodePresets.ts         5 runtime presets + 8 narrative arc templates
+      aiWriter.ts               Staged AI pipeline (overview → beats → shots)
+      lore/                     Episode lore reference (Gemini video analysis)
+        MASTER_ANALYSIS.md      Combined 28-episode master analysis
+        episode-01.md … 28.md   Per-episode detailed analysis
+        episodes.ts             Typed EpisodeMeta index for all 28 episodes
+      components/
+        EpisodeWizard.tsx      6-step guided creation flow
+        BeatSidebar.tsx         Left panel: beat list
+        ShotGrid.tsx            Center: shot cards by beat
+        ShotEditor.tsx          Right panel: shot property editor
+        Timeline.tsx            Bottom: timeline segments + block library
+        AIWriterPanel.tsx       Multi-step AI storyboard generator
+        SceneRefiner.tsx        Per-scene AI rework (scoped rewrite)
+        ExportDialog.tsx        CapCut JSON + Shoot Sheet plaintext export
+        ConceptCard.tsx         AI concept card with scores
+
+packages/
+  ui/                           @shawnderland/ui design system
+    src/canvas/                 PipelineEdge (used by HubCanvas)
+    src/                        Button, Input, Select, Textarea, tokens
+  ai/                           @shawnderland/ai — shared Gemini text generation utility
+    src/
+      generateText.ts           generateText() for Gemini API calls
+      index.ts                  Barrel export
 
 src/app/
   page.tsx                      Root page (App Router)
@@ -158,23 +188,6 @@ src/app/
       WeapComponentsNode.tsx    Weapon component fields
       ConceptLabNodes.css       Shared ConceptLab node styles
 
-  walter/                       Walter Storyboarding (AI storyboard generator)
-    WalterShell.tsx/.css        Main shell (topbar + 3-panel layout + timeline)
-    store.ts                    External store (projects, beats, shots)
-    types.ts                    Shot, Beat, WalterProject types
-    arcTemplates.ts             Arc templates (3-Act, Hero's Journey, etc.)
-    episodePresets.ts            Episode presets + WALTER_CONTEXT prompt
-    aiWriter.ts                 AI pipeline (ideate, critique, breakdown, detail, refine)
-    components/
-      BeatSidebar.tsx           Left panel: beat list
-      ShotGrid.tsx              Center: shot cards by beat
-      ShotEditor.tsx            Right panel: shot property editor
-      Timeline.tsx              Bottom: timeline segments
-      AIWriterPanel.tsx         Multi-step AI storyboard generator
-      SceneRefiner.tsx          Per-scene AI rework
-      ExportDialog.tsx          CapCut-ready JSON export
-      ConceptCard.tsx           AI concept card with scores
-
   gemini-studio/                Gemini Studio (consumer AI media generation)
     GeminiStudioShell.tsx/.css  Canvas shell with useCanvasSession
     GeminiStudioDock.tsx        Node template dock
@@ -215,6 +228,7 @@ src/app/
     open-folder/route.ts        Open image output folder
     send-to-photoshop/route.ts  Send images to Adobe Photoshop
     session/route.ts            Named session save/load (filesystem-backed)
+    walter-lore/route.ts        Serve per-episode lore from tools/walter/src/lore/ on demand
 
 src/components/                 Hub-level shared components
   ClientShell.tsx               App shell with sidebar + workspace
@@ -288,6 +302,35 @@ src/lib/
     UILabContext.tsx             UI Lab state provider
 ```
 
+## Workspace Architecture
+
+The project uses npm workspaces (`packages/*`, `tools/*`):
+
+- **Tool packages** live in `tools/` — each is a self-contained workspace package
+  (e.g. `@tools/walter`). Tools are imported by the hub via `next/dynamic` for
+  lazy-loading.
+- **Shared packages** live in `packages/` — `@shawnderland/ui` (design system),
+  `@shawnderland/ai` (Gemini text generation). Shared UI propagates via tokens
+  in `packages/ui/src/tokens.css`.
+- **Hub** (root Next.js app) imports tool packages and renders them in route
+  panels. Per-tool Cursor workspaces are possible by opening `tools/walter/`
+  etc. directly.
+
+Walter is the first extracted tool. Future tools (ShawnderMind, Gemini Studio)
+follow the same pattern: extract to `tools/<name>/`, add to registry, lazy-load.
+
+## Profile System
+
+Work/Personal/All toggle filters which tools appear in the UI:
+
+- **Work** — tools tagged `profiles: ['work']`
+- **Personal** — tools tagged `profiles: ['personal']`
+- **All** — shows everything (default)
+
+Profile is stored in localStorage. Filters apply to: sidebar nav, command palette
+(Ctrl+K), and home page tool grid. Each tool has a `profiles` array in its
+registry entry.
+
 ## Proxy Routing
 
 | Hub Path | Backend |
@@ -318,9 +361,12 @@ scroll position, and in-flight requests.
   useSyncExternalStore. No React Context — the store is a module-level
   singleton accessed via hook. GlobalToolbar and CanvasContextMenu
   map to store actions.
-- **Walter**: Singleton external store (`useWalterStore`) with
+- **Walter**: Now a workspace package (`@tools/walter`) imported via
+  `next/dynamic`. Singleton external store (`useWalterStore`) with
   `useSyncExternalStore`. Projects, beats, shots persisted to localStorage.
-  AI Writer calls Gemini via `generateText()` from `imageGenApi.ts`.
+  Walter Brain (walterBrain.ts) stores canon memory in localStorage.
+  AI Writer calls Gemini via `generateText()` from `@shawnderland/ai`.
+  Store migrates old projects to new schema on load.
 - **UI Lab**: React Context (UILabContext).
 - **Hub**: WorkspaceContext for navigation and keep-alive.
 
@@ -433,6 +479,25 @@ Node components that use `useState` for local editable fields implement a
 `_restoreTs` watcher pattern: when a session is loaded, the canvas sets a
 timestamp on node data, and the node's `useEffect` detects this change and
 re-syncs local state from the restored data.
+
+## Walter Storyboard Builder Subsystem
+
+Walter is an extracted workspace package (`@tools/walter`) in `tools/walter/`.
+The hub lazy-loads it via `next/dynamic` and renders it at the `/walter` route.
+Lore files are served by `/api/walter-lore` from `tools/walter/src/lore/`.
+
+| Module | Purpose |
+|--------|---------|
+| **Episode Generator** | 6-step wizard (EpisodeWizard.tsx), premise generation, staged pipeline |
+| **Timeline Editor** | Beat bands, shot segments, block library, shot split |
+| **Scoped Rewrite Engine** | Double-click beat → AI rewrite of single block, continuity preserved |
+| **Canon Memory** | walterBrain.ts — characters, locations, lore, 28 archived episodes from real Gemini video analysis |
+| **Episode Lore** | lore/ — 28 per-episode markdown files + typed index; served via /api/walter-lore |
+| **Export Engine** | CapCut JSON, Shoot Sheet plaintext (filmmaker production plan) |
+
+Walter uses ShawnderMind visual theme (#09090b, #6c63ff). Store migrates old
+projects to new schema (tone, runtimePresetId, steeringPrompt, constraints,
+selectedPremise) automatically.
 
 ## Canvas Unification
 

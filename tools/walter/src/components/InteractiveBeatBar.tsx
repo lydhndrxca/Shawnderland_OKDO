@@ -3,25 +3,26 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { useWalterStore } from "../store";
 
-const BEAT_COLORS: Record<string, string> = {
-  hook: "#ef4444", setup: "#f59e0b", build: "#22c55e",
-  twist: "#8b5cf6", payoff: "#3b82f6", loop: "#ec4899",
-  "inciting incident": "#eab308", "rising action": "#eab308",
-  midpoint: "#ef4444", crisis: "#ef4444", climax: "#8b5cf6",
-  resolution: "#22c55e", tease: "#f97316", peak: "#ef4444",
-  "the reveal": "#8b5cf6", reaction: "#22c55e",
-};
-
 function beatColor(label: string, fallback: string): string {
   const key = label.toLowerCase();
-  for (const [k, c] of Object.entries(BEAT_COLORS)) {
+  const map: Record<string, string> = {
+    hook: "#ef4444", setup: "#f59e0b", build: "#22c55e",
+    twist: "#8b5cf6", payoff: "#3b82f6", loop: "#ec4899",
+    "inciting": "#eab308", "rising": "#f59e0b",
+    midpoint: "#ef4444", crisis: "#ef4444", climax: "#8b5cf6",
+    resolution: "#22c55e", tease: "#f97316", peak: "#ef4444",
+    reveal: "#8b5cf6", reaction: "#22c55e", escalat: "#f59e0b",
+    ending: "#22c55e", tag: "#06b6d4",
+  };
+  for (const [k, c] of Object.entries(map)) {
     if (key.includes(k)) return c;
   }
-  return fallback;
+  return fallback || "#64748b";
 }
 
 function fmtMs(ms: number): string {
-  const sec = Math.round(ms / 1000);
+  if (!isFinite(ms) || isNaN(ms)) return "0s";
+  const sec = Math.round(Math.max(0, ms) / 1000);
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return m > 0 ? `${m}:${s.toString().padStart(2, "0")}` : `${s}s`;
@@ -39,7 +40,10 @@ export function InteractiveBeatBar({ onRegenerateBeat }: Props) {
   const [hoveredBeat, setHoveredBeat] = useState<string | null>(null);
 
   const beats = project ? [...project.beats].sort((a, b) => a.order - b.order) : [];
-  const totalMs = beats.length > 0 ? Math.max(...beats.map((b) => b.endMs)) : 60000;
+
+  const totalMs = beats.length > 0
+    ? Math.max(...beats.map((b) => isFinite(b.endMs) ? b.endMs : 0), 1000)
+    : 60000;
 
   const handleBoundaryMouseDown = useCallback(
     (e: React.MouseEvent, beatIdx: number) => {
@@ -89,14 +93,16 @@ export function InteractiveBeatBar({ onRegenerateBeat }: Props) {
     <div className="interactive-beat-bar">
       <div className="ibb-bar" ref={barRef}>
         {beats.map((beat) => {
-          const left = (beat.startMs / totalMs) * 100;
-          const width = ((beat.endMs - beat.startMs) / totalMs) * 100;
+          const start = isFinite(beat.startMs) ? beat.startMs : 0;
+          const end = isFinite(beat.endMs) ? beat.endMs : totalMs;
+          const left = totalMs > 0 ? (start / totalMs) * 100 : 0;
+          const width = totalMs > 0 ? ((end - start) / totalMs) * 100 : 0;
           const color = beatColor(beat.label, beat.color);
           return (
             <div
               key={beat.id}
               className={`beat-segment ${hoveredBeat === beat.id ? "hovered" : ""}`}
-              style={{ left: `${left}%`, width: `${width}%`, background: color }}
+              style={{ left: `${left}%`, width: `${Math.max(width, 1)}%`, background: color }}
               onMouseEnter={() => setHoveredBeat(beat.id)}
               onMouseLeave={() => setHoveredBeat(null)}
               onContextMenu={(e) => {
@@ -110,7 +116,8 @@ export function InteractiveBeatBar({ onRegenerateBeat }: Props) {
         })}
         {beats.map((beat, i) => {
           if (i === 0) return null;
-          const pos = (beat.startMs / totalMs) * 100;
+          const start = isFinite(beat.startMs) ? beat.startMs : 0;
+          const pos = totalMs > 0 ? (start / totalMs) * 100 : 0;
           return (
             <div
               key={`b-${beat.id}`}
@@ -122,14 +129,9 @@ export function InteractiveBeatBar({ onRegenerateBeat }: Props) {
         })}
       </div>
       <div className="ibb-timestamps">
-        {beats.map((beat) => {
-          const pos = (beat.startMs / totalMs) * 100;
-          return (
-            <span key={beat.id} className="ibb-ts" style={{ left: `${pos}%` }}>
-              {fmtMs(beat.startMs)}
-            </span>
-          );
-        })}
+        <span className="ibb-ts" style={{ left: "0%" }}>
+          {fmtMs(0)}
+        </span>
         <span className="ibb-ts" style={{ left: "100%", transform: "translateX(-100%)" }}>
           {fmtMs(totalMs)}
         </span>
@@ -149,7 +151,7 @@ export function InteractiveBeatBar({ onRegenerateBeat }: Props) {
                 setCtxMenu(null);
               }}
             >
-              Regenerate Selected
+              <span>Regenerate</span>
             </div>
           )}
           <div className="ibb-cm-divider" />
@@ -162,7 +164,7 @@ export function InteractiveBeatBar({ onRegenerateBeat }: Props) {
               setCtxMenu(null);
             }}
           >
-            Remove
+            <span>Remove</span>
           </div>
         </div>
       )}

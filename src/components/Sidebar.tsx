@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore, useCallback } from "react";
 import {
   Palette,
   Brain,
@@ -15,11 +15,28 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  Briefcase,
+  User,
+  Globe,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { TOOLS } from "@/lib/registry";
 import { useWorkspace, WorkspaceLink } from "@/lib/workspace/WorkspaceContext";
 import { SidebarFilesPanel } from "./SidebarFilesPanel";
+import {
+  getActiveProfile,
+  setActiveProfile,
+  subscribe,
+  getVisibleTools,
+  PROFILE_OPTIONS,
+  type ProfileMode,
+} from "@/lib/profiles";
+
+const PROFILE_ICONS: Record<ProfileMode, React.ComponentType<{ className?: string }>> = {
+  all: Globe,
+  work: Briefcase,
+  personal: User,
+};
 
 const ICON_MAP: Record<
   string,
@@ -40,12 +57,20 @@ interface SidebarProps {
   onOpenCommandPalette?: () => void;
 }
 
+function useProfile(): ProfileMode {
+  const getSnapshot = useCallback(() => getActiveProfile(), []);
+  const getServerSnapshot = useCallback((): ProfileMode => "all", []);
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+}
+
 export function Sidebar({
   collapsed,
   onToggleCollapse,
 }: SidebarProps) {
   const { activePath } = useWorkspace();
   const [filesOpen, setFilesOpen] = useState(false);
+  const profile = useProfile();
+  const visibleTools = getVisibleTools(TOOLS, profile);
 
   return (
     <aside
@@ -130,7 +155,7 @@ export function Sidebar({
               Applications
             </p>
 
-            {TOOLS.filter((t) => !t.hidden).map((tool) => {
+            {visibleTools.map((tool) => {
               const Icon = ICON_MAP[tool.icon] || Layout;
               const active = activePath.startsWith(tool.href);
 
@@ -164,8 +189,28 @@ export function Sidebar({
             })}
           </nav>
 
-          <div className="border-t border-border px-5 py-3 flex items-center justify-between">
-            <p className="text-[10px] text-muted-foreground/50 font-mono">v0.1.0</p>
+          <div className="border-t border-border px-3 py-2 flex items-center gap-1">
+            {PROFILE_OPTIONS.map((opt) => {
+              const Icon = PROFILE_ICONS[opt.id];
+              const active = profile === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  onClick={() => setActiveProfile(opt.id)}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-medium transition-all cursor-pointer",
+                    active
+                      ? "bg-primary/15 text-foreground"
+                      : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/30",
+                  )}
+                  style={{ border: "none", background: active ? undefined : "transparent" }}
+                  title={opt.label}
+                >
+                  <Icon className="h-3 w-3 shrink-0" />
+                  {opt.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

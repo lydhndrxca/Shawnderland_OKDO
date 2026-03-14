@@ -12,6 +12,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { TOOLS } from "@/lib/registry";
+import { getVisibleTools, isToolVisible } from "@/lib/profiles";
 import { useWorkspace } from "@/lib/workspace/WorkspaceContext";
 import { ToolNode, type ToolNodeData } from "./ToolNode";
 import { PipelineEdge } from "@shawnderland/ui";
@@ -43,7 +44,7 @@ export function HubCanvas() {
     [navigate]
   );
 
-  const visibleTools = useMemo(() => TOOLS.filter((t) => !t.hidden), []);
+  const visibleTools = useMemo(() => getVisibleTools(TOOLS), []);
 
   const nodes: Node[] = useMemo(
     () =>
@@ -65,7 +66,7 @@ export function HubCanvas() {
     [visibleTools, onOpenTool]
   );
 
-  const hiddenIds = useMemo(() => new Set(TOOLS.filter((t) => t.hidden).map((t) => t.id)), []);
+  const hiddenIds = useMemo(() => new Set(TOOLS.filter((t) => !isToolVisible(t)).map((t) => t.id)), []);
 
   const edges: Edge[] = useMemo(
     () => [

@@ -226,15 +226,15 @@ export default function GeminiEditorOverlay({ editorNodeId, onClose }: Props) {
     }, 500);
     const controller = registerRequest();
     try {
-      const result = await restoreImageQuality(activeImage, (status) => {
-        if (mountedRef.current) setRestoreStatus(status);
+      const result = await restoreImageQuality(activeImage, {
+        onStatus: (msg: string) => { if (mountedRef.current) setRestoreStatus(msg); },
       });
       if (!mountedRef.current || controller.signal.aborted) return;
       const secs = ((Date.now() - t0) / 1000).toFixed(1);
       setRestoreStatus(`Restored in ${secs}s`);
-      pushHistory(result, 'Restore');
+      pushHistory(result.image, 'Restore');
       setNodes((nds) => nds.map((n) =>
-        n.id === activeSource.nodeId ? { ...n, data: { ...n.data, generatedImage: result } } : n,
+        n.id === activeSource.nodeId ? { ...n, data: { ...n.data, generatedImage: result.image } } : n,
       ));
       setTimeout(() => { if (mountedRef.current) setRestoreStatus(null); }, 3000);
     } catch (e) {

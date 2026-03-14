@@ -1,4 +1,4 @@
-import { generateText } from "@/lib/ideation/engine/conceptlab/imageGenApi";
+import { generateText } from "@shawnderland/ai";
 import { WALTER_CONTEXT, type EpisodePreset } from "./episodePresets";
 import type { ArcTemplate } from "./types";
 

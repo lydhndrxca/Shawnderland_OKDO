@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import type {
   WalterProject, Shot, Beat, ShotType, CameraMove, TransitionType,
-  TabId, ToastItem, IdeaCard,
+  TabId, ToastItem, IdeaCard, ToneMood, EpisodeConstraints, PremiseConcept,
 } from "./types";
 import { ARC_TEMPLATES } from "./arcTemplates";
 
@@ -15,10 +15,41 @@ const LS_ACTIVE = "walter-active-project";
 function loadProjects(): WalterProject[] {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const projects: WalterProject[] = JSON.parse(raw);
+    return projects.map(migrateProject);
   } catch {
     return [];
   }
+}
+
+function migrateProject(p: WalterProject): WalterProject {
+  return {
+    ...p,
+    tone: p.tone ?? "",
+    runtimePresetId: p.runtimePresetId ?? "standard-reel",
+    steeringPrompt: p.steeringPrompt ?? "",
+    constraints: p.constraints ?? {
+      allowedCharacters: [],
+      allowedLocations: [],
+      easyToFilm: false,
+      shotDensity: "normal",
+      narrationHeavy: false,
+      dialogueHeavy: false,
+    },
+    selectedPremise: p.selectedPremise ?? null,
+    beats: (p.beats ?? []).map((b) => ({
+      ...b,
+      storyGoal: (b as Beat).storyGoal ?? "",
+      tone: (b as Beat).tone ?? "",
+    })),
+    shots: (p.shots ?? []).map((s) => ({
+      ...s,
+      purpose: (s as Shot).purpose ?? "",
+      characters: (s as Shot).characters ?? [],
+      location: (s as Shot).location ?? "",
+    })),
+  };
 }
 
 function saveProjects(projects: WalterProject[]) {
@@ -105,13 +136,27 @@ function defaultShot(beatId: string, order: number, totalShots: number): Shot {
     narration: "",
     onScreenText: "",
     soundNotes: "",
+    purpose: "",
+    characters: [],
+    location: "",
   };
 }
 
 export const walterActions = {
-  createProject(name: string, arcTemplateId: string) {
+  createProject(
+    name: string,
+    arcTemplateId: string,
+    opts?: {
+      tone?: ToneMood;
+      runtimePresetId?: string;
+      steeringPrompt?: string;
+      constraints?: EpisodeConstraints;
+      selectedPremise?: PremiseConcept;
+      durationMs?: number;
+    }
+  ) {
     const template = ARC_TEMPLATES.find((t) => t.id === arcTemplateId);
-    const totalMs = 60000;
+    const totalMs = opts?.durationMs ?? 60000;
     const beatCount = template?.beats.length || 1;
     const msPerBeat = totalMs / beatCount;
     const beats: Beat[] = (template?.beats ?? []).map((b, i) => ({
@@ -121,11 +166,13 @@ export const walterActions = {
       startMs: Math.round(i * msPerBeat),
       endMs: Math.round((i + 1) * msPerBeat),
       breakdown: "",
+      storyGoal: "",
+      tone: "",
     }));
     const project: WalterProject = {
       id: uid(),
       name,
-      description: "",
+      description: opts?.selectedPremise?.premise ?? "",
       arcTemplateId,
       beats,
       shots: [],
@@ -133,7 +180,19 @@ export const walterActions = {
       fps: 30,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      storyOverview: "",
+      storyOverview: opts?.selectedPremise?.premise ?? "",
+      tone: opts?.tone ?? "",
+      runtimePresetId: opts?.runtimePresetId ?? "standard-reel",
+      steeringPrompt: opts?.steeringPrompt ?? "",
+      constraints: opts?.constraints ?? {
+        allowedCharacters: [],
+        allowedLocations: [],
+        easyToFilm: false,
+        shotDensity: "normal",
+        narrationHeavy: false,
+        dialogueHeavy: false,
+      },
+      selectedPremise: opts?.selectedPremise ?? null,
     };
     const projects = [...state.projects, project];
     update({
@@ -162,7 +221,12 @@ export const walterActions = {
     persistProjects();
   },
 
-  updateProjectMeta(fields: Partial<Pick<WalterProject, "name" | "description" | "aspectRatio" | "fps" | "storyOverview">>) {
+  updateProjectMeta(
+    fields: Partial<Pick<WalterProject,
+      "name" | "description" | "aspectRatio" | "fps" | "storyOverview" |
+      "tone" | "runtimePresetId" | "steeringPrompt" | "constraints" | "selectedPremise"
+    >>
+  ) {
     const p = getActiveProject();
     if (!p) return;
     updateProject(p.id, (proj) => ({ ...proj, ...fields }));
@@ -209,6 +273,8 @@ export const walterActions = {
       startMs: totalMs,
       endMs: totalMs + 5000,
       breakdown: "",
+      storyGoal: "",
+      tone: "",
     };
     updateProject(p.id, (proj) => ({ ...proj, beats: [...proj.beats, beat] }));
     return beat.id;
@@ -291,12 +357,12 @@ export const walterActions = {
     }));
   },
 
-  applyArcTemplate(arcTemplateId: string) {
+  applyArcTemplate(arcTemplateId: string, durationMs?: number) {
     const p = getActiveProject();
     if (!p) return;
     const template = ARC_TEMPLATES.find((t) => t.id === arcTemplateId);
     if (!template) return;
-    const totalMs = 60000;
+    const totalMs = durationMs ?? 60000;
     const beatCount = template.beats.length || 1;
     const msPerBeat = totalMs / beatCount;
     const beats: Beat[] = template.beats.map((b, i) => ({
@@ -306,6 +372,8 @@ export const walterActions = {
       startMs: Math.round(i * msPerBeat),
       endMs: Math.round((i + 1) * msPerBeat),
       breakdown: "",
+      storyGoal: "",
+      tone: "",
     }));
     updateProject(p.id, (proj) => ({
       ...proj,
@@ -381,6 +449,8 @@ export const walterActions = {
       startMs: Math.round(i * msPerBeat),
       endMs: Math.round((i + 1) * msPerBeat),
       breakdown: "",
+      storyGoal: "",
+      tone: "",
     }));
 
     const shots: Shot[] = input.shots.map((s, i) => ({
@@ -402,6 +472,9 @@ export const walterActions = {
       narration: s.voiceOver ?? "",
       onScreenText: "",
       soundNotes: s.sfxNote ?? "",
+      purpose: "",
+      characters: [],
+      location: "",
     }));
 
     const project: WalterProject = {
@@ -416,6 +489,18 @@ export const walterActions = {
       createdAt: Date.now(),
       updatedAt: Date.now(),
       storyOverview: "",
+      tone: "",
+      runtimePresetId: "standard-reel",
+      steeringPrompt: "",
+      constraints: {
+        allowedCharacters: [],
+        allowedLocations: [],
+        easyToFilm: false,
+        shotDensity: "normal",
+        narrationHeavy: false,
+        dialogueHeavy: false,
+      },
+      selectedPremise: null,
     };
     const projects = [...state.projects, project];
     update({ projects, activeProjectId: project.id, selectedShotId: null, selectedBeatId: null });

@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback } from "react";
 import { useWalterStore, walterActions } from "../store";
-import { generateText } from "@/lib/ideation/engine/conceptlab/imageGenApi";
+import { generateText } from "@shawnderland/ai";
 import { WALTER_CONTEXT } from "../episodePresets";
 import type { IdeaCard } from "../types";
 import { Sparkles, Loader2, Star, Trash2, Zap, BrainCircuit } from "lucide-react";

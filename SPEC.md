@@ -6,6 +6,19 @@ A Next.js hub application that unifies AI creative tools under one
 interface. The hub provides navigation, proxy routing to tool backends,
 a shared design system, a node-canvas home screen, and hub-native tools.
 
+## Profile System
+
+Three modes filter which tools appear in the UI:
+
+- **Work** — tools tagged `profiles: ['work']`
+- **Personal** — tools tagged `profiles: ['personal']`
+- **All** — shows everything (default)
+
+Each tool has a `profiles` array in its registry entry. Profile toggle
+lives in the sidebar footer. Filters apply to: sidebar nav, command
+palette (Ctrl+K), and home page tool grid. Stored in localStorage.
+Default: "All" (shows everything).
+
 ## Core Requirements
 
 - Node-canvas home page showing all tools as interactive ReactFlow nodes
@@ -351,9 +364,10 @@ categories from `ALL_DOCK_CATEGORIES` in `sharedNodeTypes.ts`.
 
 All keys are server-side only — the client calls local proxy routes.
 
-## Walter Storyboarding — Storyboard Generator
+## Walter Storyboard Builder — Canon-Aware Storyboard Generator
 
 Full-application storyboard editor with AI-powered generation via Gemini.
+Uses ShawnderMind visual theme (#09090b base, #6c63ff accent, system-ui fonts).
 
 ### Layout
 
@@ -366,25 +380,96 @@ Full-application storyboard editor with AI-powered generation via Gemini.
   with AI Rework (Scene Refiner)
 - **Timeline** (bottom): proportional shot segments with beat colors
 
-### AI Writer (Gemini)
+### Walter Brain (Canon Memory System)
 
-Multi-phase storyboard generation pipeline:
+Persistent localStorage database (`walterBrain.ts`) storing:
 
-1. **Ideate** — 4 distinct episode concepts from a user idea
-2. **Critique** — AI scores concepts on hook, emotion, visuals, pacing
-3. **Breakdown** — timed scene breakdown matching the arc template
-4. **Detail** — shot-level info (camera, transition, dialogue, SFX)
-5. **Refine** — per-scene AI rework with context awareness
+- **Canonical characters**: Walter, Rusty, Neighbor, Duck — with descriptions,
+  behavior, voice traits, relationships, typical uses
+- **Locations**: front yard, house exterior, trailer, truck, street, trees,
+  interior — with common shot suggestions
+- **Lore rules**: tone, metaphysical, theme, continuity constraints
+- **28 archived episodes** from the real Walter Instagram series
+
+All AI generation injects Walter Brain context for canon-aware output.
+
+### Multi-Step Episode Wizard
+
+6-step guided creation flow (`EpisodeWizard.tsx`):
+
+1. **Setup** — Episode title + runtime preset (Micro Moment, Mini Reel,
+   Short Scene, Standard Reel, Full Episode)
+2. **Tone/Mood** — Selection from predefined tone options
+3. **Story Structure** — Arc template + narrative pattern (8 templates)
+4. **Creative Direction** — Steering prompt + constraints (characters,
+   locations, easyToFilm, shotDensity, narration/dialogue heavy)
+5. **AI Premise Generation** — 4 distinct concepts from AI
+6. **Review & Create** — Select premise and create project
+
+### Runtime Presets
+
+| Preset | Duration | Shot Range |
+|--------|----------|------------|
+| Micro Moment | 8–15s | 2–3 shots |
+| Mini Reel | 15–30s | 3–5 shots |
+| Short Scene | 30–45s | 5–8 shots |
+| Standard Reel | 45–60s | 8–12 shots |
+| Full Walter Episode | 75–90s | 12–18 shots |
+
+### Staged Generation Pipeline
+
+Three-stage AI pipeline (brain-aware):
+
+1. **Stage 1** — AI generates story overview from premise + brain context
+2. **Stage 2** — Beat-by-beat breakdown with story goals and tone per beat
+3. **Stage 3** — Shot expansion: framing, camera, dialogue, narration,
+   audio cues, characters, locations per shot
+
+### Timeline Block Library
+
+Sidebar with draggable story blocks. Adding a block creates a new beat:
+
+- Hook, Reveal, Dialogue Beat, Surreal Moment, Reflective Pause
+- Escalation, Climax, Ending Tag, Cliffhanger
+
+Story blocks map to beats (same concept, consistent naming).
+
+### Scoped AI Rewrite
+
+Double-click a beat band on the timeline to trigger AI rewrite of just that
+block. Preserves surrounding narrative; prevents destructive full regeneration.
+
+### Shot Split
+
+Split any shot into two halves from the timeline inspector.
+
+### Shoot Sheet Export
+
+Filmmaker-friendly plaintext production plan:
+
+- Episode info (title, runtime, arc)
+- Numbered shot list: timestamp, framing, characters, location, action,
+  dialogue, narration, audio
+- Production summary: locations, characters, complex shots, audio requirements
+
+Alternative to JSON export. Portable, printable, no dependencies.
+
+### Data Model
+
+- **Shot**: purpose, characters[], location (expanded from original)
+- **Beat**: storyGoal, tone
+- **WalterProject**: tone, runtimePresetId, steeringPrompt, constraints,
+  selectedPremise
 
 ### Features
 
-- Auto-creates a project on first open (no landing page)
+- Landing screen inline in WalterShell (no separate page)
 - File menu with New Project, Generate with AI, Recent Projects
-- 8 arc templates (3-Act, Hero's Journey, Before/After, etc.)
-- 4 episode presets (Micro 18s, Short 35s, Standard 60s, Full 80s)
+- 8 narrative arc templates (Quiet Reveal, 3-Act, Hero's Journey, etc.)
 - CapCut-ready JSON export with shot timings and audio notes
 - Project settings (name, description, aspect ratio, FPS, arc template)
 - localStorage persistence for all projects
+- Store migrates old projects to new schema automatically
 
 ## Pending
 

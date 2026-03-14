@@ -11,7 +11,7 @@ Unified hub for AI creative tools. One interface, integrated toolsets.
 | AI UI Lab | Game UI generation, layout planning | PySide6, FastAPI, Gemini | Workspace UI |
 | AI ConceptLab | Unified canvas (same node set as ShawnderMind) | React, @xyflow/react, Imagen 4/Gemini | Functional |
 | Gemini Studio | Consumer AI media generation (image + video) | React, @xyflow/react, Imagen 4/Gemini/Veo | Functional |
-| Walter Storyboarding | Arc-guided video storyboarding | React, Gemini | Functional |
+| Walter Storyboard Builder | Canon-aware AI storyboard + shoot sheet export | React, Gemini | Functional |
 | Tool Editor | Visual tool designer with exportable AI-readable specs | React, @xyflow/react | Functional |
 
 ## ShawnderMind Features
@@ -100,6 +100,33 @@ All Google AI calls support both AI Studio and Vertex AI backends:
 | Google AI | Server-side Gemini/Imagen | `/api/ai-generate` |
 
 All API keys are server-side only — the client calls local proxy routes.
+
+## Walter Storyboard Builder
+
+The central creative tool for producing Walter-style Instagram Reels. Uses a
+canon memory system (Walter Brain) seeded from 28 real episodes, a 6-step
+episode wizard, and a staged AI generation pipeline to produce beat-by-beat
+storyboards with shot-level detail.
+
+- **Walter Brain** — localStorage-backed canonical memory: characters (Walter,
+  Rusty, Neighbor, Duck), locations (front yard, house, trailer, truck, street,
+  trees, interior), lore rules, and 28 archived episodes. All AI generation
+  is canon-aware.
+- **Episode Wizard** — 6-step guided flow: Setup → Tone/Mood → Story
+  Structure → Creative Direction → AI Premise Generation → Review & Create.
+- **5 Runtime Presets** — Micro Moment (8–15s), Mini Reel (15–30s), Short
+  Scene (30–45s), Standard Reel (45–60s), Full Episode (75–90s).
+- **Staged Generation** — Stage 1: story overview. Stage 2: beat breakdown
+  with story goals and tone. Stage 3: shot expansion (framing, camera,
+  dialogue, narration, audio cues).
+- **Timeline Block Library** — Draggable story blocks (Hook, Reveal, Dialogue
+  Beat, Surreal Moment, Reflective Pause, Escalation, Climax, Ending Tag,
+  Cliffhanger) that create beats on the timeline.
+- **Scoped AI Rewrite** — Double-click a beat band to rewrite just that block
+  while preserving surrounding narrative.
+- **Shot Split** — Split any shot into two halves from the timeline inspector.
+- **Shoot Sheet Export** — Filmmaker-friendly plaintext production plan with
+  numbered shot list, locations, characters, and audio requirements.
 
 ## Status
 

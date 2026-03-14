@@ -17,7 +17,10 @@
     "paths": {
       "@/*": ["./src/*"],
       "@shawnderland/ui": ["./packages/ui/src/index.ts"],
-      "@shawnderland/ui/*": ["./packages/ui/src/*"]
+      "@shawnderland/ui/*": ["./packages/ui/src/*"],
+      "@shawnderland/ai": ["./packages/ai/src/index.ts"],
+      "@tools/walter": ["./tools/walter/src/index.tsx"],
+      "@tools/walter/*": ["./tools/walter/src/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

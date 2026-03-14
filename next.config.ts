@@ -6,7 +6,7 @@ const UI_LAB_URL = process.env.UI_LAB_URL || "http://localhost:4003";
 const CONCEPT_LAB_URL = process.env.CONCEPT_LAB_URL || "http://localhost:5174";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@shawnderland/ui"],
+  transpilePackages: ["@shawnderland/ui", "@shawnderland/ai", "@tools/walter"],
   experimental: {
     serverActions: { bodySizeLimit: '50mb' },
   },

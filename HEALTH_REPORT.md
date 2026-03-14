@@ -1,141 +1,84 @@
-# Health Report — Shawnderland OKDO
+# Health Audit — Shawnderland OKDO
 
-| Field | Value |
-|-------|-------|
-| Report ID | `20260311_001400` |
-| Date | 2026-03-11 00:14:00 |
-| Overall Health | **🔴 Red** |
-| Primary Issue Type | **Hygiene** |
+```
+=== HEALTH AUDIT ===
+Date: 2026-03-14
+Report ID: 20260314_144353
+Grade: YELLOW
+Primary Issue Type: Hygiene
 
----
+RED TRIGGERS
+  [PASS] Secrets in source — No API keys found in code. All via process.env.
+  [PASS] Run entrypoint — run.bat exists and is functional
+  [PASS] Parallel systems — Single router, single state management pattern per app, single design system
+  [PASS] Output dirs tracked — No output dirs tracked in git (verified via git ls-files)
 
-## Scoring
+YELLOW TRIGGERS
+  [FLAG] Large files — tools/walter/src/lore/MASTER_ANALYSIS.md (499.1 KB), tools/walter/src/lore/episode-15.md (116.5 KB), tools/walter/src/lore/episode-22.md (95.4 KB). Three text files exceed 100 KB threshold.
+  [FLAG] Doc drift — ARCHITECTURE.md Project Structure section still references file paths from before monorepo migration was committed; workspace architecture section was just added but uncommitted changes exist. Walter section was updated but references both old and new paths in some places.
+  [PASS] README accuracy — README.md matches project state
+  [PASS] DECISIONS coverage — All major deps documented
+  [PASS] Gitignore completeness — .gitignore covers all output dirs
+  [PASS] Portability — run.bat bootstraps, deps in package.json, zip-and-run portable
 
-### RED Triggers
+METRICS
+  Files: 465 | Lines: ~80k | Largest: tools/walter/src/lore/MASTER_ANALYSIS.md (2508 lines)
 
-| # | Trigger | Evidence |
-|---|---------|----------|
-| R1 | **Secrets found in tracked source** | `saved-sessions/test.json` contains patterns matching Google API key (`AIza…`) and AWS-style key (`AKIA…`). File is tracked via Git LFS. Serialized session data embeds the user's `NEXT_PUBLIC_GEMINI_API_KEY` value. |
-| R2 | **Output-only directory tracked in git** | `saved-sessions/` contains user-generated session data (100+ MB) committed to the repo via LFS. Verified with `git ls-files -- saved-sessions/`. |
+TOP 3 RISKS
+  1. Uncommitted monorepo migration creates a large unstaged diff that could be lost
+  2. Large lore markdown files inflate repo size and could hit git/platform limits
+  3. CharViewNode.tsx (1562 lines), FlowCanvas.tsx (1128 lines), SessionContext.tsx (1122 lines) are complexity hotspots
 
-### YELLOW Triggers
+TOP 3 RECOMMENDED ACTIONS
+  1. Commit the monorepo migration (Walter extraction, profile system, workspace config)
+  2. Consider Git LFS or compression for lore files >100 KB
+  3. Split CharViewNode.tsx and SessionContext.tsx into smaller modules
 
-| # | Trigger | Evidence |
-|---|---------|----------|
-| Y1 | **Parallel/duplicate systems** | 5 duplication signals: `flowLayout.ts`, `BaseNode.tsx`, `PipelineEdge.tsx`, `SaveDialog.tsx`, `styleStore.ts` — each exists in 2 locations |
-| Y2 | **Doc drift** | Governance docs (ARCHITECTURE.md, SPEC.md, PROJECT.md) have not been updated for: Meshy/Hitem3D/ElevenLabs integrations, 3D gen nodes, audio nodes, Creative Director node, session auto-save, filesystem session API. README.md still missing. |
-| Y3 | **Sustained growth >15%** | +36.3% LOC growth (42,339 → 57,712) since last audit on 2026-03-06 |
-| Y4 | **Production build fails** | `next build` fails with `EPERM: scandir 'C:\Users\shawn\Application Data'` — Windows junction point issue with webpack globbing. Pre-existing, not code-related. |
+GOVERNANCE DOCS
+| Doc              | Status   |
+|------------------|----------|
+| AGENT_RULES.md   | Current  |
+| PROJECT.md       | Current  |
+| SPEC.md          | Current  |
+| ARCHITECTURE.md  | Drifted  |
+| DECISIONS.md     | Current  |
+| TASKS.md         | Drifted  |
 
----
+FINDINGS
 
-## Top 3 Risks
+## Drift/Bloat
+- ARCHITECTURE.md: Uncommitted monorepo migration changes (workspace extraction, profile system added but not yet committed)
+- TASKS.md: References tools being completed but git working tree shows uncommitted changes
 
-1. **Leaked API key in saved-sessions/test.json** — The serialized session data embeds the Gemini API key. This file is committed (via LFS) and pushed to GitHub. The key should be rotated and the file cleaned from git history.
+## Doc Drift
+1. ARCHITECTURE.md — Project Structure section still references file paths from before monorepo migration; workspace architecture section was just added but uncommitted changes exist; Walter section references both old and new paths in some places
+2. TASKS.md — References tools being completed but git working tree shows uncommitted changes
 
-2. **Session data in git** — `saved-sessions/` contains 104 MB of user session data with embedded base64 images and API keys. This should be gitignored, not committed.
+## Cleanup Candidates
+1. Large lore files (MASTER_ANALYSIS.md at 499 KB) — consider .gitattributes LFS or splitting
+2. 3 pre-existing TypeScript errors in src/app/ideation/canvas/GeminiEditorOverlay.tsx
+3. Uncommitted monorepo migration (large working tree diff)
+4. REPORTS/ directory at root — appears unused/empty
 
-3. **Governance doc lag** — 3 major API integrations (Meshy, Hitem3D, ElevenLabs), ~20 new node types, session persistence overhaul, and canvas unification are undocumented in ARCHITECTURE.md, SPEC.md, and PROJECT.md.
+## Growth
+- No prior snapshot available for comparison
+- Current baseline: 465 files, 79,653 lines, 3.8 MB
 
----
+## Prompt Surface
+- Large prompt strings found in:
+  - tools/walter/src/episodePresets.ts (WALTER_CONTEXT ~1.5 KB)
+  - tools/walter/src/walterBrain.ts (buildBrainContext generates ~5-10 KB context)
+  - src/lib/ideation/engine/conceptlab/imageGenApi.ts (DESCRIBE_FOR_RESTORE_PROMPT ~2 KB)
+  - src/lib/ideation/engine/conceptlab/characterPrompts.ts (multiple prompt builders)
+- No near-duplicate prompts detected above similarity threshold
 
-## Top 3 Recommended Actions
+PROPOSED CLEANUP PLAN
+  1. Commit the monorepo migration (Walter extraction, profile system, @shawnderland/ai)
+  2. Consider Git LFS or splitting for lore files >100 KB (MASTER_ANALYSIS.md, episode-15.md, episode-22.md)
+  3. Fix 3 pre-existing TypeScript errors in GeminiEditorOverlay.tsx
+  4. Evaluate REPORTS/ directory — remove if unused or document purpose
+  5. Update ARCHITECTURE.md to reflect committed monorepo structure
+  6. Split CharViewNode.tsx and SessionContext.tsx into smaller modules (complexity hotspots)
 
-1. **URGENT: Rotate the Gemini API key** and remove `saved-sessions/` from git tracking. Add `saved-sessions/` back to `.gitignore`. Use `git filter-branch` or BFG to clean history if the key is sensitive.
-
-2. **Update governance docs** — Add sections for: Meshy/Hitem3D/ElevenLabs API integrations, 3D gen node subsystem, audio node subsystem, Creative Director, session auto-persistence, filesystem session API.
-
-3. **Consolidate duplicates** — Merge `flowLayout.ts`, `BaseNode.tsx`, `PipelineEdge.tsx` to single locations. Remove orphaned `styleStore.ts` copy. Extract shared `SaveDialog` component.
-
----
-
-## Findings
-
-### Governance
-
-| Document | Status |
-|----------|--------|
-| PROJECT.md | ⚠️ Outdated — missing 3D, audio, ElevenLabs, Meshy, Hitem3D, Creative Director |
-| SPEC.md | ⚠️ Outdated — same gaps |
-| ARCHITECTURE.md | ⚠️ Outdated — missing new subsystems and API routes |
-| DECISIONS.md | ⚠️ Outdated — no ADRs for external API integrations or session persistence |
-| TASKS.md | ✅ Active — has current/next/later items |
-| README.md | ❌ Missing |
-| AGENT_RULES.md | ✅ Present |
-
-### Drift & Bloat
-
-- **5 duplication signals** across packages/ui and src/app (flowLayout, BaseNode, PipelineEdge, SaveDialog, styleStore)
-- **saved-sessions/** tracked in git with 104 MB of LFS data containing embedded secrets
-- **packages/ui/** contains components (BaseNode, PipelineEdge, flowLayout) that appear superseded by src/app versions
-
-### Doc Drift (6 items)
-
-| # | Drift | Evidence |
-|---|-------|----------|
-| D1 | Meshy API integration undocumented | `src/app/api/meshy/`, `src/lib/ideation/engine/meshyApi.ts`, `src/app/ideation/canvas/nodes/threedgen/` — not in any governance doc |
-| D2 | Hitem3D API integration undocumented | `src/app/api/hitem3d/`, `src/lib/ideation/engine/hitem3dApi.ts` — not in any governance doc |
-| D3 | ElevenLabs API integration undocumented | `src/app/api/elevenlabs/`, `src/lib/ideation/engine/elevenlabsApi.ts`, `src/app/ideation/canvas/nodes/audio/` — not in any governance doc |
-| D4 | Session auto-persistence undocumented | `SessionContext.tsx` auto-save/load, `useCanvasSession.ts` auto-save, `/api/session` route — not documented |
-| D5 | Creative Director node undocumented | `CreativeDirectorNode.tsx` (603 LOC) — not in SPEC or ARCHITECTURE |
-| D6 | Canvas unification undocumented | ShawnderMind/ConceptLab sharing ToolDock categories — not documented |
-
-### Cleanup Candidates
-
-| # | Item | Action |
-|---|------|--------|
-| C1 | `saved-sessions/` in git | Remove from tracking, add to .gitignore, rotate API key |
-| C2 | `packages/ui/src/canvas/BaseNode.tsx` | Remove (superseded by src/app version) |
-| C3 | `packages/ui/src/canvas/PipelineEdge.tsx` | Remove (superseded by src/app version) |
-| C4 | `packages/ui/src/canvas/flowLayout.ts` | Consolidate with src/app version |
-| C5 | `src/lib/styles/styleStore.ts` OR `src/lib/styleStore.ts` | Remove duplicate |
-| C6 | `scripts/test-large-output.jpg` (533 KB) | Evaluate if test artifacts should be tracked |
-| C7 | `ContextMenu.css` | Evaluate merge into CanvasCommon.css |
-| C8 | `loadPack.ts` exports | Evaluate if unused |
-
-### Growth & Trajectory
-
-| Metric | 20260306 | 20260311 | Delta | % |
-|--------|----------|----------|-------|---|
-| Files | 303 | 366 | +63 | +20.8% |
-| LOC | 42,339 | 57,712 | +15,373 | **+36.3%** |
-| Bytes | 1,487,711 | 2,156,670 | +668,959 | +45.0% |
-| Commits | 7 | 15 | +8 | +114% |
-| Subsystems | 11 | 13 | +2 | +18.2% |
-| API routes | 6 | 11 | +5 | +83% |
-
-**Growth driver:** 3 major API integrations (Meshy, Hitem3D, ElevenLabs) added ~20 new node components, 3 API proxy routes, 3 client libraries, and associated CSS/types.
-
-### Prompt & Template Surface
-
-**Top 5 largest template literals:**
-
-| Chars | File |
-|-------|------|
-| 23,523 | `src/lib/ideation/engine/orchestrator.ts` |
-| 9,214 | `src/lib/ideation/engine/provider/mockProvider.ts` |
-| 9,074 | `src/app/ideation/canvas/ToolDock.tsx` |
-| 8,567 | `src/app/concept-lab/nodes/WeapBaseNode.tsx` |
-| 7,879 | `src/lib/ideation/context/SessionContext.tsx` |
-
-The orchestrator contains the largest prompt templates (stage prompts for normalize, diverge, critique, expand, blueprint, extract). These are well-structured but should be monitored for drift.
-
----
-
-## Proposed Cleanup Plan
-
-### Immediate (this session)
-1. ~~Rotate Gemini API key~~ (user action required)
-2. Remove `saved-sessions/` from git tracking, add to `.gitignore`
-3. Strip embedded secrets from git LFS history
-
-### Short-term (next 2 sessions)
-4. Update ARCHITECTURE.md, SPEC.md, PROJECT.md with new integrations
-5. Add ADRs to DECISIONS.md for external API strategy and session persistence
-6. Create README.md
-
-### Medium-term
-7. Consolidate `flowLayout.ts`, `BaseNode.tsx`, `PipelineEdge.tsx` to single locations
-8. Remove orphaned `styleStore.ts` duplicate
-9. Extract shared `SaveDialog` component
-10. Resolve Windows production build issue (webpack glob config)
+=== END AUDIT ===
+```

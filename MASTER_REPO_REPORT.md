@@ -2,351 +2,232 @@
 
 | Field | Value |
 |-------|-------|
-| Project root | `D:\dev\Shawnderland_OKDO` |
-| Generated at | 2026-03-11 00:14:00 |
+| Project root | `c:\Dev\Shawnderland_OKDO` |
+| Generated at | 2026-03-14 14:43:53 |
 | Includes | Snapshot + Health Audit + Comprehensive Repo Report + TASKS |
-| Health | **Red** (report_id: `20260311_001400`) |
+| Health | **YELLOW** (report_id: 20260314_144353) |
 
 ---
 
 ## Repo Snapshot
 
-# Repo Snapshot — Shawnderland OKDO
+# Repo Snapshot — 2026-03-14
 
-| Field | Value |
-|-------|-------|
-| Generated | 2026-03-11 00:14:00 |
-| Report ID | `20260311_001400` |
-| Repo root | `D:\dev\Shawnderland_OKDO` |
-| Git branch | `main` |
-| Commits | 15 |
-| Last commit | `c0cdab3` — chore: add saved sessions with Git LFS (2026-03-11) |
+## Overview
+
+**Report ID:** 20260314_144353  
+**Repo root:** c:\Dev\Shawnderland_OKDO  
+**Generated:** 2026-03-14 14:43:53
+
+Monorepo with Next.js 15, React 19, TypeScript 5. Contains ShawnderMind (ideation), Gemini Studio, ConceptLab, Tool Editor, UI Lab, and Walter Storyboarding. Single design system (packages/ui), single router pattern.
 
 ---
 
-### Folder Tree (depth 4)
+## Governance Docs
+
+All exist: PROJECT.md, SPEC.md, ARCHITECTURE.md, DECISIONS.md, TASKS.md, README.md, AGENT_RULES.md, HEALTH_REPORT.md
+
+---
+
+## Dependencies
+
+| Manifest | Package |
+|----------|---------|
+| package.json (root) | npm workspaces, Next.js 15, React 19, TypeScript 5 |
+| packages/ui/package.json | @shawnderland/ui |
+| packages/ai/package.json | @shawnderland/ai |
+| tools/walter/package.json | @tools/walter |
+
+---
+
+## Entry Points
+
+- **run.bat** — checks Node.js, installs deps, starts dev server
+
+---
+
+## LOC Summary
+
+| Extension | Files | Lines | Size |
+|-----------|-------|-------|------|
+| .tsx | 205 | 39,078 | 1,629.9 KB |
+| .css | 78 | 16,542 | 388.1 KB |
+| .ts | 115 | 15,163 | 644.8 KB |
+| .md | 49 | 7,507 | 1,146.8 KB |
+| .mjs | 6 | 679 | 29.6 KB |
+| .mdc | 3 | 425 | 21.1 KB |
+| .json | 6 | 144 | 3.6 KB |
+| .js | 1 | 60 | 2.4 KB |
+| .bat | 1 | 46 | 1.4 KB |
+| .txt | 1 | 9 | 0.9 KB |
+| **TOTAL** | **465** | **79,653** | **3,868.6 KB** |
+
+---
+
+## Top 10 Files
+
+| Size | Lines | Path |
+|------|-------|------|
+| 499.1 KB | 2,508 | tools/walter/src/lore/MASTER_ANALYSIS.md |
+| 116.5 KB | 42 | tools/walter/src/lore/episode-15.md |
+| 95.4 KB | 44 | tools/walter/src/lore/episode-22.md |
+| 77.5 KB | 1,562 | src/app/ideation/canvas/nodes/character/CharViewNode.tsx |
+| 74.4 KB | 47 | tools/walter/src/lore/episode-12.md |
+| 54 KB | 1,699 | tools/walter/src/Walter.css |
+| 52.2 KB | 1,128 | src/app/ideation/canvas/FlowCanvas.tsx |
+| 51.7 KB | 626 | src/lib/ideation/engine/conceptlab/characterPrompts.ts |
+| 46.4 KB | 1,122 | src/lib/ideation/context/SessionContext.tsx |
+| 43.8 KB | 816 | src/app/ideation/canvas/nodes/LevelDesignDirectorNode.tsx |
+
+---
+
+## Folder Tree (depth 4)
 
 ```
-Shawnderland_OKDO/
-├── packages/
-│   └── ui/src/canvas/            # @shawnderland/ui shared components
-├── saved-sessions/               # LFS-tracked session snapshots
-├── scripts/                      # Dev/test scripts
-├── src/
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── ai-generate/      # Gemini proxy
-│   │   │   ├── ai-status/        # API status check
-│   │   │   ├── character-save/   # Save character images to disk
-│   │   │   ├── elevenlabs/       # ElevenLabs proxy
-│   │   │   ├── hitem3d/          # Hitem3D proxy
-│   │   │   ├── list-dirs/        # Directory listing
-│   │   │   ├── meshy/            # Meshy proxy
-│   │   │   ├── meshy-export/     # Meshy model export
-│   │   │   ├── open-folder/      # Open folder in explorer
-│   │   │   ├── send-to-photoshop/# Photoshop bridge
-│   │   │   └── session/          # Session save/load filesystem
-│   │   ├── concept-lab/nodes/    # AI ConceptLab canvas
-│   │   ├── gemini-studio/nodes/  # Gemini Studio canvas
-│   │   ├── ideation/
-│   │   │   ├── canvas/
-│   │   │   │   ├── edges/
-│   │   │   │   └── nodes/
-│   │   │   │       ├── audio/    # ElevenLabs TTS/SFX/Voice nodes
-│   │   │   │       ├── character/# Character pipeline nodes (28 files)
-│   │   │   │       └── threedgen/# Meshy + Hitem3D 3D nodes
-│   │   │   ├── layout/
-│   │   │   ├── stages/
-│   │   │   └── views/
-│   │   ├── tool-editor/nodes/    # Tool Editor canvas
-│   │   └── ui-lab/components/    # AI UI Lab
-│   ├── components/
-│   │   └── nodes/ui/             # Shared UI node components
-│   ├── hooks/                    # useCanvasSession
-│   └── lib/
-│       ├── ideation/
-│       │   ├── context/          # SessionContext provider
-│       │   ├── engine/           # Orchestrator, providers, API libs
-│       │   │   ├── conceptlab/   # imageGenApi, characterPrompts
-│       │   │   └── provider/     # Gemini + mock providers
-│       │   └── state/            # Session types, selectors, store
-│       ├── styles/               # Style store
-│       ├── ui-lab/               # UI Lab context/types
-│       └── workspace/            # Workspace context
-├── .env.example
-├── next.config.ts
-├── package.json
-└── tsconfig.json
+.cursor/rules/
+packages/ai/src/
+packages/ui/src/canvas/
+REPORTS/
+scripts/
+src/app/api/{ai-generate,ai-status,character-save,elevenlabs,hitem3d,list-dirs,meshy,meshy-export,open-folder,send-to-photoshop,session,video-analyze,walter-lore}/
+src/app/concept-lab/nodes/
+src/app/gemini-studio/nodes/
+src/app/ideation/{canvas,layout,stages,views}/
+src/app/tool-editor/nodes/
+src/app/ui-lab/components/
+src/components/nodes/ui/
+src/hooks/
+src/lib/ideation/{context,engine,state}/
+src/lib/styles/
+src/lib/ui-lab/
+src/lib/workspace/
+tools/walter/src/{components,lore}/
 ```
 
 ---
 
-### Governance Documents
+## Subsystems
 
-| Document | Exists |
-|----------|--------|
-| PROJECT.md | ✅ |
-| SPEC.md | ✅ |
-| ARCHITECTURE.md | ✅ |
-| DECISIONS.md | ✅ |
-| TASKS.md | ✅ |
-| README.md | ❌ |
-| AGENT_RULES.md | ✅ |
-| HEALTH_REPORT.md | ✅ |
-
----
-
-### Dependencies
-
-**Manifests:** package.json, packages/ui/package.json, package-lock.json, tsconfig.json
-
-#### Production
-| Package | Version |
-|---------|---------|
-| next | ^15 |
-| react / react-dom | ^19 |
-| @xyflow/react | ^12.10.1 |
-| @react-three/fiber | ^9.5.0 |
-| @react-three/drei | ^10.7.7 |
-| three | ^0.183.2 |
-| dagre | ^0.8.5 |
-| zod | ^4.3.6 |
-| lucide-react | ^0.468 |
-| clsx | ^2 |
-| tailwind-merge | ^3 |
-
-#### Dev
-| Package | Version |
-|---------|---------|
-| typescript | ^5 |
-| tailwindcss | ^4 |
-| @types/node | ^22 |
-| @types/react | ^19 |
-| @types/three | ^0.183.1 |
+- **Hub/Shell** — src/components/ (ClientShell, Sidebar, WorkspaceRenderer, CommandPalette, HubCanvas)
+- **ShawnderMind** — src/app/ideation/ (8-stage AI ideation pipeline, ReactFlow canvas)
+- **Gemini Studio** — src/app/gemini-studio/ (consumer AI media generation)
+- **ConceptLab** — src/app/concept-lab/ (AI character/weapon design)
+- **Tool Editor** — src/app/tool-editor/ (visual tool editor)
+- **UI Lab** — src/app/ui-lab/ (AI UI generation)
+- **Walter Storyboarding** — tools/walter/ (extracted workspace package — storyboard generator)
+- **Shared UI** — packages/ui/ (design tokens, base components)
+- **Shared AI** — packages/ai/ (generateText utility)
+- **API Routes** — src/app/api/ (13 routes: ai-generate, ai-status, character-save, elevenlabs, hitem3d, list-dirs, meshy, meshy-export, open-folder, send-to-photoshop, session, video-analyze, walter-lore)
 
 ---
 
-### Entry Points
+## Config Surface
 
-| Entry | Command/Path |
-|-------|-------------|
-| Dev server | `npm run dev` |
-| Build | `npm run build` |
-| Run script | `run.bat` |
-| App entry | `src/app/page.tsx` |
-| App layout | `src/app/layout.tsx` |
+- **Env files:** .env.local, .env.example
+- **Referenced vars:** GEMINI_API_KEY, NEXT_PUBLIC_GEMINI_API_KEY, NEXT_PUBLIC_VERTEX_PROJECT, NEXT_PUBLIC_VERTEX_LOCATION, NEXT_PUBLIC_VERTEX_API_KEY, MESHY_API_KEY, HITEM3D_ACCESS_KEY, HITEM3D_SECRET_KEY, ELEVENLABS_API_KEY, SESSIONS_DIR, CHARACTER_OUTPUT_DIR, SPRITE_LAB_URL, SHAWNDERMIND_URL, UI_LAB_URL, CONCEPT_LAB_URL, NEXT_PUBLIC_SPRITE_LAB_URL, NEXT_PUBLIC_SHAWNDERMIND_URL, NEXT_PUBLIC_UI_LAB_URL, NEXT_PUBLIC_CONCEPT_LAB_URL, NODE_ENV
 
 ---
 
-### Lines of Code
+## Git Status
 
-| Extension | Files | LOC | Size |
-|-----------|-------|-----|------|
-| .tsx | 170 | 30,139 | 1,200 KB |
-| .css | 71 | 13,294 | 291 KB |
-| .ts | 102 | 12,130 | 489 KB |
-| .md | 18 | 1,999 | 121 KB |
-| .json | 3 | 81 | 2 KB |
-| .js | 1 | 60 | 2 KB |
-| .txt | 1 | 9 | 1 KB |
-| **Total** | **366** | **57,712** | **2,106 KB** |
+- **Branch:** main
+- **Last commit:** 7202e2c — "feat: rebuild Walter as tabbed app matching original Electron experience" (2026-03-13 23:29:02)
+- **Working tree:** modified (monorepo migration in progress — Walter extracted to tools/)
 
 ---
 
-### Subsystems
+## Duplication Assessment
 
-| Subsystem | Path | Role |
-|-----------|------|------|
-| Hub Shell | `src/components/` | App shell, sidebar, workspace, command palette |
-| ShawnderMind | `src/app/ideation/` | 8-stage AI ideation pipeline with character, 3D, audio nodes |
-| AI ConceptLab | `src/app/concept-lab/` | Character/weapon design + concept generation |
-| Gemini Studio | `src/app/gemini-studio/` | Image/video generation studio |
-| Tool Editor | `src/app/tool-editor/` | Visual tool designer with JSON export |
-| AI UI Lab | `src/app/ui-lab/` | Game UI generation workspace |
-| Engine | `src/lib/ideation/engine/` | Orchestrator, providers, prompts, eval, API libs |
-| Session | `src/lib/ideation/context/` | Session state provider with auto-save/load |
-| API Routes | `src/app/api/` | 11 server proxy routes |
-| 3D Gen Nodes | `src/app/ideation/canvas/nodes/threedgen/` | Meshy + Hitem3D |
-| Audio Nodes | `src/app/ideation/canvas/nodes/audio/` | ElevenLabs TTS, SFX, voice clone |
-| Design System | `packages/ui/` | @shawnderland/ui shared components |
-| Shared Hooks | `src/hooks/` | useCanvasSession |
-
----
-
-### Duplication Signals
-
-| Signal | Files | Notes |
-|--------|-------|-------|
-| Duplicate flowLayout.ts | `packages/ui/` + `src/app/ideation/` | Known; consolidation pending |
-| Duplicate BaseNode.tsx | `packages/ui/` + `src/app/ideation/` | packages/ui version appears unused |
-| Duplicate PipelineEdge | `packages/ui/` + `src/app/ideation/` | packages/ui version appears unused |
-| Duplicate SaveDialog.tsx | `src/app/ideation/` + `src/app/tool-editor/` | Similar save dialogs |
-| Duplicate styleStore.ts | `src/lib/styles/` + `src/lib/` | One likely orphaned |
-
----
-
-### Config & Environment
-
-**Config files:** next.config.ts, postcss.config.mjs, tsconfig.json, .gitattributes
-
-**Environment variables (19):** NEXT_PUBLIC_GEMINI_API_KEY, GEMINI_API_KEY, NEXT_PUBLIC_VERTEX_PROJECT, NEXT_PUBLIC_VERTEX_LOCATION, NEXT_PUBLIC_VERTEX_API_KEY, MESHY_API_KEY, HITEM3D_ACCESS_KEY, HITEM3D_SECRET_KEY, ELEVENLABS_API_KEY, SESSIONS_DIR, CHARACTER_OUTPUT_DIR, SPRITE_LAB_URL, SHAWNDERMIND_URL, UI_LAB_URL, CONCEPT_LAB_URL, NEXT_PUBLIC_SPRITE_LAB_URL, NEXT_PUBLIC_SHAWNDERMIND_URL, NEXT_PUBLIC_UI_LAB_URL, NEXT_PUBLIC_CONCEPT_LAB_URL
-
----
-
-### Git Churn
-
-| Metric | Value |
-|--------|-------|
-| Total commits | 15 |
-| Branch | main |
-| Latest | `c0cdab3` (2026-03-11) |
-| Previous | `0de8c84` — feat: integrate Meshy, Hitem3D, ElevenLabs APIs |
+No parallel systems detected. Single router (WorkspaceContext), single state pattern per app, single design system (packages/ui). Secrets status: no secrets found in source code; keys via process.env only.
 
 ---
 
 ## Health Report
 
-# Health Report — Shawnderland OKDO
+# Health Audit — Shawnderland OKDO
 
-| Field | Value |
-|-------|-------|
-| Report ID | `20260311_001400` |
-| Date | 2026-03-11 00:14:00 |
-| Overall Health | **🔴 Red** |
-| Primary Issue Type | **Hygiene** |
+```
+=== HEALTH AUDIT ===
+Date: 2026-03-14
+Report ID: 20260314_144353
+Grade: YELLOW
+Primary Issue Type: Hygiene
 
----
+RED TRIGGERS
+  [PASS] Secrets in source — No API keys found in code. All via process.env.
+  [PASS] Run entrypoint — run.bat exists and is functional
+  [PASS] Parallel systems — Single router, single state management pattern per app, single design system
+  [PASS] Output dirs tracked — No output dirs tracked in git (verified via git ls-files)
 
-### Scoring
+YELLOW TRIGGERS
+  [FLAG] Large files — tools/walter/src/lore/MASTER_ANALYSIS.md (499.1 KB), tools/walter/src/lore/episode-15.md (116.5 KB), tools/walter/src/lore/episode-22.md (95.4 KB). Three text files exceed 100 KB threshold.
+  [FLAG] Doc drift — ARCHITECTURE.md Project Structure section still references file paths from before monorepo migration was committed; workspace architecture section was just added but uncommitted changes exist. Walter section was updated but references both old and new paths in some places.
+  [PASS] README accuracy — README.md matches project state
+  [PASS] DECISIONS coverage — All major deps documented
+  [PASS] Gitignore completeness — .gitignore covers all output dirs
+  [PASS] Portability — run.bat bootstraps, deps in package.json, zip-and-run portable
 
-#### RED Triggers
+METRICS
+  Files: 465 | Lines: ~80k | Largest: tools/walter/src/lore/MASTER_ANALYSIS.md (2508 lines)
 
-| # | Trigger | Evidence |
-|---|---------|----------|
-| R1 | **Secrets found in tracked source** | `saved-sessions/test.json` contains patterns matching Google API key (`AIza…`) and AWS-style key (`AKIA…`). File is tracked via Git LFS. Serialized session data embeds the user's `NEXT_PUBLIC_GEMINI_API_KEY` value. |
-| R2 | **Output-only directory tracked in git** | `saved-sessions/` contains user-generated session data (100+ MB) committed to the repo via LFS. Verified with `git ls-files -- saved-sessions/`. |
+TOP 3 RISKS
+  1. Uncommitted monorepo migration creates a large unstaged diff that could be lost
+  2. Large lore markdown files inflate repo size and could hit git/platform limits
+  3. CharViewNode.tsx (1562 lines), FlowCanvas.tsx (1128 lines), SessionContext.tsx (1122 lines) are complexity hotspots
 
-#### YELLOW Triggers
+TOP 3 RECOMMENDED ACTIONS
+  1. Commit the monorepo migration (Walter extraction, profile system, workspace config)
+  2. Consider Git LFS or compression for lore files >100 KB
+  3. Split CharViewNode.tsx and SessionContext.tsx into smaller modules
 
-| # | Trigger | Evidence |
-|---|---------|----------|
-| Y1 | **Parallel/duplicate systems** | 5 duplication signals: `flowLayout.ts`, `BaseNode.tsx`, `PipelineEdge.tsx`, `SaveDialog.tsx`, `styleStore.ts` — each exists in 2 locations |
-| Y2 | **Doc drift** | Governance docs (ARCHITECTURE.md, SPEC.md, PROJECT.md) have not been updated for: Meshy/Hitem3D/ElevenLabs integrations, 3D gen nodes, audio nodes, Creative Director node, session auto-save, filesystem session API. README.md still missing. |
-| Y3 | **Sustained growth >15%** | +36.3% LOC growth (42,339 → 57,712) since last audit on 2026-03-06 |
-| Y4 | **Production build fails** | `next build` fails with `EPERM: scandir 'C:\Users\shawn\Application Data'` — Windows junction point issue with webpack globbing. Pre-existing, not code-related. |
+GOVERNANCE DOCS
+| Doc              | Status   |
+|------------------|----------|
+| AGENT_RULES.md   | Current  |
+| PROJECT.md       | Current  |
+| SPEC.md          | Current  |
+| ARCHITECTURE.md  | Drifted  |
+| DECISIONS.md     | Current  |
+| TASKS.md         | Drifted  |
 
----
+FINDINGS
 
-### Top 3 Risks
+## Drift/Bloat
+- ARCHITECTURE.md: Uncommitted monorepo migration changes (workspace extraction, profile system added but not yet committed)
+- TASKS.md: References tools being completed but git working tree shows uncommitted changes
 
-1. **Leaked API key in saved-sessions/test.json** — The serialized session data embeds the Gemini API key. This file is committed (via LFS) and pushed to GitHub. The key should be rotated and the file cleaned from git history.
+## Doc Drift
+1. ARCHITECTURE.md — Project Structure section still references file paths from before monorepo migration; workspace architecture section was just added but uncommitted changes exist; Walter section references both old and new paths in some places
+2. TASKS.md — References tools being completed but git working tree shows uncommitted changes
 
-2. **Session data in git** — `saved-sessions/` contains 104 MB of user session data with embedded base64 images and API keys. This should be gitignored, not committed.
+## Cleanup Candidates
+1. Large lore files (MASTER_ANALYSIS.md at 499 KB) — consider .gitattributes LFS or splitting
+2. 3 pre-existing TypeScript errors in src/app/ideation/canvas/GeminiEditorOverlay.tsx
+3. Uncommitted monorepo migration (large working tree diff)
+4. REPORTS/ directory at root — appears unused/empty
 
-3. **Governance doc lag** — 3 major API integrations (Meshy, Hitem3D, ElevenLabs), ~20 new node types, session persistence overhaul, and canvas unification are undocumented in ARCHITECTURE.md, SPEC.md, and PROJECT.md.
+## Growth
+- No prior snapshot available for comparison
+- Current baseline: 465 files, 79,653 lines, 3.8 MB
 
----
+## Prompt Surface
+- Large prompt strings found in:
+  - tools/walter/src/episodePresets.ts (WALTER_CONTEXT ~1.5 KB)
+  - tools/walter/src/walterBrain.ts (buildBrainContext generates ~5-10 KB context)
+  - src/lib/ideation/engine/conceptlab/imageGenApi.ts (DESCRIBE_FOR_RESTORE_PROMPT ~2 KB)
+  - src/lib/ideation/engine/conceptlab/characterPrompts.ts (multiple prompt builders)
+- No near-duplicate prompts detected above similarity threshold
 
-### Top 3 Recommended Actions
+PROPOSED CLEANUP PLAN
+  1. Commit the monorepo migration (Walter extraction, profile system, @shawnderland/ai)
+  2. Consider Git LFS or splitting for lore files >100 KB (MASTER_ANALYSIS.md, episode-15.md, episode-22.md)
+  3. Fix 3 pre-existing TypeScript errors in GeminiEditorOverlay.tsx
+  4. Evaluate REPORTS/ directory — remove if unused or document purpose
+  5. Update ARCHITECTURE.md to reflect committed monorepo structure
+  6. Split CharViewNode.tsx and SessionContext.tsx into smaller modules (complexity hotspots)
 
-1. **URGENT: Rotate the Gemini API key** and remove `saved-sessions/` from git tracking. Add `saved-sessions/` back to `.gitignore`. Use `git filter-branch` or BFG to clean history if the key is sensitive.
-
-2. **Update governance docs** — Add sections for: Meshy/Hitem3D/ElevenLabs API integrations, 3D gen node subsystem, audio node subsystem, Creative Director, session auto-persistence, filesystem session API.
-
-3. **Consolidate duplicates** — Merge `flowLayout.ts`, `BaseNode.tsx`, `PipelineEdge.tsx` to single locations. Remove orphaned `styleStore.ts` copy. Extract shared `SaveDialog` component.
-
----
-
-### Findings
-
-#### Governance
-
-| Document | Status |
-|----------|--------|
-| PROJECT.md | ⚠️ Outdated — missing 3D, audio, ElevenLabs, Meshy, Hitem3D, Creative Director |
-| SPEC.md | ⚠️ Outdated — same gaps |
-| ARCHITECTURE.md | ⚠️ Outdated — missing new subsystems and API routes |
-| DECISIONS.md | ⚠️ Outdated — no ADRs for external API integrations or session persistence |
-| TASKS.md | ✅ Active — has current/next/later items |
-| README.md | ❌ Missing |
-| AGENT_RULES.md | ✅ Present |
-
-#### Drift & Bloat
-
-- **5 duplication signals** across packages/ui and src/app (flowLayout, BaseNode, PipelineEdge, SaveDialog, styleStore)
-- **saved-sessions/** tracked in git with 104 MB of LFS data containing embedded secrets
-- **packages/ui/** contains components (BaseNode, PipelineEdge, flowLayout) that appear superseded by src/app versions
-
-#### Doc Drift (6 items)
-
-| # | Drift | Evidence |
-|---|-------|----------|
-| D1 | Meshy API integration undocumented | `src/app/api/meshy/`, `src/lib/ideation/engine/meshyApi.ts`, `src/app/ideation/canvas/nodes/threedgen/` — not in any governance doc |
-| D2 | Hitem3D API integration undocumented | `src/app/api/hitem3d/`, `src/lib/ideation/engine/hitem3dApi.ts` — not in any governance doc |
-| D3 | ElevenLabs API integration undocumented | `src/app/api/elevenlabs/`, `src/lib/ideation/engine/elevenlabsApi.ts`, `src/app/ideation/canvas/nodes/audio/` — not in any governance doc |
-| D4 | Session auto-persistence undocumented | `SessionContext.tsx` auto-save/load, `useCanvasSession.ts` auto-save, `/api/session` route — not documented |
-| D5 | Creative Director node undocumented | `CreativeDirectorNode.tsx` (603 LOC) — not in SPEC or ARCHITECTURE |
-| D6 | Canvas unification undocumented | ShawnderMind/ConceptLab sharing ToolDock categories — not documented |
-
-#### Cleanup Candidates
-
-| # | Item | Action |
-|---|------|--------|
-| C1 | `saved-sessions/` in git | Remove from tracking, add to .gitignore, rotate API key |
-| C2 | `packages/ui/src/canvas/BaseNode.tsx` | Remove (superseded by src/app version) |
-| C3 | `packages/ui/src/canvas/PipelineEdge.tsx` | Remove (superseded by src/app version) |
-| C4 | `packages/ui/src/canvas/flowLayout.ts` | Consolidate with src/app version |
-| C5 | `src/lib/styles/styleStore.ts` OR `src/lib/styleStore.ts` | Remove duplicate |
-| C6 | `scripts/test-large-output.jpg` (533 KB) | Evaluate if test artifacts should be tracked |
-| C7 | `ContextMenu.css` | Evaluate merge into CanvasCommon.css |
-| C8 | `loadPack.ts` exports | Evaluate if unused |
-
-#### Growth & Trajectory
-
-| Metric | 20260306 | 20260311 | Delta | % |
-|--------|----------|----------|-------|---|
-| Files | 303 | 366 | +63 | +20.8% |
-| LOC | 42,339 | 57,712 | +15,373 | **+36.3%** |
-| Bytes | 1,487,711 | 2,156,670 | +668,959 | +45.0% |
-| Commits | 7 | 15 | +8 | +114% |
-| Subsystems | 11 | 13 | +2 | +18.2% |
-| API routes | 6 | 11 | +5 | +83% |
-
-**Growth driver:** 3 major API integrations (Meshy, Hitem3D, ElevenLabs) added ~20 new node components, 3 API proxy routes, 3 client libraries, and associated CSS/types.
-
-#### Prompt & Template Surface
-
-**Top 5 largest template literals:**
-
-| Chars | File |
-|-------|------|
-| 23,523 | `src/lib/ideation/engine/orchestrator.ts` |
-| 9,214 | `src/lib/ideation/engine/provider/mockProvider.ts` |
-| 9,074 | `src/app/ideation/canvas/ToolDock.tsx` |
-| 8,567 | `src/app/concept-lab/nodes/WeapBaseNode.tsx` |
-| 7,879 | `src/lib/ideation/context/SessionContext.tsx` |
-
-The orchestrator contains the largest prompt templates (stage prompts for normalize, diverge, critique, expand, blueprint, extract). These are well-structured but should be monitored for drift.
-
----
-
-### Proposed Cleanup Plan
-
-#### Immediate (this session)
-1. ~~Rotate Gemini API key~~ (user action required)
-2. Remove `saved-sessions/` from git tracking, add to `.gitignore`
-3. Strip embedded secrets from git LFS history
-
-#### Short-term (next 2 sessions)
-4. Update ARCHITECTURE.md, SPEC.md, PROJECT.md with new integrations
-5. Add ADRs to DECISIONS.md for external API strategy and session persistence
-6. Create README.md
-
-#### Medium-term
-7. Consolidate `flowLayout.ts`, `BaseNode.tsx`, `PipelineEdge.tsx` to single locations
-8. Remove orphaned `styleStore.ts` duplicate
-9. Extract shared `SaveDialog` component
-10. Resolve Windows production build issue (webpack glob config)
+=== END AUDIT ===
+```
 
 ---
 
@@ -381,252 +262,360 @@ The orchestrator contains the largest prompt templates (stage prompts for normal
 - [x] Centralize API key access via apiConfig.ts
 - [x] Create .env.example for onboarding
 - [x] Health audit: fix all yellow triggers
+- [x] Integrate Meshy API: image-to-3D nodes, GLB proxy, 3D viewer
+- [x] Integrate Hitem3D API: full parameter control, portrait models
+- [x] Integrate ElevenLabs API: TTS, SFX, voice cloning nodes
+- [x] Build Creative Director node: AI critiques with Apply Edit
+- [x] Build Voice Designer + Dialogue Writer + Voice Script nodes
+- [x] Implement Auto-Fidelity on MainStageViewer
+- [x] Rewrite Quick Generate with comprehensive Gemini prompt
+- [x] Implement three-layer session auto-persistence
+- [x] Unify ShawnderMind and ConceptLab canvas (shared node set, ToolDock)
+- [x] Add Seed node auto-infer context via Gemini
+- [x] Remove saved-sessions/ from git tracking, add to .gitignore
+- [x] Remove orphaned BaseNode.css/tsx, flowLayout.ts from packages/ui
+- [x] Remove test artifact images from git tracking
+- [x] Update ARCHITECTURE.md with all new subsystems and API integrations
+- [x] Update SPEC.md with 3D, audio, Creative Director, session persistence
+- [x] Update PROJECT.md with new features and integrations
+- [x] Add ADRs 019–022 to DECISIONS.md
+- [x] Create README.md
 
 ## Now
 
+- [x] Monorepo: extract Walter into tools/walter/ workspace package
+- [x] Monorepo: create @shawnderland/ai shared package
+- [x] Profile system: work/personal/all toggle in sidebar
 - [ ] Test ConceptLab end-to-end: Character generation + Turnaround views
 - [ ] Test dual-backend: verify Vertex AI endpoint format with live credentials
 - [ ] Test node compatibility: verify all error/warning scenarios fire correctly
+- [x] Walter: convert from landing page to functional application shell
+- [x] Walter: ShawnderMind visual theme (#09090b, #6c63ff, system-ui)
+- [x] Walter: Walter Brain (canon memory) — characters, locations, lore, 28 episodes
+- [x] Walter: 6-step Episode Wizard (Setup → Tone → Structure → Direction → Premise → Review)
+- [x] Walter: 5 runtime presets (Micro, Mini, Short, Standard, Full Episode)
+- [x] Walter: Staged generation pipeline (overview → beats → shots)
+- [x] Walter: Timeline block library (Hook, Reveal, Climax, etc.)
+- [x] Walter: Scoped AI rewrite (double-click beat)
+- [x] Walter: Shot split from timeline inspector
+- [x] Walter: Shoot sheet plaintext export
+- [x] Walter: Expanded data model (Shot purpose/characters/location, Beat storyGoal/tone)
+- [x] Walter: Episode lore integration — 28 per-episode analysis files in lore/, typed index, brain seeded from real Gemini analysis, API route for on-demand loading
+
+### Health Audit Cleanup
+
+- [ ] Commit monorepo migration (Walter extraction, profile system, @shawnderland/ai)
+- [ ] Consider Git LFS for lore files >100 KB
+- [ ] Fix 3 pre-existing TS errors in GeminiEditorOverlay.tsx
 
 ## Next
 
+- [ ] Extract ShawnderMind into tools/shawndermind/ package
+- [ ] Extract Gemini Studio into tools/gemini-studio/ package
 - [ ] Build Sprite Lab sub-tool navigation and workspace pages
 - [ ] Build UI Lab remaining workspace panels
 - [ ] Add cross-tool data flow wiring on the hub canvas
-- [ ] Consolidate duplicate flowLayout.ts (use @shawnderland/ui copy)
 
 ## Later
 
+- [ ] Walter: ML integration — image generation from shot descriptions
+- [ ] Walter: ML integration — AI storyboard-to-video preview
+- [ ] Walter: ML integration — voice/narration generation from dialogue
 - [ ] Walter web integration (extract timeline/storyboard UI from Electron)
 - [ ] Production build and deployment configuration
 - [ ] Add test suite (currently 0 test files)
 - [ ] Split large files (SessionContext.tsx ~1060 lines, orchestrator.ts ~1039 lines)
-
-## Health Audit Cleanup
-
-- [x] Sync ARCHITECTURE.md: remove deleted ContextMenu.tsx reference, add useCanvasSession, GlobalToolbar, CanvasContextMenu, PrepromptNode, PostPromptNode, Gemini Studio, Concept Lab standalone structure
-- [x] Sync SPEC.md: add Gemini Studio section, Preprompt/PostPrompt nodes, unified canvas features (useCanvasSession, GlobalToolbar, CanvasContextMenu)
-- [x] Sync PROJECT.md: add Gemini Studio tool, Preprompt/PostPrompt features, unified canvas features
-- [x] Sync DECISIONS.md: add ADR for useCanvasSession extraction and unified toolbar/context menu, ADR for Preprompt/PostPrompt prompt injection design
-- [ ] Evaluate ContextMenu.css: merge shared styles into CanvasCommon.css or keep as shared stylesheet
-- [ ] Consolidate duplicate flowLayout.ts (use @shawnderland/ui copy)
-- [x] Fix broken preset node types in ConceptLabShell.tsx (multiViewer → charViewer, editImage → charEdit)
-- [x] Remove dead code: StatusBar.tsx/css, NodeInspector.tsx/css (never imported)
-- [x] Remove dead .cl-viewer-* CSS from ConceptLabNodes.css (~65 lines)
-- [x] Wire GeminiStudioShell.tsx to named layout system (uses deprecated onSaveLayout)
-- [x] Update ARCHITECTURE.md: remove deleted concept-lab/nodes/ entries, add ideation/canvas/nodes/character/ and shared components
+- [ ] Evaluate ContextMenu.css: merge shared styles into CanvasCommon.css
 - [ ] Evaluate loadPack.ts exports (unused)
-- [ ] URGENT: Rotate Gemini API key — embedded in saved-sessions/test.json committed to git
-- [ ] Remove saved-sessions/ from git tracking, add to .gitignore
-- [ ] Update ARCHITECTURE.md with Meshy, Hitem3D, ElevenLabs, 3D gen, audio, Creative Director, session auto-persistence
-- [ ] Update SPEC.md and PROJECT.md with new integrations and node types
-- [ ] Create README.md
-- [ ] Consolidate duplicate flowLayout.ts, BaseNode.tsx, PipelineEdge.tsx
-- [ ] Remove orphaned styleStore.ts duplicate
 - [ ] Resolve Windows production build EPERM issue (webpack glob config)
-- [x] Health audit report generated (report_id: 20260306_080757)
-- [x] Health audit report generated (report_id: 20260306_161152)
-- [x] Health audit report generated (report_id: 20260311_001400)
+
+## User Action Required
+
+- [ ] **URGENT: Rotate Gemini API key** — was embedded in saved-sessions/test.json (now removed from git, but key may be in git history)
+
+## Health Audit History
+
+- [x] Report 20260306_080757
+- [x] Report 20260306_161152
+- [x] Report 20260311_001400
+- [x] Health audit report generated (report_id: 20260314_144353)
 
 ---
 
 ## Comprehensive Repo Report
 
-# Comprehensive Repo Report — Shawnderland OKDO
+# Shawnderland OKDO — Comprehensive Repo Report
+
+---
 
 ## 1. Metadata
 
 | Field | Value |
 |-------|-------|
-| Timestamp | 2026-03-11 00:14:00 |
-| Repo root | `D:\dev\Shawnderland_OKDO` |
-| Git branch | `main` |
-| Git commit | `c0cdab3` (2026-03-11) |
-| Total commits | 15 |
-| Scan scope | All text-like files excluding node_modules, .next, .git, saved-sessions |
-| Files scanned | 366 |
-| Total LOC | 57,712 |
+| **Report ID** | 20260314_144353 |
+| **Repo root** | `c:\Dev\Shawnderland_OKDO` |
+| **Date** | 2026-03-14 14:43:53 |
+| **Git branch** | main |
+| **Last commit** | 7202e2c |
+| **Framework** | Next.js 15 (App Router), React 19, TypeScript 5 |
+| **Styling** | Tailwind CSS v4 + CSS custom properties via `packages/ui/src/tokens.css` |
+| **Canvas** | @xyflow/react 12, dagre |
+| **3D** | @react-three/fiber, @react-three/drei, three.js |
+| **Validation** | Zod |
+| **Icons** | lucide-react |
+| **Total files** | 465 |
+| **Total lines** | 79,653 |
+| **Total size** | 3,868 KB |
 
 ---
 
-### 2. Executive Summary
+## 2. Executive Summary
 
-1. **Shawnderland OKDO is a Next.js 15 hub application** hosting 6 AI-powered creative tools for game development, totaling 57,712 LOC across 366 files. Evidence: `package.json` (Next.js ^15), `src/lib/registry.ts` (6 tool entries).
-
-2. **The core tool (ShawnderMind)** is an 8-stage AI ideation pipeline implemented as a React Flow canvas with 60+ node types covering character design, 3D model generation, and audio synthesis. Evidence: `src/lib/sharedNodeTypes.ts` (ALL_RAW_NODE_TYPES with 60+ entries).
-
-3. **Three external API integrations** were recently added: Meshy (3D), Hitem3D (3D), and ElevenLabs (audio), each with server-side proxy routes and client libraries. Evidence: `src/app/api/meshy/route.ts`, `src/app/api/hitem3d/route.ts`, `src/app/api/elevenlabs/route.ts`.
-
-4. **All AI calls are proxied through Next.js API routes** — no external API calls from client code. Evidence: `meshyApi.ts`, `hitem3dApi.ts`, `elevenlabsApi.ts` all call `/api/*` local endpoints.
-
-5. **Session persistence uses a three-layer strategy**: localStorage auto-save (debounced), IndexedDB for large snapshots, and filesystem (`saved-sessions/`) for browser-reset survival. Evidence: `SessionContext.tsx` lines 222-272, `useCanvasSession.ts` lines 967-1036, `src/app/api/session/route.ts`.
-
-6. **The codebase grew 36% in LOC** since the last audit (5 days ago), driven by 3 API integrations adding ~20 new node components. Evidence: snapshot diff (42,339 → 57,712 LOC).
-
-7. **A Gemini API key is embedded in committed session data** (`saved-sessions/test.json`), creating a security risk. Evidence: grep pattern match for `AIza[a-zA-Z0-9_-]{35}` in test.json.
-
-8. **TypeScript compilation is clean** (zero errors), but production build fails due to a Windows permission issue unrelated to code. Evidence: `npx tsc --noEmit` exits 0; `npx next build` fails with `EPERM: scandir Application Data`.
-
-9. **5 file duplication signals** exist between `packages/ui/` and `src/app/`, plus a duplicate `styleStore.ts`. Evidence: `flowLayout.ts`, `BaseNode.tsx`, `PipelineEdge.tsx` exist in both locations.
-
-10. **Governance documentation is significantly outdated** — 6 doc drift items where major features are not reflected in ARCHITECTURE.md, SPEC.md, or PROJECT.md. No README.md exists.
+- **Monorepo hub** — Next.js 15 app with npm workspaces (`packages/*`, `tools/*`) hosting multiple AI-powered creative tools.
+- **Six applications** — ShawnderMind (ideation pipeline), Gemini Studio (media generation), ConceptLab (character/weapon design), Tool Editor (visual tool editor), UI Lab (AI UI generation), Walter Storyboarding (canon-aware storyboard generator).
+- **Profile system** — Work/personal/all toggle (`src/lib/profiles.ts`) controls which tools appear in the sidebar.
+- **Shared design system** — `@shawnderland/ui` provides tokens and components; `@shawnderland/ai` provides shared AI utilities.
+- **Extracted workspace package** — Walter lives in `tools/walter/` as `@tools/walter` with its own build and 28-episode lore.
+- **13 API routes** — AI generation, Meshy/Hitem3D 3D, ElevenLabs TTS, session, lore, folder/file ops.
+- **Multiple state patterns** — React Context, useCanvasSession, singleton external stores, Walter Brain (localStorage).
+- **External APIs** — Google AI (Gemini, Imagen), Meshy AI, Hitem3D, ElevenLabs.
+- **Complexity hotspots** — CharViewNode (1562 lines), FlowCanvas (1128 lines), SessionContext (1122 lines).
+- **Zip-and-run portable** — `run.bat` checks Node.js, installs deps, starts dev server, opens browser
 
 ---
 
-### 3. What This Repo Is
+## 3. What This Repo Is
 
-| Attribute | Value | Evidence |
-|-----------|-------|----------|
-| Type | Monorepo web application | Single `package.json` + `packages/ui/` workspace |
-| Primary language | TypeScript (72.8% of LOC) | 272 `.ts`/`.tsx` files, 42,269 LOC |
-| Framework | Next.js 15 (App Router) | `next.config.ts`, `src/app/` directory |
-| UI library | React 19 + React Flow 12 | `package.json` deps |
-| 3D rendering | Three.js + React Three Fiber | `three`, `@react-three/fiber`, `@react-three/drei` |
-| Styling | Tailwind CSS 4 + custom CSS | `postcss.config.mjs`, 71 CSS files |
-| AI backend | Google Gemini (AI Studio + Vertex) | `src/app/api/ai-generate/route.ts` |
-| 3D generation | Meshy API + Hitem3D API | `src/app/api/meshy/`, `src/app/api/hitem3d/` |
-| Audio generation | ElevenLabs API | `src/app/api/elevenlabs/` |
-| State management | React Context + React Flow store | `SessionContext.tsx`, `useCanvasSession.ts` |
-| Runtime | Node.js (dev: `npm run dev`) | `package.json` scripts |
+Shawnderland OKDO is a creative AI toolkit monorepo. A central Next.js hub mounts multiple tool packages and applications. Users can switch between work, personal, and all profiles to control which tools are visible. The stack is modern (Next.js 15, React 19, TypeScript 5) with Tailwind v4 and a shared design system. Canvas-based tools use ReactFlow; 3D tools use Three.js via React Three Fiber. AI features rely on Google Gemini, Meshy, Hitem3D, and ElevenLabs. The repo is designed to be zip-and-run portable with a single `run.bat` entry point.
 
 ---
 
-### 4. How to Run
+## 4. How to Run
 
-**Prerequisites:** Node.js 18+, npm
+**Entry point:** `run.bat` at repo root.
 
+**Steps:**
+1. Double-click `run.bat` (or run from terminal).
+2. Script checks for Node.js; prompts to install if missing.
+3. Runs `npm install` to bootstrap dependencies.
+4. Starts the Next.js dev server.
+5. Opens the default browser to the app.
+
+**Manual alternative:**
 ```bash
-# 1. Clone and install
-git clone https://github.com/lydhndrxca/Shawnderland_OKDO.git
-cd Shawnderland_OKDO
 npm install
-
-# 2. Configure environment
-cp .env.example .env.local
-# Edit .env.local — add at minimum NEXT_PUBLIC_GEMINI_API_KEY
-
-# 3. Start dev server
 npm run dev
-# → http://localhost:3000
 ```
-
-**Evidence:** `package.json` defines `"dev": "node scripts/kill-stale-dev.js && next dev"`. Dev server starts in 2.2s, compiles 3,413 modules. `run.bat` also exists as a Windows convenience script.
-
-**OS assumption:** Windows (run.bat, Photoshop paths in send-to-photoshop route). Dev server works on any OS.
-
-**Production build:** Currently fails on Windows due to webpack EPERM issue with `C:\Users\*\Application Data` junction. Not a code issue.
 
 ---
 
-### 5. Feature Inventory
+## 5. Feature Inventory (Grouped by App)
 
-#### A. Ideation Pipeline (ShawnderMind)
+### ShawnderMind (`src/app/ideation/`)
+- 8-stage AI ideation pipeline
+- ReactFlow canvas with ~40 node types
+- SessionContext for state
+- Character, level design, and concept nodes
+- Integration with ConceptLab for character/weapon design
 
-| Feature | Node(s) | Files |
-|---------|---------|-------|
-| Seed input with auto-context | `SeedNode` | `src/app/ideation/canvas/nodes/SeedNode.tsx` |
-| Normalize ideas | `NormalizeNode` | `src/app/ideation/canvas/nodes/NormalizeNode.tsx` |
-| Diverge candidates | `DivergeNode` | `src/app/ideation/canvas/nodes/DivergeNode.tsx` |
-| Critique & salvage | `CritiqueNode` | `src/app/ideation/canvas/nodes/CritiqueNode.tsx` |
-| Expand concepts | `ExpandNode` | `src/app/ideation/canvas/nodes/ExpandNode.tsx` |
-| Converge & rank | `ConvergeNode` | `src/app/ideation/canvas/nodes/ConvergeNode.tsx` |
-| Commit blueprint | `CommitNode` | `src/app/ideation/canvas/nodes/CommitNode.tsx` |
-| Iterate refinement | `IterateNode` | `src/app/ideation/canvas/nodes/IterateNode.tsx` |
+### Gemini Studio (`src/app/gemini-studio/`)
+- Consumer AI media generation
+- useCanvasSession shared hook
+- Google Gemini 2.0 Flash, Imagen 4 via `/api/ai-generate`
 
-#### B. Character Design Pipeline
+### ConceptLab (`src/app/concept-lab/`)
+- AI character and weapon design
+- useCanvasSession shared hook
+- Character save API (`/api/character-save`)
 
-| Feature | Node(s) | Files |
-|---------|---------|-------|
-| Quick character generation | `QuickGenerateNode` | `character/QuickGenerateNode.tsx` |
-| Character identity | `CharIdentityNode` | `character/CharIdentityNode.tsx` |
-| Character attributes | `CharAttributesNode` | `character/CharAttributesNode.tsx` |
-| Character description | `CharDescriptionNode` | `character/CharDescriptionNode.tsx` |
-| Image generation | `GenerateCharImageNode` | `character/GenerateCharImageNode.tsx` |
-| Multi-view generation | `GenerateViewsNode`, `CharViewNode` | `character/GenerateViewsNode.tsx`, `character/CharViewNode.tsx` |
-| Image editing | `EditCharacterNode`, `GeminiEditorNode` | `character/EditCharacterNode.tsx`, `character/GeminiEditorNode.tsx` |
-| AI creative direction | `CreativeDirectorNode` | `character/CreativeDirectorNode.tsx` |
-| Image restoration | `RestoreQualityNode`, `UpscaleNode` | `character/RestoreQualityNode.tsx`, `character/UpscaleNode.tsx` |
-| Main stage viewer | `MainStageViewerNode` | `character/MainStageViewerNode.tsx` |
-| Attribute extraction | `ExtractAttributesNode` | `character/ExtractAttributesNode.tsx` |
-| Style control | `StyleNode` | `character/StyleNode.tsx` |
-| Save/export | `SaveGroupNode`, `SendToPhotoshopNode` | `character/SaveGroupNode.tsx`, `character/SendToPhotoshopNode.tsx` |
+### Tool Editor (`src/app/tool-editor/`)
+- Visual tool editor with ReactFlow
+- Singleton external store (useSyncExternalStore)
 
-#### C. 3D Model Generation
+### UI Lab (`src/app/ui-lab/`)
+- AI UI generation
+- UILabContext for state
 
-| Feature | Node(s) | Files |
-|---------|---------|-------|
-| Meshy image-to-3D | `MeshyImageTo3DNode` | `threedgen/MeshyImageTo3DNode.tsx` |
-| Meshy 3D viewer | `MeshyModelViewerNode` | `threedgen/MeshyModelViewerNode.tsx` |
-| Hitem3D image-to-3D | `Hitem3DImageTo3DNode` | `threedgen/Hitem3DImageTo3DNode.tsx` |
-
-#### D. Audio Generation
-
-| Feature | Node(s) | Files |
-|---------|---------|-------|
-| Text-to-speech | `ElevenLabsTTSNode` | `audio/ElevenLabsTTSNode.tsx` |
-| Sound effects | `ElevenLabsSFXNode` | `audio/ElevenLabsSFXNode.tsx` |
-| Voice cloning | `ElevenLabsVoiceCloneNode` | `audio/ElevenLabsVoiceCloneNode.tsx` |
-| Voice design from image | `VoiceDesignerNode` | `audio/VoiceDesignerNode.tsx` |
-| Dialogue writing | `DialogueWriterNode` | `audio/DialogueWriterNode.tsx` |
-| Voice scripting | `VoiceScriptNode` | `audio/VoiceScriptNode.tsx` |
-
-#### E. Other Tools
-
-| Tool | Path | Status |
-|------|------|--------|
-| AI ConceptLab | `src/app/concept-lab/` | Active — shared canvas with ShawnderMind |
-| Gemini Studio | `src/app/gemini-studio/` | Active — image/video generation |
-| Tool Editor | `src/app/tool-editor/` | Active — visual UI tool designer |
-| AI UI Lab | `src/app/ui-lab/` | Active — game UI generation |
-| AI Sprite Lab | External (`/sprite-lab`) | Proxied via rewrite, separate app |
-| Walter | Not implemented | Listed in registry |
+### Walter Storyboarding (`tools/walter/`)
+- Canon-aware storyboard generator
+- 28-episode lore index (`tools/walter/src/lore/episodes.ts`)
+- Walter Brain (canon memory) with localStorage
+- Singleton external store
+- `/api/walter-lore` for lore queries
 
 ---
 
-### 6. Architecture Overview
+## 6. Architecture Overview (Text Component Diagram)
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Next.js App Router                         │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐   │
-│  │ HomePage  │ │ Sidebar  │ │ Toolbar  │ │ CmdPalette   │   │
-│  └────┬─────┘ └──────────┘ └──────────┘ └──────────────┘   │
-│       │                                                      │
-│  ┌────▼──────────────────────────────────────────────────┐  │
-│  │              WorkspaceRenderer                         │  │
-│  │  ┌─────────────┐ ┌─────────────┐ ┌────────────────┐  │  │
-│  │  │ SessionProv. │ │ UILabProv.  │ │ ToolEditorProv│  │  │
-│  │  │  ┌─────────┐│ │  ┌────────┐│ │  ┌───────────┐│  │  │
-│  │  │  │Ideation ││ │  │ UI Lab ││ │  │ToolEditor ││  │  │
-│  │  │  │ Canvas  ││ │  │        ││ │  │ Canvas    ││  │  │
-│  │  │  └─────────┘│ │  └────────┘│ │  └───────────┘│  │  │
-│  │  └─────────────┘ └────────────┘ └────────────────┘  │  │
-│  └───────────────────────────────────────────────────────┘  │
-│                                                              │
-│  ┌────────────────── API Routes ──────────────────────────┐ │
-│  │ /api/ai-generate  │ /api/meshy     │ /api/elevenlabs   │ │
-│  │ /api/ai-status    │ /api/meshy-exp │ /api/hitem3d      │ │
-│  │ /api/session      │ /api/char-save │ /api/send-to-ps   │ │
-│  │ /api/list-dirs    │ /api/open-fold │                    │ │
-│  └────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-         │                    │                   │
-         ▼                    ▼                   ▼
-  Google Gemini API    Meshy/Hitem3D API    ElevenLabs API
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           Shawnderland OKDO Hub                              │
+│                    (Next.js 15 App Router, React 19)                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  WorkspaceContext (nav)  │  Sidebar (profile toggle)  │  WorkspaceRenderer   │
+│  Profile: work/personal/all                                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                    ┌───────────────────┼───────────────────┐
+                    ▼                   ▼                   ▼
+         ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
+         │   ShawnderMind    │ │   Gemini Studio  │ │   ConceptLab      │
+         │   (ideation/)     │ │ (gemini-studio/) │ │ (concept-lab/)    │
+         │   SessionContext  │ │ useCanvasSession │ │ useCanvasSession  │
+         │   ~40 node types  │ │                  │ │                   │
+         └──────────────────┘ └──────────────────┘ └──────────────────┘
+                    │                   │                   │
+         ┌──────────────────┐ ┌──────────────────┐         │
+         │   Tool Editor     │ │     UI Lab        │         │
+         │ (tool-editor/)    │ │   (ui-lab/)       │         │
+         │ useSyncExternal   │ │ UILabContext      │         │
+         └──────────────────┘ └──────────────────┘         │
+                    │                                         │
+                    ▼                                         ▼
+         ┌──────────────────────────────────────────────────────────────┐
+         │                    tools/walter (@tools/walter)               │
+         │  Walter Brain (localStorage) │ 28-episode lore │ Singleton    │
+         └──────────────────────────────────────────────────────────────┘
+                                        │
+         ┌──────────────────────────────┼──────────────────────────────┐
+         │                              ▼                              │
+         │  packages/ui (@shawnderland/ui)  │  packages/ai (@shawnderland/ai) │
+         │  tokens.css, design system       │  generateText, shared AI         │
+         └──────────────────────────────────────────────────────────────┘
+                                        │
+         ┌──────────────────────────────┼──────────────────────────────┐
+         │                              ▼                              │
+         │  API Routes (13): ai-generate, ai-status, character-save,   │
+         │  elevenlabs, hitem3d, list-dirs, meshy, meshy-export,        │
+         │  open-folder, send-to-photoshop, session, video-analyze,     │
+         │  walter-lore                                                 │
+         └──────────────────────────────────────────────────────────────┘
 ```
-
-**Data flow:**
-1. User interacts with React Flow canvas nodes
-2. Nodes read/write to `SessionContext` (pipeline state) and `node.data` (local state)
-3. `useCanvasSession` manages undo/redo, layout save/load, auto-persistence
-4. API calls go through `/api/*` server routes → external APIs
-5. Results flow back to node data → downstream nodes read via React Flow store
 
 ---
 
-### 7–12. (See full comprehensive report)
+## 7. Module Deep Dive (Top Subsystems)
 
-Full module deep dives, dependency analysis, configuration surface, risk assessment, open questions, and evidence index are available in `.repo_snapshot/repo_comprehensive_report.md`.
+### Route Resolution & Dynamic Imports
+`src/components/WorkspaceRenderer.tsx` — Resolves routes and dynamically imports tool components. Central to hub navigation.
+
+### Tool Registry & Profiles
+- `src/lib/registry.ts` — Tool registry with `AppProfile` (work/personal/all).
+- `src/lib/profiles.ts` — Profile state management.
+- `src/lib/types.ts` — `ToolRegistryEntry` with `AppProfile`.
+
+### Walter Package
+- `tools/walter/src/index.tsx` — Tool package entry point.
+- `tools/walter/src/walterBrain.ts` — Canon memory with 28 episodes.
+- `tools/walter/src/lore/episodes.ts` — Typed episode index.
+
+### Shared AI
+`packages/ai/src/generateText.ts` — Shared AI text generation utility.
+
+### Design Tokens
+`packages/ui/src/tokens.css` — CSS custom properties consumed by all apps.
+
+### Build & Workspace Config
+- `next.config.ts` — `transpilePackages`, rewrites.
+- `package.json` — npm workspaces config.
+
+---
+
+## 8. External Dependencies & Integrations
+
+| Service | Purpose | API Route |
+|---------|---------|-----------|
+| Google AI | Gemini 2.0 Flash, Imagen 4 | `/api/ai-generate` |
+| Meshy AI | Image-to-3D | `/api/meshy`, `/api/meshy-export` |
+| Hitem3D | Portrait 3D | `/api/hitem3d` |
+| ElevenLabs | TTS, SFX, voice cloning | `/api/elevenlabs` |
+
+---
+
+## 9. Configuration Surface
+
+### Environment Variables (19)
+
+| Variable | Purpose |
+|----------|---------|
+| `GEMINI_API_KEY` | Server-side Gemini |
+| `NEXT_PUBLIC_GEMINI_API_KEY` | Client-side Gemini |
+| `NEXT_PUBLIC_VERTEX_PROJECT` | Vertex AI project |
+| `NEXT_PUBLIC_VERTEX_LOCATION` | Vertex AI location |
+| `NEXT_PUBLIC_VERTEX_API_KEY` | Vertex AI key |
+| `MESHY_API_KEY` | Meshy AI |
+| `HITEM3D_ACCESS_KEY` | Hitem3D |
+| `HITEM3D_SECRET_KEY` | Hitem3D |
+| `ELEVENLABS_API_KEY` | ElevenLabs |
+| `SESSIONS_DIR` | Session storage path |
+| `CHARACTER_OUTPUT_DIR` | Character output path |
+| `SPRITE_LAB_URL` | Sprite Lab URL |
+| `SHAWNDERMIND_URL` | ShawnderMind URL |
+| `UI_LAB_URL` | UI Lab URL |
+| `CONCEPT_LAB_URL` | Concept Lab URL |
+| `NEXT_PUBLIC_SPRITE_LAB_URL` | Client Sprite Lab |
+| `NEXT_PUBLIC_SHAWNDERMIND_URL` | Client ShawnderMind |
+| `NEXT_PUBLIC_UI_LAB_URL` | Client UI Lab |
+| `NEXT_PUBLIC_CONCEPT_LAB_URL` | Client Concept Lab |
+
+---
+
+## 10. Risks / Complexity Hotspots
+
+| Risk | Location | Notes |
+|------|----------|-------|
+| Large component | `CharViewNode.tsx` | 1562 lines — candidate for splitting |
+| Large canvas | `FlowCanvas.tsx` | 1128 lines — central canvas logic |
+| Large context | `SessionContext.tsx` | 1122 lines — session state |
+| Pre-existing TS errors | `GeminiEditorOverlay.tsx` | 3 TypeScript errors |
+| Large lore files | `tools/walter/src/lore/` | Some >100 KB (e.g. MASTER_ANALYSIS.md 499 KB) |
+| Single-line markdown | Walter lore | Low LOC, high byte count — affects diff/merge |
+
+---
+
+## 11. Open Questions / Ambiguous Areas
+
+- **Profile vs. tool visibility** — Exact mapping of which tools appear for work vs. personal profiles may need verification against `registry.ts` and `profiles.ts`.
+- **Walter package coupling** — Degree of independence from hub (build, deploy, versioning) is not fully documented.
+- **Session persistence** — How `SESSIONS_DIR` and session APIs interact with each app's state model.
+- **Sprite Lab** — Referenced in env vars but not in the app inventory; may be external or deprecated.
+- **Character output flow** — How `CHARACTER_OUTPUT_DIR` and `/api/character-save` connect to ConceptLab and ShawnderMind.
+
+---
+
+## 12. Appendix: Evidence Index
+
+| File | Purpose |
+|------|---------|
+| `src/components/WorkspaceRenderer.tsx` | Route resolution, dynamic imports |
+| `src/components/Sidebar.tsx` | Navigation, profile toggle |
+| `src/lib/registry.ts` | Tool registry with profiles |
+| `src/lib/profiles.ts` | Profile state management |
+| `src/lib/types.ts` | `ToolRegistryEntry` with `AppProfile` |
+| `tools/walter/src/index.tsx` | Walter tool package entry point |
+| `tools/walter/src/walterBrain.ts` | Canon memory with 28 episodes |
+| `tools/walter/src/lore/episodes.ts` | Typed episode index |
+| `packages/ai/src/generateText.ts` | Shared AI utility |
+| `packages/ui/src/tokens.css` | Design tokens |
+| `next.config.ts` | `transpilePackages`, rewrites |
+| `package.json` | Workspaces config |
+| `run.bat` | Entry point |
+
+### Top 10 Largest Files (by size)
+
+| Size | Path |
+|------|------|
+| 499.1 KB | `tools/walter/src/lore/MASTER_ANALYSIS.md` |
+| 77.5 KB | `src/app/ideation/canvas/nodes/character/CharViewNode.tsx` (1562 lines) |
+| 54 KB | `tools/walter/src/Walter.css` (1699 lines) |
+| 52.2 KB | `src/app/ideation/canvas/FlowCanvas.tsx` (1128 lines) |
+| 51.7 KB | `src/lib/ideation/engine/conceptlab/characterPrompts.ts` (626 lines) |
+| 46.4 KB | `src/lib/ideation/context/SessionContext.tsx` (1122 lines) |
+| 43.8 KB | `src/app/ideation/canvas/nodes/LevelDesignDirectorNode.tsx` (816 lines) |
+
+---
+
+*Report generated 2026-03-14. Report ID: 20260314_144353.*
 
 ---
 
@@ -634,10 +623,8 @@ Full module deep dives, dependency analysis, configuration surface, risk assessm
 
 * Snapshot: `.repo_snapshot/repo_snapshot.md`
 * Snapshot JSON: `.repo_snapshot/repo_snapshot.json`
-* Snapshot Diff: `.repo_snapshot/diff__20260306_to_20260311__latest.md`
 * Health Report: `HEALTH_REPORT.md`
-* Health Metrics: `.repo_snapshot/health_reports/health_metrics__20260311_001400.json`
-* Health History: `.repo_snapshot/health_reports/health_history.csv`
+* Health Metrics: `.repo_snapshot/health_reports/health_metrics__20260314_144353.json`
 * Tasks: `TASKS.md`
 * Comprehensive Report: `.repo_snapshot/repo_comprehensive_report.md`
 * Master Report: `MASTER_REPO_REPORT.md`

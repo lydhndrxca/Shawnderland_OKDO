@@ -48,19 +48,44 @@
 
 ## Now
 
+- [x] Monorepo: extract Walter into tools/walter/ workspace package
+- [x] Monorepo: create @shawnderland/ai shared package
+- [x] Profile system: work/personal/all toggle in sidebar
 - [ ] Test ConceptLab end-to-end: Character generation + Turnaround views
 - [ ] Test dual-backend: verify Vertex AI endpoint format with live credentials
 - [ ] Test node compatibility: verify all error/warning scenarios fire correctly
 - [x] Walter: convert from landing page to functional application shell
+- [x] Walter: ShawnderMind visual theme (#09090b, #6c63ff, system-ui)
+- [x] Walter: Walter Brain (canon memory) — characters, locations, lore, 28 episodes
+- [x] Walter: 6-step Episode Wizard (Setup → Tone → Structure → Direction → Premise → Review)
+- [x] Walter: 5 runtime presets (Micro, Mini, Short, Standard, Full Episode)
+- [x] Walter: Staged generation pipeline (overview → beats → shots)
+- [x] Walter: Timeline block library (Hook, Reveal, Climax, etc.)
+- [x] Walter: Scoped AI rewrite (double-click beat)
+- [x] Walter: Shot split from timeline inspector
+- [x] Walter: Shoot sheet plaintext export
+- [x] Walter: Expanded data model (Shot purpose/characters/location, Beat storyGoal/tone)
+- [x] Walter: Episode lore integration — 28 per-episode analysis files in lore/, typed index, brain seeded from real Gemini analysis, API route for on-demand loading
+
+### Health Audit Cleanup
+
+- [ ] Commit monorepo migration (Walter extraction, profile system, @shawnderland/ai)
+- [ ] Consider Git LFS for lore files >100 KB
+- [x] Fix 3 pre-existing TS errors in GeminiEditorOverlay.tsx
 
 ## Next
 
+- [ ] Extract ShawnderMind into tools/shawndermind/ package
+- [ ] Extract Gemini Studio into tools/gemini-studio/ package
 - [ ] Build Sprite Lab sub-tool navigation and workspace pages
 - [ ] Build UI Lab remaining workspace panels
 - [ ] Add cross-tool data flow wiring on the hub canvas
 
 ## Later
 
+- [ ] Walter: ML integration — image generation from shot descriptions
+- [ ] Walter: ML integration — AI storyboard-to-video preview
+- [ ] Walter: ML integration — voice/narration generation from dialogue
 - [ ] Walter web integration (extract timeline/storyboard UI from Electron)
 - [ ] Production build and deployment configuration
 - [ ] Add test suite (currently 0 test files)
@@ -78,3 +103,4 @@
 - [x] Report 20260306_080757
 - [x] Report 20260306_161152
 - [x] Report 20260311_001400
+- [x] Health audit report generated (report_id: 20260314_144353)

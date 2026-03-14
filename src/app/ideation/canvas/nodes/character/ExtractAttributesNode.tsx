@@ -9,12 +9,19 @@ import {
   AGE_OPTIONS,
   RACE_OPTIONS,
   GENDER_OPTIONS,
+  CHARACTER_STYLE_NOTES,
+  VIEW_REQUESTS,
+  LOCK_OUTFIT_BLOCK,
   hasContextData,
   buildContextExtractionPrefix,
   buildContextAttrExtractionPrefix,
   type ContextLensInput,
 } from '@/lib/ideation/engine/conceptlab/characterPrompts';
-import { generateText, type GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import {
+  generateText,
+  generateWithGeminiRef,
+  type GeneratedImage,
+} from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { NODE_TOOLTIPS } from './nodeTooltips';
 import { devLog, devWarn } from '@/lib/devLog';
 import './CharacterNodes.css';
@@ -212,6 +219,13 @@ function findUpstreamImage(
   return null;
 }
 
+const MAIN_VIEWER_TYPES = new Set(['charMainViewer', 'charViewer', 'charImageViewer']);
+const VIEW_TYPE_MAP: Record<string, string> = {
+  charFrontViewer: 'front',
+  charBackViewer: 'back',
+  charSideViewer: 'side',
+};
+
 function ExtractAttributesNodeInner({ id, data, selected }: Props) {
   const { setNodes, getNode, getEdges } = useReactFlow();
   const [generating, setGenerating] = useState(false);
@@ -257,6 +271,34 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
     },
     [id, getEdges, setNodes],
   );
+
+  const findDownstreamViewers = useCallback(() => {
+    const edges = getEdges();
+    const visited = new Set<string>();
+    const queue = [id];
+    const mainIds: string[] = [];
+    const viewIds: { nodeId: string; viewKey: string }[] = [];
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (visited.has(current)) continue;
+      visited.add(current);
+      for (const e of edges) {
+        const target = e.source === current ? e.target : null;
+        if (!target || visited.has(target)) continue;
+        const node = getNode(target);
+        if (!node) continue;
+        const t = node.type ?? '';
+        if (MAIN_VIEWER_TYPES.has(t) || t === 'charGenerate') {
+          mainIds.push(target);
+        } else if (VIEW_TYPE_MAP[t]) {
+          viewIds.push({ nodeId: target, viewKey: VIEW_TYPE_MAP[t] });
+        }
+        queue.push(target);
+      }
+    }
+    return { mainIds, viewIds };
+  }, [id, getNode, getEdges]);
 
   const handleExtract = useCallback(async () => {
     const img = findUpstreamImage(id, getNode, getEdges);
@@ -362,6 +404,167 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
     }
   }, [id, getNode, getEdges, setNodes, pushToDownstream, userHint]);
 
+  const handleRecreate = useCallback(async () => {
+    const img = findUpstreamImage(id, getNode, getEdges);
+    if (!img) {
+      setError('Connect an image source (ImageReference or generated image) first.');
+      return;
+    }
+    setGenerating(true);
+    setError(null);
+    setStatus('Describing character…');
+    try {
+      const hint = userHint.trim();
+
+      const excludeTerms: string[] = [];
+      if (hint) {
+        const patterns = [/\b(?:no|ignore|remove|without|exclude|skip|drop|omit)\s+(?:the\s+)?(.+)/gi];
+        for (const pat of patterns) {
+          let m: RegExpExecArray | null;
+          while ((m = pat.exec(hint)) !== null) {
+            excludeTerms.push(...m[1].toLowerCase().split(/[,;&]+/).map((t) => t.trim()).filter(Boolean));
+          }
+        }
+      }
+
+      const excludeList = excludeTerms.length > 0
+        ? `ITEMS TO COMPLETELY EXCLUDE (pretend they do not exist in the image): ${excludeTerms.join(', ')}\n`
+        : '';
+      const descHintBlock = hint
+        ? `⚠️ MANDATORY USER OVERRIDE — HIGHEST PRIORITY:\n${excludeList}${hint}\nIf the user says to ignore/exclude/remove any item, that item MUST NOT appear ANYWHERE in your description.\n\n`
+        : '';
+      const attrHintBlock = hint
+        ? `\n\n⚠️ MANDATORY USER OVERRIDE — HIGHEST PRIORITY (overrides "no none values" rule):\n${excludeList}${hint}\nIf the user says "no [item]", "ignore [item]", "remove [item]", "without [item]", or "exclude [item]", you MUST set ANY field that would describe that item to "none".`
+        : '';
+
+      const ctxLens = gatherExtractContext(id, getNode, getEdges);
+      const hasCtx = hasContextData(ctxLens);
+      const ctxDescPrefix = hasCtx ? buildContextExtractionPrefix(ctxLens) : '';
+      const ctxAttrSuffix = hasCtx ? buildContextAttrExtractionPrefix(ctxLens) : '';
+
+      if (hasCtx) setStatus('Describing character through context lens…');
+
+      // Step 1: describe the image (text) — same as normal extraction
+      const description = await generateText(descHintBlock + ctxDescPrefix + DESCRIBE_IMAGE_PROMPT, img);
+
+      let cleanDescription = description;
+      if (excludeTerms.length > 0) {
+        cleanDescription = description
+          .split(/(?<=[.!?])\s+/)
+          .filter((s) => !excludeTerms.some((t) => s.toLowerCase().includes(t)))
+          .join(' ');
+      }
+
+      setStatus('Extracting identity and attributes…');
+
+      // Step 2: extract structured attributes
+      const attrPrompt = `${EXTRACT_ATTRIBUTES_PROMPT}${attrHintBlock}${ctxAttrSuffix}\n\nCHARACTER DESCRIPTION:\n${cleanDescription}`;
+      const attrText = await generateText(attrPrompt, img);
+
+      const combined = `Description:\n${cleanDescription}\n\nAttributes:\n${attrText}`;
+      setResultText(combined);
+      setNodes((nds) =>
+        nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, resultText: combined } } : n)),
+      );
+
+      const json = JSON.parse(attrText.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
+
+      if (excludeTerms.length > 0) {
+        for (const key of Object.keys(json)) {
+          const val = (json[key] ?? '').toLowerCase();
+          for (const term of excludeTerms) {
+            if (val.includes(term)) { json[key] = 'none'; break; }
+          }
+        }
+      }
+
+      pushToDownstream(cleanDescription, json);
+
+      const { mainIds, viewIds } = findDownstreamViewers();
+
+      // Step 3: recreate main view — Gemini SEES the original image while generating
+      setStatus('Recreating main view…');
+      devLog('[ExtractAttributes] Recreate: sending original image + description to Gemini for visual recreation');
+
+      const recreatePrompt = `You are looking at a character reference image. Your task is to RECREATE this EXACT character as a clean, full-body character reference sheet.
+
+WHAT TO PRESERVE (copy from the source image):
+- The EXACT same person: face, age, skin tone, build, hair, expression, scars, tattoos, facial hair
+- The EXACT same outfit: every garment, accessory, prop, color, material, pattern, condition, wear, and damage
+- The EXACT same vibe and character energy — if they look battle-worn, the recreation is battle-worn; if elegant, the recreation is elegant
+
+WHAT TO CHANGE (standardize for the reference sheet):
+- POSE: Relaxed standing A-stance, slight 3/4 to camera, arms at sides
+- BACKGROUND: Flat solid neutral grey only — no environment, no floor, no shadows
+- FRAMING: Full body head to shoe soles, character fills ~65% of frame height with grey padding above and below
+- LIGHTING: Soft, even studio photography lighting, neutral color temperature
+
+${CHARACTER_STYLE_NOTES}
+
+${VIEW_REQUESTS.main}
+
+CHARACTER DESCRIPTION (extracted from the source — follow this precisely):
+${cleanDescription}
+
+ZERO TEXT — do NOT render any text, letters, numbers, logos, labels, or watermarks anywhere in the image.
+
+FINAL CHECK: The output character must be IMMEDIATELY recognizable as the same person wearing the same outfit from the source image. If a viewer couldn't tell it's the same character, you have failed.`;
+
+      const mainResults = await generateWithGeminiRef(recreatePrompt, img);
+      const recreatedMain = mainResults[0];
+      if (!recreatedMain) throw new Error('No image returned from recreation');
+
+      if (mainIds.length > 0) {
+        setNodes((nds) =>
+          nds.map((n) => mainIds.includes(n.id) ? { ...n, data: { ...n.data, generatedImage: recreatedMain } } : n),
+        );
+        devLog(`[ExtractAttributes] Main view pushed to ${mainIds.length} node(s)`);
+      }
+
+      // Step 4: generate front/back/side views from the recreated main
+      for (const { nodeId, viewKey } of viewIds) {
+        const viewLabel = viewKey.charAt(0).toUpperCase() + viewKey.slice(1);
+        setStatus(`Generating ${viewLabel} view…`);
+
+        const viewPrompt = `IMAGE 1 is the ORIGINAL source character. IMAGE 2 is the MAIN STAGE recreation (3/4 front view) — this is the canonical reference.
+
+Recreate this EXACT same character from a ${viewKey} angle.
+
+${LOCK_OUTFIT_BLOCK}
+
+${VIEW_REQUESTS[viewKey] ?? VIEW_REQUESTS.front}
+
+CHARACTER DESCRIPTION:
+${cleanDescription}
+
+${CHARACTER_STYLE_NOTES}
+
+ZERO TEXT — do NOT render any text, letters, numbers, logos, labels, or watermarks anywhere in the image.`;
+
+        try {
+          const viewResults = await generateWithGeminiRef(viewPrompt, [img, recreatedMain]);
+          const viewImg = viewResults[0];
+          if (viewImg) {
+            setNodes((nds) =>
+              nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, generatedImage: viewImg } } : n),
+            );
+            devLog(`[ExtractAttributes] ${viewLabel} view pushed to ${nodeId}`);
+          }
+        } catch (viewErr) {
+          devWarn(`[ExtractAttributes] ${viewLabel} view generation failed:`, viewErr);
+        }
+      }
+
+      devLog('[ExtractAttributes] Recreate complete — all views generated');
+      setStatus('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setStatus('');
+    } finally {
+      setGenerating(false);
+    }
+  }, [id, getNode, getEdges, setNodes, pushToDownstream, findDownstreamViewers, userHint]);
+
   return (
     <div className={`char-node ${selected ? 'selected' : ''}`} title={NODE_TOOLTIPS.charExtractAttrs}>
       <div className="char-node-header" style={{ background: '#ffab40' }}>
@@ -382,9 +585,20 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
           rows={2}
           style={{ fontSize: 11, minHeight: 36 }}
         />
-        <button className="char-btn primary nodrag" onClick={handleExtract} disabled={generating}>
-          {generating ? 'Extracting...' : 'Extract Attributes'}
-        </button>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button className="char-btn primary nodrag" onClick={handleExtract} disabled={generating} style={{ flex: 1 }}>
+            {generating && !status?.includes('Recreating') ? 'Extracting…' : 'Extract'}
+          </button>
+          <button
+            className="char-btn nodrag"
+            onClick={handleRecreate}
+            disabled={generating}
+            title="Extract attributes AND recreate the character as a clean reference — Gemini sees the original image while generating"
+            style={{ flex: 1, background: '#e91e63', color: '#fff', fontWeight: 600 }}
+          >
+            {generating && status?.includes('Recreating') ? 'Recreating…' : 'Extract + Recreate'}
+          </button>
+        </div>
         {generating && status && <div className="char-progress">{status}</div>}
         {error && <div className="char-error">{error}</div>}
         {resultText && (

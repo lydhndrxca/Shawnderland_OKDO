@@ -54,6 +54,21 @@ export const ATTRIBUTE_GROUPS: AttributeGroup[] = [
     rare: ['Platinum white, wavy, past shoulders','Silver-grey, long, loose','Jet black with blue sheen','Shaved sides, long top','Dreadlocks, waist-length','Mohawk, styled up','Two-tone split dye','Bald, smooth','White streak in dark hair','Bright unnatural color'],
   },
   {
+    label: 'Facial Hair', key: 'facialhair',
+    common: ['Clean-shaven','Light stubble — 1-2 day growth','Heavy stubble — 3-5 day shadow','Short trimmed beard — neat edges','Full beard — medium length, natural','Goatee — chin and mustache','Mustache only — groomed','Soul patch — small chin tuft','No facial hair','5 o\'clock shadow — even'],
+    rare: ['Long full beard — chest length, wild','Grey-streaked beard — salt-and-pepper, untrimmed','Braided beard — decorative','Handlebar mustache — waxed tips','Mutton chops — no chin hair','Patchy beard — uneven growth','White beard — full, weathered','Stubble — deliberately unkempt, days old','Van Dyke — pointed goatee and mustache','Beard with visible food/dirt/debris'],
+  },
+  {
+    label: 'Expression', key: 'expression',
+    common: ['Neutral, composed','Stern, focused','Calm, relaxed','Confident, direct gaze','Tired, weary','Slight smirk','Serious, jaw set','Thoughtful, distant gaze','Alert, watchful','Stoic, unreadable'],
+    rare: ['Grizzled scowl — hard-lived','Battle-hardened stare — thousand-yard','Menacing glare — intimidating','Pained grimace — enduring','Defiant snarl','Haunted look — hollow eyes','Cold fury — controlled rage','World-weary resignation','Feral intensity','Amused contempt'],
+  },
+  {
+    label: 'Body Condition', key: 'bodycondition',
+    common: ['Clean, healthy skin','Light sweat sheen','Minor scrapes','Lightly sun-weathered','Dry, dusty skin','Slightly flushed','Calloused hands','Veiny forearms','Tanned, outdoor-worn','No visible damage'],
+    rare: ['Blood-stained skin — dried, smeared on arms/face','Mud/dirt caked on skin — heavy','Open wounds — cuts, abrasions','Heavy scarring — multiple areas','Bruised — dark marks on arms/torso','Sweat-soaked, glistening','Burn marks — healed, textured','Ash/soot covered','Chemical stains on hands','Frost-nipped, reddened extremities'],
+  },
+  {
     label: 'Makeup Detail', key: 'makeupdetail',
     common: ['No visible makeup','Natural, minimal','Dark lipstick, smoky eye','Red lip, clean skin','Subtle foundation, nude lip','Heavy eyeliner, winged','Glossy lip, light blush','Matte skin, dark lip','Bold eyebrow pencil','Concealer only'],
     rare: ['Dark burgundy lip, pale foundation','Black lipstick, white powder','Theatrical stage makeup','Scar-covering concealer','Gothic — dark eyes, dark lips, pale base','Avant-garde, artistic','Smudged/running eye makeup','Glitter accents','Face paint, tribal','Bruise/wound prosthetic makeup'],
@@ -139,6 +154,11 @@ export const ATTRIBUTE_GROUPS: AttributeGroup[] = [
     rare: ['Accent — hi-viz chartreuse tabs','Accent — safety orange toggles','Accent — reflective piping','Accent — anodized blue hardware','Accent — copper rivets','Accent — crimson edge paint','Accent — neon paracord','Accent — titanium D-rings','Accent — oxblood laces'],
   },
   {
+    label: 'Garment Condition', key: 'garmentcondition',
+    common: ['Pristine, like-new','Lightly worn, broken-in','Well-worn but maintained','Faded from sun/washing','Wrinkled, lived-in','Scuffed edges, minor pilling','Slightly frayed hems','Minor stains — work/food','Soft and broken-in, years of wear','Crisp, recently laundered'],
+    rare: ['Heavily distressed — torn, frayed, ripped edges','Battle-damaged — rips, burns, dried blood stains','Mud/dirt-caked — ground-in grime','Sweat-stained and salt-crusted','Oil/grease saturated','Patched and repaired multiple times','Threadbare — nearly transparent in spots','Charred/singed edges','Waterlogged and stiff-dried','Bloodstained — heavy, dried dark brown'],
+  },
+  {
     label: 'Detailing', key: 'detailing',
     common: ['Material emphasis — leather & canvas mix','Material emphasis — denim & twill','Material emphasis — nylon & mesh','Material emphasis — cotton & rib knit','Material emphasis — suede accents','Wear — lightly worn edges','Wear — scuffed hardware','Finish — matte overall','Finish — mixed matte & satin','Repair — subtle hand stitch'],
     rare: ['Material emphasis — waxed cotton body','Material emphasis — ripstop + spacer mesh','Material emphasis — Cordura panelling','Wear — sun-bleached shoulders','Wear — oil-darkened cuffs','Wear — paint flecks clustered','Finish — stonewashed overall','Repair — sashiko knee patch','Patina — brass oxidized green','Stress — honeycomb on sleeves'],
@@ -166,27 +186,39 @@ export interface CharacterAttributes {
 
 export const CHARACTER_STYLE_NOTES = `CRITICAL IMAGE FORMAT: 9:16 vertical portrait (1536 x 2816).
 
-MANDATORY FULL-BODY FRAMING (DO NOT VIOLATE):
-- The character should occupy approximately 75% of the frame height, centered vertically.
-- Leave at LEAST 12% empty space above the top of the head and 12% below the bottom of the feet.
-- The ENTIRE character must be visible: TOP OF THE HEAD (including all hair/headwear) to the BOTTOM OF THE FEET (including shoe soles touching the ground line).
-- The feet/shoes MUST be clearly visible — this is the #1 most common error. If in doubt, ZOOM OUT MORE.
-- If the character is tall, zoom the camera out further rather than cropping. NEVER crop any body part.
-- Think of it as a full-length mirror photo — you can always see the shoes.
-- This is NOT a portrait, NOT a headshot, NOT waist-up. This is a FULL-LENGTH character reference.
+MANDATORY FULL-BODY FRAMING — #1 PRIORITY (DO NOT VIOLATE):
+- The character should occupy approximately 65% of the frame height, centered vertically.
+- Leave at LEAST 15% empty solid grey space ABOVE the top of the head AND 15% empty solid grey space BELOW the soles of the feet/shoes.
+- START composing the image from the FEET UP. Place the shoe soles first at about 15% from the bottom edge, then build the figure upward.
+- The ENTIRE body must be visible: TOP OF THE HEAD (including all hair/headwear) to the BOTTOM OF THE FEET (including the flat soles of the shoes resting on the invisible ground plane).
+- SHOES AND FEET are the #1 most commonly cropped part. You MUST verify feet are fully visible with grey padding below them.
+- If the character is tall or has elaborate headwear, zoom the camera out further. NEVER crop ANY body part.
+- Think of this as a fashion lookbook photo taken with a wide-angle lens — the model is small in the frame with lots of grey space around them.
+- This is NOT a portrait, NOT a headshot, NOT waist-up, NOT shin-crop. This is a FULL-LENGTH character reference.
 
 FOLLOW THE DESCRIPTION LITERALLY:
 - Wardrobe, props, colors, materials, condition, and wear must match the attribute list.
 - Body type, age, and demeanor must match the identity description.
 - Include any listed props and accessories. Do not invent extra items.
 
-VISUAL STYLE: Photorealistic character portrait. Proportions must be natural and un-idealized, showing realistic weight distribution without underlying muscular definition. Soft, even studio lighting (diffused softbox), gentle contrast, clean shadows. Visible skin pores and fabric weave. RENDER fabrics as heavy, lived-in materials that sag and wrinkle naturally under the character's weight. Pose: casual standing, slight 3/4 to camera.
+VISUAL STYLE — PHOTOREALISTIC (MANDATORY, DO NOT DEVIATE):
+This MUST look like a photograph taken with a real camera of a real person wearing a real costume. NOT concept art, NOT digital painting, NOT illustration, NOT a video game render, NOT stylized in any way.
+- SKIN: Real human skin with visible pores, subsurface scattering, natural blemishes, uneven skin tone. NOT smooth/airbrushed/plastic-looking.
+- EYES: Wet, reflective, with visible blood vessels in the sclera. NOT glowing, NOT unnaturally vivid.
+- HAIR: Individual strands with natural flyaways and imperfect texture. NOT perfectly styled CG hair.
+- FABRICS: Heavy, lived-in materials that sag and wrinkle under gravity. Visible thread texture, natural pilling, realistic wear. NOT clean/pristine/crisp CG materials.
+- METALS: Real metal with scratches, fingerprints, uneven patina. NOT perfectly polished/shiny CG metal.
+- LIGHTING: Soft, even studio photography lighting (diffused softbox). Neutral color temperature. NO dramatic rim lights, NO colored gels, NO cinematic atmosphere, NO volumetric fog, NO lens flares, NO bloom/glow effects.
+- PROPORTIONS: Natural and un-idealized — realistic weight distribution, no exaggerated musculature, no heroic proportions.
+- OVERALL: If this image could be mistaken for concept art, a game character, or a digital painting, it has FAILED. It must pass as a real photograph.
+- Pose: casual standing, slight 3/4 to camera.
 
-NO TEXT:
-- Do not render any text, letters, numbers, logos, labels, or watermarks.
+ZERO TEXT IN IMAGE (MANDATORY):
+- Do NOT render any text, letters, numbers, hex codes, color codes, logos, labels, captions, annotations, or watermarks anywhere in the image.
+- The image must contain ONLY the character on a plain background — absolutely nothing written or printed.
 
 BACKGROUND (REQUIRED):
-- Flat solid grey (#D3D3D3) only.
+- Flat solid neutral grey only.
 - No floor, no ground plane, no environment, no background objects.
 - No ground shadows, reflections, gradients, or lighting effects.
 
@@ -194,8 +226,43 @@ CAMERA & COMPOSITION:
 - Eye-level camera at chest height, natural perspective, 70-85mm equivalent lens unless overridden.
 - Centered full-body framing. ZOOM OUT enough so the full character fits with padding on all sides.`;
 
+export function getStyleNotes(styleOverride: string): string {
+  return `CRITICAL IMAGE FORMAT: 9:16 vertical portrait (1536 x 2816).
+
+MANDATORY FULL-BODY FRAMING — #1 PRIORITY (DO NOT VIOLATE):
+- The character should occupy approximately 65% of the frame height, centered vertically.
+- Leave at LEAST 15% empty solid grey space ABOVE the top of the head AND 15% empty solid grey space BELOW the soles of the feet/shoes.
+- START composing the image from the FEET UP. Place the shoe soles first at about 15% from the bottom edge, then build the figure upward.
+- The ENTIRE body must be visible: TOP OF THE HEAD (including all hair/headwear) to the BOTTOM OF THE FEET (including the flat soles of the shoes resting on the invisible ground plane).
+- SHOES AND FEET are the #1 most commonly cropped part. You MUST verify feet are fully visible with grey padding below them.
+- If the character is tall or has elaborate headwear, zoom the camera out further. NEVER crop ANY body part.
+- This is NOT a portrait, NOT a headshot, NOT waist-up, NOT shin-crop. This is a FULL-LENGTH character reference.
+
+FOLLOW THE DESCRIPTION LITERALLY:
+- Wardrobe, props, colors, materials, condition, and wear must match the attribute list.
+- Body type, age, and demeanor must match the identity description.
+- Include any listed props and accessories. Do not invent extra items.
+
+VISUAL STYLE — USER-DIRECTED (FOLLOW THIS STYLE):
+Render the character in the following art style: ${styleOverride}
+This style directive takes priority over any other style guidance. The entire image must be consistent with this style.
+
+ZERO TEXT IN IMAGE (MANDATORY):
+- Do NOT render any text, letters, numbers, hex codes, color codes, logos, labels, captions, annotations, or watermarks anywhere in the image.
+- The image must contain ONLY the character on a plain background — absolutely nothing written or printed.
+
+BACKGROUND (REQUIRED):
+- Flat solid neutral grey only.
+- No floor, no ground plane, no environment, no background objects.
+- No ground shadows, reflections, gradients, or lighting effects.
+
+CAMERA & COMPOSITION:
+- Eye-level camera at chest height, natural perspective, 70-85mm equivalent lens unless overridden.
+- Centered full-body framing. ZOOM OUT enough so the full character fits with padding on all sides.`;
+}
+
 export const VIEW_REQUESTS: Record<string, string> = {
-  main: 'FULL-LENGTH standing pose showing the COMPLETE character from head to shoes. Camera pulled back far enough that the character fills only about 75% of the vertical frame — with visible empty grey space above the head and below the feet. Three-quarter front view, camera at chest height, rotated about 9 degrees right. Proportions natural, standard lens. The character\'s SHOES/FEET must be clearly visible near the bottom of the frame. If feet would be cropped, the camera MUST zoom out further. This is a full-length reference photo, not a portrait.',
+  main: 'FULL-LENGTH standing pose showing the COMPLETE character from head to shoe soles. The character fills only about 65% of the vertical frame — there must be visible empty solid grey space ABOVE the head AND BELOW the feet. Compose FEET FIRST: place shoe soles at ~15% from bottom edge, build figure upward. Three-quarter front view, camera at chest height, rotated about 9 degrees right. Proportions natural, standard lens. The character\'s SHOES and FEET are the most critical element to include — they MUST be fully visible with grey padding below them. If ANY part of the feet would be cropped, ZOOM OUT MORE. This is a fashion lookbook / full-length reference photo, NOT a portrait or bust shot.',
 
   front: `Recompose to a dead-center orthographic front view at 0 degrees azimuth. Orthographic or 200mm+ lens, zero perspective distortion. Left and right halves perfectly symmetrical. No 3/4 turn, no yaw, no rotation. Neutral A-pose, arms 30 degrees from body, palms forward, feet shoulder-width. Show face dead-on, chest, belt, front of both arms/legs/shoes, all front-facing gear. Full body from top of head to bottom of feet with padding, no cropping. Solid grey background, no floor.`,
 
@@ -219,6 +286,7 @@ export function buildCharacterDescription(
   identity: CharacterIdentity,
   attributes: CharacterAttributes,
   userDescription: string,
+  styleOverride?: string,
 ): string {
   const parts: string[] = [];
 
@@ -245,11 +313,22 @@ export function buildCharacterDescription(
   }
   parts.push('');
 
-  parts.push('## VISUAL STYLE & LIGHTING');
-  parts.push('- Style: Photorealistic character portrait with natural proportions and realistic materials, full-body shot.');
-  parts.push('- Lighting: Soft, even studio lighting with neutral color grading. Gentle contrast, no dramatic shadows or cinematic glows.');
-  parts.push('- Texture: Visible skin pores and fabric weave. Render fabrics exactly as described. NO LEATHER unless specified.');
-  parts.push('- Background: Flat solid grey (#D3D3D3) only. No floor, no environment.');
+  if (styleOverride) {
+    parts.push('## VISUAL STYLE & LIGHTING — USER-DIRECTED STYLE');
+    parts.push(`- ART STYLE: ${styleOverride}`);
+    parts.push('- Render the character in the art style described above. This style takes priority over any default.');
+    parts.push('- Lighting: appropriate for the chosen style. Maintain consistency with the style direction.');
+    parts.push('- Background: Flat solid neutral grey only. No floor, no environment.');
+  } else {
+    parts.push('## VISUAL STYLE & LIGHTING — PHOTOREALISTIC (MANDATORY)');
+    parts.push('- This MUST look like a real photograph of a real person in a real costume — NOT concept art, NOT illustration, NOT a game render.');
+    parts.push('- Skin: real pores, subsurface scattering, natural blemishes. Hair: individual strands with flyaways.');
+    parts.push('- Fabrics: heavy, lived-in, visible thread texture, natural wrinkles and sag under gravity. Render exactly as described. NO LEATHER unless specified.');
+    parts.push('- Metals/hardware: real scratches, fingerprints, uneven patina — NOT clean CG metal.');
+    parts.push('- Lighting: Soft, even studio photography lighting. Neutral color temperature. NO dramatic lighting, NO colored gels, NO rim lights, NO cinematic atmosphere.');
+    parts.push('- Background: Flat solid neutral grey only. No floor, no environment.');
+    parts.push('- If the result could be mistaken for concept art or a digital painting, it has FAILED.');
+  }
   parts.push('');
 
   parts.push('## CAMERA & COMPOSITION');
@@ -262,9 +341,14 @@ export function buildCharacterDescription(
   parts.push('## NEGATIVE CONSTRAINTS (MUST AVOID)');
   parts.push('- NO cropped body, NO cut off feet, NO cut off head.');
   parts.push('- NO close-up, NO portrait framing, NO headshot, NO bust shot, NO waist-up framing.');
-  parts.push('- NO text, logos, or watermarks.');
+  parts.push('- NO text, letters, numbers, hex codes, color codes, logos, labels, captions, annotations, or watermarks anywhere in the image.');
   parts.push('- NO background environment, cityscape, or scene — ONLY solid grey.');
   parts.push('- NO tactical gear, heroic props, or sunglasses unless explicitly requested.');
+  if (!styleOverride) {
+    parts.push('- NO stylized rendering — no painterly strokes, no cel-shading, no digital art aesthetic, no concept art look, no video game character rendering.');
+    parts.push('- NO dramatic/cinematic lighting — no colored rim lights, no atmospheric fog, no lens effects.');
+  }
+  parts.push('- NO idealized proportions — no exaggerated musculature, no heroic builds unless described.');
 
   return parts.join('\n');
 }
@@ -272,38 +356,66 @@ export function buildCharacterDescription(
 export function buildCharacterViewPrompt(
   viewKey: string,
   characterDescription: string,
+  styleOverride?: string,
 ): string {
   const view = VIEW_REQUESTS[viewKey] ?? VIEW_REQUESTS.main;
+  const styleNotes = styleOverride ? getStyleNotes(styleOverride) : CHARACTER_STYLE_NOTES;
 
   if (viewKey === 'main') {
+    const styleLine = styleOverride
+      ? `STYLE: Render in the following art style: ${styleOverride}. This style directive takes priority. Maintain consistency with this style throughout.`
+      : 'STYLE: PHOTOREALISTIC — this must look like a high-resolution PHOTOGRAPH taken with a real camera of a real person wearing a real costume in a studio. NOT a painting, NOT an illustration, NOT concept art, NOT a video game character render, NOT stylized in ANY way. Real skin pores, real fabric texture, real metal scratches. If it could be mistaken for concept art or digital art, it has FAILED.';
+
+    const lightingLine = styleOverride
+      ? 'LIGHTING: Use lighting appropriate for the chosen art style. Keep it consistent and well-crafted.'
+      : 'LIGHTING: Soft, even studio PHOTOGRAPHY lighting (as from a diffused softbox). Neutral color temperature. NO dramatic cinematic lighting, NO colored gels, NO rim lights, NO neon, NO volumetric effects, NO atmospheric haze, NO lens flares, NO bloom/glow.';
+
+    const finalChecks = styleOverride
+      ? [
+          'FINAL MANDATORY CHECK (verify ALL before outputting):',
+          '• Are the character\'s SHOES/FEET fully visible with grey padding below? If NO → zoom out more.',
+          '• Is the background solid grey with no environment? If NO → remove environment.',
+          '• Is the image rendered in the requested art style? If NO → re-render in the correct style.',
+        ]
+      : [
+          'FINAL MANDATORY CHECK (verify ALL before outputting):',
+          '• Are the character\'s SHOES/FEET fully visible with grey padding below? If NO → zoom out more.',
+          '• Is the background solid grey with no environment? If NO → remove environment.',
+          '• Does the SKIN look like real human skin with pores and blemishes? If NO → add realistic skin detail.',
+          '• Do the FABRICS look like real cloth with weight, wrinkles, and thread texture? If NO → make materials realistic.',
+          '• Is the LIGHTING flat studio lighting without dramatic effects? If NO → remove cinematic lighting.',
+          '• Could this image be mistaken for concept art, a digital painting, or a game render? If YES → start over with photorealistic rendering. It MUST look like a real photograph.',
+        ];
+
     return [
       'CRITICAL RENDERING REQUIREMENTS (READ FIRST — ALL ARE MANDATORY):',
       '',
-      'FRAMING: This is a FULL-LENGTH photo. The character must occupy about 75% of the frame height. The character\'s SHOES and FEET must be clearly visible near the bottom. There must be visible empty grey space ABOVE the head and BELOW the feet. Think of a full-length mirror photo — you always see the shoes. If the character would be cropped at the shins/knees/waist, the camera is TOO CLOSE — zoom out.',
+      'FRAMING: This is a FULL-LENGTH photo. The character must occupy only about 65% of the frame height. START from the FEET: place shoe soles at ~15% from the bottom edge, then build the figure upward. There MUST be visible empty grey space ABOVE the head AND BELOW the shoe soles. Think of a fashion lookbook photo — the model is relatively small in the frame with lots of grey space around them. If ANY part of the feet/shoes would be cropped, ZOOM OUT MORE. This is the #1 most common error.',
       '',
-      'STYLE: PHOTOREALISTIC — like a high-resolution photograph of a real person in a real costume. NOT a painting, NOT an illustration, NOT concept art.',
+      styleLine,
       '',
-      'BACKGROUND: Solid flat grey (#D3D3D3) ONLY. No environment, no cityscape, no room, no floor, no gradients — JUST flat grey.',
+      'BACKGROUND: Solid flat neutral grey ONLY. No environment, no cityscape, no room, no floor, no gradients — JUST flat grey.',
       '',
-      'LIGHTING: Soft, even studio lighting. No dramatic cinematic lighting, no neon, no volumetric effects.',
+      lightingLine,
       '',
       characterDescription,
       '',
       view,
       '',
-      `Style Requirements:\n${CHARACTER_STYLE_NOTES}`,
+      `Style Requirements:\n${styleNotes}`,
       '',
-      'FINAL MANDATORY CHECK:',
-      '• Are the character\'s SHOES/FEET visible? If NO → zoom out more.',
-      '• Is the background solid grey with no environment? If NO → remove environment.',
-      '• Does it look like a photograph (not illustration)? If NO → make photorealistic.',
+      ...finalChecks,
     ].join('\n');
   }
 
+  const styleIntro = styleOverride
+    ? `CRITICAL: Render in the following art style: ${styleOverride}. This style directive takes priority.`
+    : 'CRITICAL: This must be a PHOTOREALISTIC image — like a high-resolution photograph, NOT an illustration, painting, or concept art.';
+
   return [
-    'Do not render any text, titles, labels, letters, numbers, logos, captions, or annotations in the image. The image must contain only the character on a plain background.',
+    'ZERO TEXT IN IMAGE: Do NOT render any text, titles, labels, letters, numbers, hex codes, color codes, logos, captions, annotations, or watermarks anywhere in the image. The image must contain ONLY the character on a plain background — absolutely nothing written or printed.',
     '',
-    'CRITICAL: This must be a PHOTOREALISTIC image — like a high-resolution photograph, NOT an illustration, painting, or concept art.',
+    styleIntro,
     '',
     'Using the provided character image as reference, recompose to the specified view,',
     'preserving EXACT character design, body type, materials, colors, clothing, accessories, and all details.',
@@ -312,9 +424,9 @@ export function buildCharacterViewPrompt(
     '',
     LOCK_OUTFIT_BLOCK,
     '',
-    'Background: solid flat grey (#D3D3D3). No floor, no shadows, no environment.',
+    'Background: solid flat neutral grey. No floor, no shadows, no environment.',
     '',
-    `Style requirements:\n${CHARACTER_STYLE_NOTES}`,
+    `Style requirements:\n${styleNotes}`,
   ].join('\n');
 }
 
@@ -329,6 +441,9 @@ Return JSON only with this exact schema:
   "gender": string,
   "build": string,
   "skindetail": string,
+  "facialhair": string,
+  "expression": string,
+  "bodycondition": string,
   "eyedetail": string,
   "hairdetail": string,
   "makeupdetail": string,
@@ -348,6 +463,7 @@ Return JSON only with this exact schema:
   "tattoos_marks": string,
   "accessories": string,
   "coloraccents": string,
+  "garmentcondition": string,
   "detailing": string
 }
 
@@ -358,25 +474,246 @@ IDENTITY FIELDS — pick one of these exact strings:
 - build: ${BUILD_OPTIONS.map((o) => `"${o}"`).join(' | ')}
 
 FIELD GUIDANCE:
-- skindetail: exact skin tone with undertone (e.g. "porcelain pale with cool blue undertone")
+- skindetail: exact skin tone with undertone (e.g. "deep brown, warm undertone, weathered and sun-damaged")
+- facialhair: beard, mustache, stubble — exact style, length, color, grooming (e.g. "heavy grey-white beard, untrimmed, coarse, weeks of growth"). Write "clean-shaven" if none.
+- expression: facial expression and demeanor — the character's attitude (e.g. "grizzled scowl, thousand-yard stare, jaw set, hard-lived intensity")
+- bodycondition: visible condition of exposed skin — blood, dirt, wounds, sweat, grime, bruises, scars on body (e.g. "dried blood smeared on forearms and face, dirt-caked knuckles, multiple healed scars on upper arms, heavy sweat"). Write "clean, healthy skin" if none.
 - eyedetail: exact eye color + unique qualities (e.g. "milky white with no visible iris, supernatural appearance")
-- hairdetail: exact color, length, texture, style, parting (e.g. "platinum white, wavy, past shoulders, center-parted, loose")
+- hairdetail: HEAD HAIR only — exact color, length, texture, style, parting (e.g. "grey-white, short, curly, receding, unkempt")
 - makeupdetail: lip color, eye makeup, blush, etc. (e.g. "dark burgundy lipstick, subtle smoky eye shadow")
 - neckwear: chokers, necklaces — describe pendant shape, chain type, material (e.g. "black lace choker with gold heart-shaped pendant")
 - outerwear: outermost layer with EXACT construction details (e.g. "black leather jacket with three rows of silver dome studs along each sleeve, cropped at waist")
-- top: layer under outerwear (e.g. "black boned corset with front button closure and lace trim along neckline")
-- legwear: skirt/pants — type, material, length, shape (e.g. "black velvet high-low skirt, mid-calf front, ankle-length back")
+- top: layer under outerwear (e.g. "olive sleeveless hoodie, cut-off arms, stencil text across chest, hood attached")
+- legwear: skirt/pants — type, material, length, shape (e.g. "camouflage cargo shorts, knee-length, torn/frayed hems, large side cargo pockets")
 - underlegwear: stockings/tights/fishnets under legwear (e.g. "black fishnet stockings, mid-opacity")
-- footwear: exact boot/shoe type, height, closure, material (e.g. "black leather mid-calf lace-up combat boots with thick rubber sole")
+- footwear: exact boot/shoe type, height, closure, material (e.g. "black leather mid-calf lace-up combat boots with thick rubber sole, heavily scuffed")
 - jewelry: rings, bracelets, earrings — which hand/finger, material (e.g. "two silver rings on left hand ring and middle fingers")
-- tattoos_marks: visible tattoos, birthmarks, scars — symbol, size, body placement (e.g. "small cross/star symbol tattoo on upper chest, centered above corset line")
+- tattoos_marks: visible PERMANENT tattoos, birthmarks, scars — symbol, size, body placement (e.g. "large burn scar across left shoulder, faded tribal tattoo on right forearm")
 - coloraccents: 3-5 dominant colors, comma-separated
-- detailing: wear, texture details, scuffs, patina, fabric condition
+- garmentcondition: the overall wear/damage state of ALL clothing as a whole (e.g. "heavily distressed — torn edges, dried blood stains, ground-in dirt, frayed hems, battle-damaged throughout"). This is CRITICAL for character flavor.
+- detailing: material emphasis, construction techniques, repair evidence, patina
 
 CRITICAL RULES:
-1. Be HYPER-SPECIFIC. "Black studded leather jacket with rows of silver dome studs on sleeves" NOT "studded leather jacket".
+1. Be HYPER-SPECIFIC. "Olive sleeveless hoodie with 'U.S. Army Rangers' stencil text, cut-off sleeves, frayed armholes, blood-stained" NOT "military top".
 2. Look at the IMAGE directly — do not rely only on the text description. The image is the ground truth.
 3. Capture EVERY distinctive/unique feature: unusual eye colors, tattoos, specific jewelry, visible marks.
-4. NEVER write "not visible", "none", "n/a", or "unknown". If a slot has no item, describe the bare body part.
-5. If something is partially hidden, extrapolate from visible style.
+4. bodycondition is CRUCIAL — if there is blood, dirt, wounds, sweat, or grime on the character's skin, you MUST describe it in detail. This defines the character's story.
+5. garmentcondition is CRUCIAL — if clothing is torn, distressed, dirty, bloodstained, or battle-damaged, capture that. A clean description of distressed clothing will produce the wrong image.
+6. NEVER write "not visible", "none", "n/a", or "unknown". If a slot has no item, describe the bare body part or current state.
+7. If something is partially hidden, extrapolate from visible style.
 Return ONLY JSON. No markdown, no extra text.`;
+
+/* ── Context Lens Synthesis ──────────── */
+
+export interface ContextLensInput {
+  bibleContext?: string;
+  costumeBrief?: string;
+  fusionBrief?: string;
+  envBrief?: string;
+  lockConstraints?: string;
+}
+
+export interface ContextLensSynthesis {
+  description: string;
+  attributes: CharacterAttributes;
+  identity: CharacterIdentity;
+}
+
+export function hasContextData(ctx: ContextLensInput): boolean {
+  return !!(
+    ctx.bibleContext?.trim() ||
+    ctx.costumeBrief?.trim() ||
+    ctx.fusionBrief?.trim() ||
+    ctx.envBrief?.trim() ||
+    ctx.lockConstraints?.trim()
+  );
+}
+
+function formatContextSections(ctx: ContextLensInput): string[] {
+  const parts: string[] = [];
+  if (ctx.bibleContext?.trim()) parts.push(`CHARACTER BIBLE: ${ctx.bibleContext.trim()}`);
+  if (ctx.costumeBrief?.trim()) parts.push(`COSTUME DIRECTION: ${ctx.costumeBrief.trim()}`);
+  if (ctx.fusionBrief?.trim()) parts.push(`STYLE FUSION: ${ctx.fusionBrief.trim()}`);
+  if (ctx.envBrief?.trim()) parts.push(`ENVIRONMENT: ${ctx.envBrief.trim()}`);
+  if (ctx.lockConstraints?.trim()) parts.push(`HARD CONSTRAINTS (MUST AVOID): ${ctx.lockConstraints.trim()}`);
+  return parts;
+}
+
+/**
+ * Build a prompt prefix for context-aware image extraction.
+ * Prepended to the DESCRIBE_IMAGE_PROMPT so the AI sees the image
+ * AND the creative direction in a single pass.
+ */
+export function buildContextExtractionPrefix(ctx: ContextLensInput): string {
+  const parts = formatContextSections(ctx);
+  if (parts.length === 0) return '';
+
+  return `🎨 CONTEXT-AWARE REIMAGINATION — READ EVERYTHING BEFORE YOU WRITE:
+
+Your task: Describe this EXACT person wearing an ADAPTED version of their outfit suited to a new context. The result must look like the SAME CHARACTER who simply changed clothes for a new role — not a different person, and not a generic version of the new role.
+
+═══ STEP 1: STUDY THE ORIGINAL CHARACTER ═══
+Before writing anything, study the image deeply and note:
+- The PERSON: face structure, age, skin tone, build, hair, scars, blood, dirt, sweat, marks, expression, posture
+- EACH clothing piece: exact garment type, cut, fit, color, material, condition (worn? torn? dirty? pristine?)
+- The overall CHARACTER FLAVOR: the mood, energy, story this outfit tells (gritty survivor? elegant rebel? battle-worn veteran?)
+- The WEAR LEVEL: Is the clothing distressed, battle-damaged, blood-stained, muddy, pristine, tailored?
+
+═══ STEP 2: ADAPT FOR THIS CREATIVE CONTEXT ═══
+${parts.join('\n')}
+
+ADAPTATION RULES — THESE ARE NON-NEGOTIABLE:
+
+1. THE PERSON STAYS IDENTICAL:
+   - Describe their face, skin, scars, blood, dirt, wounds, hair, beard EXACTLY as they appear in the image.
+   - If they look weathered/grizzled/scarred, they STAY weathered/grizzled/scarred.
+   - If they have blood on their skin, describe it. If they have dirt, describe it. Do NOT sanitize the character.
+
+2. PIECE-BY-PIECE — EVERY item from the original gets an adapted counterpart:
+   - A sleeveless hoodie → a sleeveless top of similar cut (still sleeveless, still same neckline style if it has a hood describe a hood or similar collar)
+   - Cargo shorts → shorts with similar pocket details and length
+   - Arm wraps → arm accessories in similar placement
+   - Combat boots → heavy-duty footwear
+   - Belt → belt of similar style
+
+3. PRESERVE THE FLAVOR — this is the most important rule:
+   - If the original is GRITTY and BATTLE-WORN, the adapted version is ALSO gritty and battle-worn. A torn military hoodie becomes a WORN, FADED golf vest with fraying edges — not a crisp new one.
+   - If the original has DISTRESSED fabric, torn edges, stains, the adapted version has the SAME level of distressing and wear.
+   - The color palette must stay in the SAME FAMILY — olive/brown/earth tones stay olive/brown/earth tones.
+   - The overall MOOD (dark, rugged, hard-lived) must carry through completely.
+   - A battle-scarred military veteran at a golf course should look like a battle-scarred military veteran at a golf course — NOT like a clean golf model.
+
+4. WRONG (do NOT do this):
+   ✗ Clean, pristine, new-looking clothing when the original is worn and distressed
+   ✗ Changing the character's apparent age, build, or physical condition
+   ✗ Removing scars, blood, dirt, or weathering from the person
+   ✗ Creating a generic outfit for the new context that shares nothing with the original
+   ✗ Sanitizing or "cleaning up" the character
+
+5. If Production Style directors are listed, apply their sensibility to the adapted pieces' aesthetic details.
+
+6. STRICTLY enforce any HARD CONSTRAINTS — those items must NOT appear.
+
+Now describe this character head-to-toe. Start with the person's physical appearance (kept identical), then describe each adapted clothing piece:
+
+`;
+}
+
+/**
+ * Build an attribute extraction prefix that reinforces the reimagination.
+ */
+export function buildContextAttrExtractionPrefix(ctx: ContextLensInput): string {
+  const parts = formatContextSections(ctx);
+  if (parts.length === 0) return '';
+
+  return `\n\n⚠️ REIMAGINATION CONTEXT — the description above is a REIMAGINED version of the character. Each clothing piece was adapted from the original image through this creative lens:\n${parts.join('\n')}\nExtract attributes from the REIMAGINED description as written. Every clothing item should reflect an adaptation of the original, not a generic outfit. Do NOT revert to the original image's clothing. The adapted clothing IS the correct clothing.`;
+}
+
+const SYNTH_JSON_SCHEMA = `
+Return ONLY valid JSON matching this exact schema:
+{
+  "identity": { "age": string, "race": string, "gender": string, "build": string },
+  "description": string (2-4 sentences of rich, specific prose),
+  "attributes": {
+    [key: string]: string (clothing/gear fields — same keys as input)
+  }
+}
+
+Return ONLY JSON. No markdown fences, no explanatory text.`;
+
+const CONTEXT_SYNTH_PROMPT = `You are a character design synthesizer. Your job is to take raw character data and creative direction, then ADAPT the character's outfit piece-by-piece to fit the new creative vision while staying clearly derived from the original.
+
+You will receive:
+1. RAW CHARACTER DATA — the base identity, description, and clothing/gear attributes. These are your SOURCE MATERIAL — each piece must be adapted, not discarded.
+2. CREATIVE DIRECTION — from context nodes (character bible, costume direction, fashion fusion, environment, constraints)
+
+ADAPTATION RULES:
+- For EVERY clothing/gear attribute in the raw data, output an ADAPTED version for the new context.
+- Each adapted piece must be CLEARLY DERIVED from the original:
+  - Same garment category (a hoodie → a polo/vest, not pants)
+  - Same color family or deliberate evolution (olive military → deep olive golf)
+  - Same energy/mood translated (battle-worn military → rugged upscale athletic)
+  - Construction details inspired by the original (stencil text → embroidered text, cargo pockets → pocket details)
+- Do NOT create a generic outfit for the new context. If the Bible says "golfer" and the raw data shows military gear, output golf clothing that clearly evolved FROM the military gear — same colors, same silhouette proportions, same level of wear/distressing.
+- If Production Style directors are listed (e.g. Tim Burton), apply their aesthetic to HOW each piece is adapted.
+- Costume Direction color palettes and styles refine the adaptation further.
+- Style Fusion blend weights dictate the aesthetic split — respect the percentages.
+- Environment Placement sets the scene context.
+- STRICTLY enforce Preservation Lock constraints — any "MUST AVOID" items must NOT appear.
+- Preserve core identity (age, race, gender, build) unless the Bible explicitly says otherwise.
+- Be HYPER-SPECIFIC about materials, colors, construction details for every adapted piece.
+${SYNTH_JSON_SCHEMA}`;
+
+export async function synthesizeContextLens(
+  rawIdentity: CharacterIdentity,
+  rawAttributes: CharacterAttributes,
+  rawDescription: string,
+  context: ContextLensInput,
+): Promise<ContextLensSynthesis> {
+  const { generateText } = await import('./imageGenApi');
+
+  const sections: string[] = [];
+
+  sections.push('## RAW CHARACTER DATA');
+  sections.push(`Identity: ${[rawIdentity.age, rawIdentity.race, rawIdentity.gender, rawIdentity.build].filter(Boolean).join(', ') || 'not specified'}`);
+  if (rawDescription.trim()) sections.push(`Description: ${rawDescription.trim()}`);
+
+  const attrLines: string[] = [];
+  for (const g of ATTRIBUTE_GROUPS) {
+    const val = rawAttributes[g.key]?.trim();
+    if (val && val.toLowerCase() !== 'none') attrLines.push(`  ${g.label}: ${val}`);
+  }
+  if (attrLines.length) sections.push(`Clothing & Gear:\n${attrLines.join('\n')}`);
+
+  sections.push('\n## CREATIVE DIRECTION');
+
+  if (context.bibleContext?.trim()) {
+    sections.push(`### Character Bible\n${context.bibleContext.trim()}`);
+  }
+  if (context.costumeBrief?.trim()) {
+    sections.push(`### Costume Direction\n${context.costumeBrief.trim()}`);
+  }
+  if (context.fusionBrief?.trim()) {
+    sections.push(`### Fashion Fusion\n${context.fusionBrief.trim()}`);
+  }
+  if (context.envBrief?.trim()) {
+    sections.push(`### Environment & Placement\n${context.envBrief.trim()}`);
+  }
+  if (context.lockConstraints?.trim()) {
+    sections.push(`### Hard Constraints (MANDATORY — violation is failure)\n${context.lockConstraints.trim()}`);
+  }
+
+  const fullPrompt = CONTEXT_SYNTH_PROMPT + '\n\n' + sections.join('\n\n');
+
+  const raw = await generateText(fullPrompt);
+
+  try {
+    const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+    const match = jsonStr.match(/\{[\s\S]*\}/);
+    const parsed = JSON.parse(match ? match[0] : jsonStr);
+
+    const identity: CharacterIdentity = {
+      age: parsed.identity?.age || rawIdentity.age,
+      race: parsed.identity?.race || rawIdentity.race,
+      gender: parsed.identity?.gender || rawIdentity.gender,
+      build: parsed.identity?.build || rawIdentity.build,
+    };
+
+    const attributes: CharacterAttributes = { ...rawAttributes };
+    if (parsed.attributes && typeof parsed.attributes === 'object') {
+      for (const key of Object.keys(parsed.attributes)) {
+        if (typeof parsed.attributes[key] === 'string' && parsed.attributes[key].trim()) {
+          attributes[key] = parsed.attributes[key];
+        }
+      }
+    }
+
+    const description = typeof parsed.description === 'string' && parsed.description.trim()
+      ? parsed.description.trim()
+      : rawDescription;
+
+    return { identity, attributes, description };
+  } catch {
+    return { identity: rawIdentity, attributes: rawAttributes, description: rawDescription };
+  }
+}

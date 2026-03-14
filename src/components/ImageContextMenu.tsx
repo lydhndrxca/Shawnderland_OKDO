@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { getGlobalSettings } from '@/lib/globalSettings';
 import './ImageContextMenu.css';
 
@@ -202,7 +203,7 @@ export function ImageContextMenu({ image, alt, className, children, onPasteImage
         />
       )}
 
-      {menu && (
+      {menu && createPortal(
         <div
           ref={menuRef}
           className="icm-menu"
@@ -241,10 +242,11 @@ export function ImageContextMenu({ image, alt, className, children, onPasteImage
               <span className="icm-icon">🔄</span> Reset View
             </button>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
 
-      {toast && <div className="icm-toast">{toast}</div>}
+      {toast && createPortal(<div className="icm-toast">{toast}</div>, document.body)}
     </div>
   );
 }

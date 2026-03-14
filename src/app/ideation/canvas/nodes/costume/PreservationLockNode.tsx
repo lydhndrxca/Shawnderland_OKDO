@@ -83,36 +83,30 @@ function PreservationLockNodeInner({ id, data, selected }: Props) {
 
   const toggleField = useCallback(
     (key: keyof LockToggles) => {
-      setToggles((prev) => {
-        const next = { ...prev, [key]: !prev[key] };
-        persist({ lockToggles: next });
-        return next;
-      });
+      const next = { ...toggles, [key]: !toggles[key] };
+      setToggles(next);
+      persist({ lockToggles: next });
     },
-    [persist],
+    [toggles, persist],
   );
 
   const removeNeg = useCallback(
     (idx: number) => {
-      setNegatives((prev) => {
-        const next = prev.filter((_, i) => i !== idx);
-        persist({ lockNegatives: next });
-        return next;
-      });
+      const next = negatives.filter((_, i) => i !== idx);
+      setNegatives(next);
+      persist({ lockNegatives: next });
     },
-    [persist],
+    [negatives, persist],
   );
 
   const addNeg = useCallback(() => {
     const trimmed = newNeg.trim();
     if (!trimmed) return;
-    setNegatives((prev) => {
-      const next = [...prev, trimmed];
-      persist({ lockNegatives: next });
-      return next;
-    });
+    const next = [...negatives, trimmed];
+    setNegatives(next);
+    persist({ lockNegatives: next });
     setNewNeg('');
-  }, [newNeg, persist]);
+  }, [newNeg, negatives, persist]);
 
   const activeCount = Object.values(toggles).filter(Boolean).length + negatives.length;
 

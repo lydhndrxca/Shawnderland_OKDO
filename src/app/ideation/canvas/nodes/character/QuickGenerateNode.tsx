@@ -6,15 +6,19 @@ import {
   ATTRIBUTE_GROUPS,
   buildCharacterDescription,
   buildCharacterViewPrompt,
+  synthesizeContextLens,
+  hasContextData,
   type CharacterIdentity,
   type CharacterAttributes,
+  type ContextLensInput,
 } from '@/lib/ideation/engine/conceptlab/characterPrompts';
-import { generateText, generateWithNanoBanana } from '@/lib/ideation/engine/conceptlab/imageGenApi';
-import type { GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import { generateText, generateWithNanoBanana, generateWithImagen4, generateWithGeminiRef } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import type { GeneratedImage, GeminiImageModel } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { getGlobalSettings } from '@/lib/globalSettings';
 import { createProcessingAnimator } from '@/lib/processingAnimation';
+import { IMAGE_GEN_MODELS } from './ModelSettingsNode';
 import { NODE_TOOLTIPS } from './nodeTooltips';
-import { devWarn } from '@/lib/devLog';
+import { devLog, devWarn } from '@/lib/devLog';
 import './CharacterNodes.css';
 
 interface Props {
@@ -65,6 +69,183 @@ function fireAndForgetSave(image: GeneratedImage, viewName: string, charName: st
       contentType: 'characters',
     }),
   }).catch((e) => devWarn('[quick-gen save]', e));
+}
+
+function getModelSettingsFromGraph(
+  getNode: ReturnType<typeof useReactFlow>['getNode'],
+  getEdges: ReturnType<typeof useReactFlow>['getEdges'],
+  startId: string,
+): { apiId: string; label: string; aspectRatio: string; isImagen: boolean } {
+  const edges = getEdges();
+  const visited = new Set<string>();
+  const queue = [startId];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (visited.has(current)) continue;
+    visited.add(current);
+    const outgoing = edges.filter((e) => e.source === current);
+    for (const e of outgoing) {
+      const target = getNode(e.target);
+      if (!target || visited.has(target.id)) continue;
+      if (target.type === 'charGenerate') {
+        const d = target.data as Record<string, unknown>;
+        const modelId = (d.imageGenModelId as string) ?? IMAGE_GEN_MODELS[0].id;
+        const aspectRatio = (d.aspectRatio as string) ?? '9:16';
+        const def = IMAGE_GEN_MODELS.find((m) => m.id === modelId) ?? IMAGE_GEN_MODELS[0];
+        return { apiId: def.apiId, label: def.label, aspectRatio, isImagen: def.apiId.startsWith('imagen-') };
+      }
+      queue.push(target.id);
+    }
+  }
+
+  const def = IMAGE_GEN_MODELS[0];
+  return { apiId: def.apiId, label: def.label, aspectRatio: '9:16', isImagen: def.apiId.startsWith('imagen-') };
+}
+
+interface ContextResult {
+  bibleContext: string;
+  lockConstraints: string;
+  costumeBrief: string;
+  fusionBrief: string;
+  envBrief: string;
+  styleText: string;
+  styleImages: GeneratedImage[];
+}
+
+function buildCostumeBriefFromData(d: Record<string, unknown>): string {
+  const lines: string[] = [];
+  const styles = d.costumeStyles as string[] | undefined;
+  const custom = d.costumeCustomStyles as string | undefined;
+  if (styles?.length || custom?.trim()) {
+    const all = [...(styles ?? [])];
+    if (custom?.trim()) all.push(custom.trim());
+    lines.push(`Style influences: ${all.join(', ')}`);
+  }
+  const origins = d.costumeOrigin as string[] | undefined;
+  if (origins?.length) lines.push(`Costume design: ${origins.join(', ')}`);
+  const mats = d.costumeMaterials as string[] | undefined;
+  if (mats?.length) lines.push(`Materials: ${mats.join(', ')}`);
+  const colors: string[] = [];
+  if (d.costumePrimaryColor) colors.push(`primary: ${d.costumePrimaryColor}`);
+  if (d.costumeSecondaryColor) colors.push(`secondary: ${d.costumeSecondaryColor}`);
+  if (d.costumeAccentColor) colors.push(`accent: ${d.costumeAccentColor}`);
+  if (d.costumeHardwareColor) {
+    const hwDetails = d.costumeHwDetails as string[] | undefined;
+    colors.push(`${d.costumeHardwareColor} for ${hwDetails?.length ? hwDetails.join(', ') : 'metal parts'}`);
+  }
+  if (colors.length) lines.push(`Color palette: ${colors.join('; ')}`);
+  if (d.costumeTextureRule) {
+    lines.push('Material choices should be a mixture of hard and soft, shiny, matte and satin that will remain richly textured no matter what the lighting condition.');
+  }
+  if (d.costumeNotes) lines.push(`Direction: ${d.costumeNotes}`);
+  const result = d.costumeResult as { overallVision?: string; points?: { title: string; direction: string }[] } | undefined;
+  if (result?.overallVision) lines.push(`Costume vision: ${result.overallVision}`);
+  if (result?.points?.length) {
+    lines.push('Costume directions:');
+    result.points.forEach((p, i) => lines.push(`  ${i + 1}. ${p.title}: ${p.direction}`));
+  }
+  return lines.join('\n');
+}
+
+function gatherContextFromGraph(
+  startId: string,
+  getNode: ReturnType<typeof useReactFlow>['getNode'],
+  getEdges: ReturnType<typeof useReactFlow>['getEdges'],
+): ContextResult {
+  const edges = getEdges();
+  const visited = new Set<string>();
+  const hubDisabled = new Set<string>();
+  const queue = [startId];
+  const result: ContextResult = { bibleContext: '', lockConstraints: '', costumeBrief: '', fusionBrief: '', envBrief: '', styleText: '', styleImages: [] };
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (visited.has(current)) continue;
+    visited.add(current);
+
+    for (const e of edges) {
+      let neighbor: string | null = null;
+      if (e.source === current) neighbor = e.target;
+      else if (e.target === current) neighbor = e.source;
+      if (!neighbor || visited.has(neighbor)) continue;
+
+      const node = getNode(neighbor);
+      if (!node) continue;
+      const d = node.data as Record<string, unknown>;
+
+      if (d._sleeping) { queue.push(neighbor); continue; }
+      if (node.type === 'charGate' && d.enabled === false) continue;
+
+      if (node.type === 'contextHub') {
+        if (d.hubActive === false) continue;
+        const ht = d.hubToggles as Record<string, boolean> | undefined;
+        if (ht) {
+          if (ht.bible === false) hubDisabled.add('charBible');
+          if (ht.lock === false) hubDisabled.add('charPreservationLock');
+          if (ht.costume === false) hubDisabled.add('costumeDirector');
+          if (ht.styleFusion === false) hubDisabled.add('charStyleFusion');
+          if (ht.environment === false) hubDisabled.add('envPlacement');
+        }
+        queue.push(neighbor);
+        continue;
+      }
+
+      if (hubDisabled.has(node.type ?? '')) continue;
+
+      if (node.type === 'charBible') {
+        const parts: string[] = [];
+        if (d.characterName) parts.push(`Character: ${d.characterName}`);
+        if (d.roleArchetype) parts.push(`Role: ${d.roleArchetype}`);
+        if (d.backstory) parts.push(`Backstory: ${d.backstory}`);
+        if (d.worldContext) parts.push(`World: ${d.worldContext}`);
+        if (d.designIntent) parts.push(`Design intent: ${d.designIntent}`);
+        const dirs = d.directors as string[] | undefined;
+        if (dirs?.length) parts.push(`Production style: ${dirs.join('. ')}`);
+        if (d.customDirector) parts.push(`Production note: ${d.customDirector}`);
+        const tones = d.toneTags as string[] | undefined;
+        if (tones?.length) parts.push(`Tone: ${tones.join(', ')}`);
+        if (parts.length > 0) result.bibleContext = parts.join('\n');
+      }
+
+      if (node.type === 'charPreservationLock') {
+        const toggles = d.lockToggles as Record<string, boolean> | undefined;
+        const negs = d.lockNegatives as string[] | undefined;
+        const constraints: string[] = [];
+        if (toggles) {
+          if (toggles.keepFace) constraints.push('Do NOT change the face');
+          if (toggles.keepHair) constraints.push('Do NOT change the hairstyle');
+          if (toggles.keepHairColor) constraints.push('Do NOT change the hair color');
+          if (toggles.keepPose) constraints.push('Do NOT change the pose');
+          if (toggles.keepBodyType) constraints.push('Do NOT change the body type or build');
+          if (toggles.keepCameraAngle) constraints.push('Do NOT change the camera angle');
+          if (toggles.keepLighting) constraints.push('Do NOT change the lighting');
+          if (toggles.keepBackground) constraints.push('Do NOT change the background');
+        }
+        if (negs) constraints.push(...negs.map((n: string) => `MUST AVOID: ${n}`));
+        if (constraints.length > 0) result.lockConstraints = constraints.join('\n');
+      }
+
+      if (node.type === 'costumeDirector') {
+        const brief = buildCostumeBriefFromData(d);
+        if (brief) result.costumeBrief = brief;
+      }
+      if (node.type === 'charStyleFusion') {
+        if (d.fusionBrief) result.fusionBrief = d.fusionBrief as string;
+      }
+      if (node.type === 'envPlacement') {
+        if (d.envBrief) result.envBrief = d.envBrief as string;
+      }
+      if (node.type === 'charStyle') {
+        if (d.styleText) result.styleText = d.styleText as string;
+        const imgs = d.styleImages as GeneratedImage[] | undefined;
+        if (imgs?.length) result.styleImages.push(...imgs);
+      }
+
+      queue.push(neighbor);
+    }
+  }
+  return result;
 }
 
 function QuickGenerateNodeInner({ id, data, selected }: Props) {
@@ -239,7 +420,10 @@ function QuickGenerateNodeInner({ id, data, selected }: Props) {
 
       if (!mountedRef.current || cancelledRef.current) return;
 
-      setStatus('Generating character image (Nano Banana 2)…');
+      const modelSettings = getModelSettingsFromGraph(getNode, getEdges, id);
+      setStatus(`Generating character image (${modelSettings.label})…`);
+      devLog(`[QuickGen] Using ${modelSettings.label} (${modelSettings.apiId}), aspect: ${modelSettings.aspectRatio}`);
+
       const generateNodeIds = findDownstreamByType(new Set(['charGenerate']));
       anim.markNodes(generateNodeIds, true);
 
@@ -257,9 +441,59 @@ function QuickGenerateNodeInner({ id, data, selected }: Props) {
         ),
       );
 
-      const charDesc = buildCharacterDescription(identity, attributes, description);
-      const fullPrompt = buildCharacterViewPrompt('main', charDesc);
-      const images = await generateWithNanoBanana(fullPrompt, '9:16', 1);
+      const ctx = gatherContextFromGraph(id, getNode, getEdges);
+      const ctxLens: ContextLensInput = {
+        bibleContext: ctx.bibleContext,
+        costumeBrief: ctx.costumeBrief,
+        fusionBrief: ctx.fusionBrief,
+        envBrief: ctx.envBrief,
+        lockConstraints: ctx.lockConstraints,
+      };
+
+      let synthIdentity = identity;
+      let synthDescription = description;
+      let synthAttributes = attributes;
+
+      if (hasContextData(ctxLens)) {
+        setStatus('Applying context lens...');
+        console.log('%c[QuickGen] Running context lens synthesis...', 'color: #ff9800; font-weight: bold');
+        try {
+          const synth = await synthesizeContextLens(identity, attributes, description, ctxLens);
+          synthIdentity = synth.identity;
+          synthDescription = synth.description;
+          synthAttributes = synth.attributes;
+        } catch (e) {
+          devWarn('[QuickGen] Context lens synthesis failed, using raw inputs:', e);
+        }
+      }
+
+      const hasStyleOverride = ctx.styleText.trim().length > 0 || ctx.styleImages.length > 0;
+      const effectiveStyleText = ctx.styleText.trim()
+        || (ctx.styleImages.length > 0 ? 'Match the visual style shown in the style reference image(s). Replicate the exact rendering technique, color palette, and artistic approach.' : undefined);
+      const charDesc = buildCharacterDescription(synthIdentity, synthAttributes, synthDescription, hasStyleOverride ? effectiveStyleText : undefined);
+      let fullPrompt = buildCharacterViewPrompt('main', charDesc, hasStyleOverride ? effectiveStyleText : undefined);
+
+      console.log(`%c[QuickGen] Context lens: ${hasContextData(ctxLens) ? 'applied' : 'skipped (no context)'}`, 'color: #4caf50; font-weight: bold');
+
+      let images: GeneratedImage[];
+      if (ctx.styleImages.length > 0) {
+        const styleAnalysis = `STYLE ANALYSIS INSTRUCTIONS — study the STYLE REFERENCE image(s) and replicate:
+1. GEOMETRY, PROPORTIONS, RENDERING, EDGES, COLOR PALETTE, TEXTURE, RESOLUTION/FIDELITY
+CRITICAL: The output MUST be visually indistinguishable in style from the reference. Do NOT default to generic photorealism.
+Do NOT include any characters or scenes from the style reference — ONLY replicate the visual style.
+
+Generate a NEW character in the EXACT same visual style:
+
+${fullPrompt}`;
+        console.log(`%c[QuickGen] PATH: Multimodal with ${ctx.styleImages.length} style ref imgs, aspect=${modelSettings.aspectRatio}`, 'color: #ff9800; font-weight: bold');
+        images = await generateWithGeminiRef(styleAnalysis, ctx.styleImages, modelSettings.apiId as GeminiImageModel, modelSettings.aspectRatio);
+      } else if (modelSettings.isImagen) {
+        console.log(`%c[QuickGen] PATH: Imagen 4 text-only`, 'color: #2196f3; font-weight: bold');
+        images = await generateWithImagen4(fullPrompt, modelSettings.aspectRatio, 1, modelSettings.apiId);
+      } else {
+        console.log(`%c[QuickGen] PATH: Nano Banana text-only`, 'color: #9c27b0; font-weight: bold');
+        images = await generateWithNanoBanana(fullPrompt, modelSettings.aspectRatio, 1, modelSettings.apiId);
+      }
       if (!mountedRef.current || cancelledRef.current) return;
       const mainImage = images[0] as GeneratedImage;
 

@@ -71,3 +71,12 @@
 .cl-preset-icon {
   font-size: 14px;
 }
+
+.cl-canvas-area .react-flow__edge-path {
+  opacity: 0.25;
+}
+
+.cl-canvas-area .react-flow__edge.edge-processing .react-flow__edge-path,
+.cl-canvas-area .react-flow__edge.selected .react-flow__edge-path {
+  opacity: 1 !important;
+}

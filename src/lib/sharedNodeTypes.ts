@@ -108,6 +108,8 @@ import PreservationLockNode from '@/app/ideation/canvas/nodes/costume/Preservati
 import CostumeDirectorNode from '@/app/ideation/canvas/nodes/costume/CostumeDirectorNode';
 import StyleFusionNode from '@/app/ideation/canvas/nodes/costume/StyleFusionNode';
 import EnvironmentPlacementNode from '@/app/ideation/canvas/nodes/costume/EnvironmentPlacementNode';
+import ContextHubNode from '@/app/ideation/canvas/nodes/character/ContextHubNode';
+import ImageViewHubNode from '@/app/ideation/canvas/nodes/character/ImageViewHubNode';
 
 // ── 3D Gen AI nodes ─────────────────────────────────────────────
 import MeshyImageTo3DNode from '@/app/ideation/canvas/nodes/threedgen/MeshyImageTo3DNode';
@@ -140,7 +142,7 @@ import TEImageNode from '@/app/tool-editor/nodes/ImageNode';
 // ── Sleep toggle HOC ────────────────────────────────────────────
 import { withSleepToggle } from '@/components/withSleepToggle';
 
-const NO_SLEEP = new Set(['group', 'start', 'uiFrame', 'teFrame', 'teWindow']);
+export const NO_SLEEP = new Set(['group', 'start', 'uiFrame', 'teFrame', 'teWindow']);
 
 function applySleep(types: Record<string, React.ComponentType<any>>): NodeTypes {
   const out: Record<string, React.ComponentType<any>> = {};
@@ -265,6 +267,8 @@ export const ALL_RAW_NODE_TYPES: NodeTypes = applySleep({
   costumeDirector: CostumeDirectorNode,
   charStyleFusion: StyleFusionNode,
   envPlacement: EnvironmentPlacementNode,
+  contextHub: ContextHubNode,
+  imageViewHub: ImageViewHubNode,
 
   // 3D Gen AI
   meshyImageTo3D: MeshyImageTo3DNode,
@@ -370,6 +374,12 @@ export const NODE_DEFAULTS: Record<string, { style?: { width: number; height: nu
         { label: 'Rugged practical military cut', weight: 40, takeFrom: 'material & texture', imageBase64: '', imageMime: '' },
       ],
     },
+  },
+  contextHub: {
+    style: { width: 280, height: 340 },
+  },
+  imageViewHub: {
+    style: { width: 280, height: 340 },
   },
   envPlacement: {
     style: { width: 340, height: 600 },
@@ -534,6 +544,8 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
       { type: 'costumeDirector', label: 'Costume Director', desc: 'Structured costume design — runs 5-phase gauntlet', color: '#ad1457' },
       { type: 'charStyleFusion', label: 'Style Fusion', desc: 'Combine 2-4 references with weights & labels', color: '#6a1b9a' },
       { type: 'envPlacement', label: 'Environment Placement', desc: 'Scene composition — location, lighting, pose, camera', color: '#1b5e20' },
+      { type: 'contextHub', label: 'Context Hub', desc: 'Master toggle — route all context nodes through one hub with per-source on/off', color: '#455a64' },
+      { type: 'imageViewHub', label: 'Image View Hub', desc: 'Controls which views (Main, Front, Back, Side, Custom) auto-generate', color: '#0097a7' },
     ],
   },
   /* ━━ 3D Generation ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */

@@ -69,6 +69,7 @@
 
 .react-flow__edge-path {
   cursor: pointer;
+  opacity: 0.25;
 }
 
 .demo-trigger-btn {
@@ -410,6 +411,7 @@
   stroke: #00c8ff !important;
   stroke-width: 4 !important;
   stroke-dasharray: 10 5 !important;
+  opacity: 1 !important;
   animation:
     edge-flow 0.4s linear infinite,
     edge-opacity-pulse 1.5s ease-in-out infinite;

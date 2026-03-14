@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useState, useRef, useMemo, useEffect } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import type { NodeProps } from '@xyflow/react';
 import { Handle, Position, useReactFlow, useStore } from '@xyflow/react';
-import { Image, Video, FileText, X, ChevronDown, ChevronUp, Copy, Download } from 'lucide-react';
+import { Image, Video, FileText, X } from 'lucide-react';
 import { createGeminiProvider } from '@/lib/ideation/engine/provider/geminiProvider';
 import type { MediaPart } from '@/lib/ideation/engine/provider/types';
 import type { SeedMediaItem } from '@/lib/ideation/state/sessionTypes';
@@ -152,7 +152,24 @@ function roleBlock(focus: ADFocus): string {
     'You are a legendary Hollywood production art director with 30 years of experience. ' +
     cfg.roleExtra + '\n' +
     'Focus: **' + cfg.label.toUpperCase() + ' DESIGN**. Every response must be through this lens.\n' +
-    'You are NOT analyzing images — you are art-directing the IDEA/CONCEPT itself.\n\n'
+    'You are NOT analyzing images — you are art-directing the IDEA/CONCEPT itself.\n\n' +
+    '## ANTI-CLICHÉ RULES (MANDATORY — VIOLATING THESE IS FAILURE)\n' +
+    'AI models constantly fall back on the same "profound contrast" tropes. You MUST avoid ALL of these:\n' +
+    '- ❌ Juxtaposing innocence against hardness (teddy bears, music boxes, children\'s shoes, dolls, lockets with photos)\n' +
+    '- ❌ "Mismatched armor" or deliberately worn/broken gear to show vulnerability\n' +
+    '- ❌ A single delicate/precious/mundane object that "reveals their hidden softness"\n' +
+    '- ❌ Religious iconography or crosses as shorthand for moral complexity\n' +
+    '- ❌ Battle-worn items with sentimental hand-stitched repairs\n' +
+    '- ❌ Flowers/nature growing from destruction or decay\n' +
+    '- ❌ Any variation of "what if the tough character had something gentle?"\n' +
+    '- ❌ Generic "weathering tells a story" observations\n' +
+    '- ❌ Suggesting the character carry/wear something from a lost loved one\n' +
+    '- ❌ Any prop/detail whose only purpose is symbolic contrast\n\n' +
+    'These are the LAZY choices. A junior designer suggests teddy bears. You are better than that.\n' +
+    'Your directions must emerge from reading THIS SPECIFIC CHARACTER\'S design language — their actual ' +
+    'garments, posture, proportions, material choices, wear patterns — and asking "what is this person\'s ' +
+    'LIFE like?" Not what Hollywood shorthand would signal depth, but what would actually be TRUE for ' +
+    'someone who looks like this, lives like this, moves like this.\n\n'
   );
 }
 
@@ -162,16 +179,23 @@ function buildNormalizePrompt(description: string, docTexts: string[], focus: AD
   const cfg = AD_FOCUS_CONFIG[focus];
   let prompt = '[TASK:ad-normalize]\n\n' + roleBlock(focus) +
     '## Task — NORMALIZE\n' +
-    'Break down this concept from a ' + cfg.label.toLowerCase() + ' design perspective. ' +
-    'Identify what\'s actually being asked, what\'s assumed, and what\'s unknown.\n\n';
+    'FIRST: Study everything provided (image, text, reference material). Before you do anything else, ' +
+    'build a mental model of WHO this character is based on what you can actually SEE and READ:\n' +
+    '- What does their clothing/gear tell you about their daily life, economic status, profession?\n' +
+    '- What do their posture, expression, and body language reveal about their personality?\n' +
+    '- What wear patterns, modifications, or personal touches suggest about their history?\n' +
+    '- What world do they inhabit based on the visual evidence?\n\n' +
+    'THEN break down the concept from a ' + cfg.label.toLowerCase() + ' design perspective. ' +
+    'Your summary MUST include your inferred backstory — this grounds everything that follows. ' +
+    'Do NOT skip the character reading. Generic briefs produce generic results.\n\n';
   if (description) prompt += '## The Concept\n' + description + '\n\n';
   if (docTexts.length > 0) prompt += '## Reference Material\n' + docTexts.join('\n---\n') + '\n\n';
   prompt +=
     'Return JSON:\n' +
-    '{ "summary": "2-3 sentence distillation of what this concept IS from a ' + cfg.label.toLowerCase() + ' design perspective",\n' +
-    '  "assumptions": ["things being assumed about the ' + cfg.label.toLowerCase() + ' direction that haven\'t been stated"],\n' +
+    '{ "summary": "3-4 sentences: what this concept IS + your inferred backstory for this character based on visual/textual evidence. Be specific — names, occupations, world details you deduce.",\n' +
+    '  "assumptions": ["things being assumed about the ' + cfg.label.toLowerCase() + ' direction that haven\'t been stated — include assumptions about the character\'s story"],\n' +
     '  "unknowns": ["critical unknowns that would change the ' + cfg.label.toLowerCase() + ' direction if answered differently"],\n' +
-    '  "focusedBrief": "A sharp 2-3 sentence brief that a ' + cfg.label.toLowerCase() + ' design team could work from" }\n';
+    '  "focusedBrief": "A sharp 3-4 sentence brief that includes WHO this person is (inferred), what their world is like, and what ' + cfg.label.toLowerCase() + ' design direction would serve their story" }\n';
   return prompt;
 }
 
@@ -181,15 +205,26 @@ function buildDivergePrompt(brief: string, assumptions: string[], focus: ADFocus
   const cfg = AD_FOCUS_CONFIG[focus];
   return (
     '[TASK:ad-diverge]\n\n' + roleBlock(focus) +
-    '## Normalized Brief\n' + brief + '\n\n' +
+    '## Normalized Brief (includes inferred backstory)\n' + brief + '\n\n' +
     '## Known Assumptions\n' + assumptions.map((a) => '- ' + a).join('\n') + '\n\n' +
     '## Task — DIVERGE\n' +
     'Brainstorm 15 raw ' + cfg.label.toLowerCase() + ' design observations across these angles:\n' +
     cfg.lensAngles + '\n' +
+    'CRITICAL GROUNDING RULES:\n' +
+    '- Every observation MUST reference a SPECIFIC element you can see in the character\'s current design ' +
+    '(a specific garment, a material choice, a posture detail, a color relationship, a proportion).\n' +
+    '- Every observation MUST connect to the inferred backstory from the normalize phase. ' +
+    'Ask: "Given who this person appears to be, what would ACTUALLY make sense for them?"\n' +
+    '- Do NOT suggest adding objects/props that exist purely for symbolic value. If you suggest ' +
+    'something new, it must be something this person would ACTUALLY own, carry, or wear given their life.\n' +
+    '- Push the design forward by finding what\'s ALREADY interesting about this character and amplifying it, ' +
+    'rather than bolting on external symbolism.\n' +
+    '- Prefer observations about RELATIONSHIPS between existing elements (how the jacket relates to the boots, ' +
+    'how the posture contradicts the clothing, how the color palette tells a story) over suggestions to add new things.\n\n' +
     'Generate QUANTITY. Be wild, be specific, be unexpected. Bad ideas are fine — they get killed later.\n\n' +
     'Return JSON:\n' +
-    '{ "observations": [{ "angle": "short label", "note": "1-2 sentence observation", "lens": "which angle this came from" }] }\n' +
-    'Exactly 15. No generic filler.\n'
+    '{ "observations": [{ "angle": "short label", "note": "1-2 sentence observation that references specific visible elements", "lens": "which angle this came from" }] }\n' +
+    'Exactly 15. No generic filler. No teddy bears. No music boxes. No sentimental trinkets.\n'
   );
 }
 
@@ -203,15 +238,22 @@ function buildCritiquePrompt(observations: { angle: string; note: string; lens: 
     '## Your 15 Raw Observations\n' + block + '\n\n' +
     '## Task — CRITIQUE & SALVAGE\n' +
     'Rate EVERY observation 1-10 on originality + actionability. Then for each:\n' +
-    '- **keep** (score 7+): Strong as-is.\n' +
-    '- **kill** (score 1-4): Too generic, too obvious, or just commentary. Dead.\n' +
+    '- **keep** (score 7+): Strong, specific to THIS character, and actionable.\n' +
+    '- **kill** (score 1-4): Too generic, too obvious, is just commentary, or falls into an AI cliché pattern. Dead.\n' +
     '- **mutate** (score 5-6): Has a kernel of something but needs to be twisted into something sharper.\n\n' +
-    'For mutated observations, provide the IMPROVED version. Be ruthless — if a junior ' +
-    cfg.label.toLowerCase() + ' designer would say it, kill it.\n\n' +
+    'AUTOMATIC KILL criteria (score 1, verdict "kill", no exceptions):\n' +
+    '- Any suggestion involving sentimental objects (teddy bears, music boxes, lockets, children\'s items, dolls)\n' +
+    '- Any "tough exterior hides soft interior" observation\n' +
+    '- Any suggestion to add a prop/detail whose primary purpose is symbolic contrast\n' +
+    '- Any observation that could apply to literally any character (test: replace the character and would the observation still work? If yes → KILL)\n' +
+    '- Any observation that is just restating what\'s already visible without pushing it somewhere new\n' +
+    '- Any suggestion about "weathering tells a story" or "each scratch has a history"\n\n' +
+    'For mutated observations, provide the IMPROVED version that is SPECIFIC to this character\'s ' +
+    'inferred life and world. Be ruthless — if it feels like an AI wrote it, kill it.\n\n' +
     'Return JSON:\n' +
     '{ "critiqued": [{ "angle": "label", "note": "original", "score": 1-10, "verdict": "keep|kill|mutate", ' +
     '"improved": "if mutated, the better version; if kept, repeat original; if killed, empty string" }] }\n' +
-    'All 15 entries. No mercy.\n'
+    'All 15 entries. No mercy. You should be killing at least 5-7 of these.\n'
   );
 }
 
@@ -225,10 +267,12 @@ function buildExpandPrompt(survivors: { angle: string; improved: string }[], foc
     '## Surviving Observations (post-critique)\n' + block + '\n\n' +
     '## Task — EXPAND (Deep Dive)\n' +
     'For each survivor, expand it into a full ' + cfg.label.toLowerCase() + ' direction with:\n' +
-    '- **direction**: The specific, detailed art direction (3-4 sentences)\n' +
-    '- **specifics**: Exact implementation details — what changes, what gets added/removed\n' +
-    '- **risks**: What could go wrong if this direction is taken poorly\n' +
-    '- **impact**: What this changes about the audience\'s experience\n\n' +
+    '- **direction**: The specific, detailed art direction (3-4 sentences). Must name specific garments, ' +
+    'materials, colors, or proportions from the current design. "Change the jacket" is not specific enough — ' +
+    '"Replace the matte nylon shell of the bomber with a waxed canvas that shows oil darkening at the cuffs" is.\n' +
+    '- **specifics**: Exact implementation details — what changes, what gets added/removed, with material and color callouts\n' +
+    '- **risks**: What could go wrong if this direction is taken poorly — be honest about when this tips into cliché\n' +
+    '- **impact**: What this changes about the audience\'s understanding of THIS SPECIFIC CHARACTER — not generic "audience experience"\n\n' +
     'Return JSON:\n' +
     '{ "expanded": [{ "angle": "label", "direction": "...", "specifics": "...", "risks": "...", "impact": "..." }] }\n'
   );
@@ -246,10 +290,12 @@ function buildConvergePrompt(expanded: { angle: string; direction: string; speci
     '## Expanded Directions\n' + block + '\n\n' +
     '## Task — CONVERGE (Score & Rank)\n' +
     'Score each on four axes (1-10 each):\n' +
-    '- **novelty**: How surprising/unexpected is this direction?\n' +
-    '- **actionability**: Can a ' + cfg.label.toLowerCase() + ' designer act on this immediately?\n' +
-    '- **craft**: Is this grounded in real ' + cfg.label.toLowerCase() + ' design principles?\n' +
-    '- **impact**: Would this meaningfully change the audience experience?\n\n' +
+    '- **novelty**: How surprising/unexpected is this direction? Would another AI suggest this? (If yes, score low)\n' +
+    '- **actionability**: Can a ' + cfg.label.toLowerCase() + ' designer act on this immediately with specific changes?\n' +
+    '- **craft**: Is this grounded in real ' + cfg.label.toLowerCase() + ' design principles AND specific to this character?\n' +
+    '- **impact**: Would this meaningfully change the audience experience in a way unique to THIS character\'s story?\n\n' +
+    'SCORING PENALTY: If a direction could apply to any generic "tough character" or "mysterious character," ' +
+    'cap its novelty and impact scores at 3. The direction must be INSEPARABLE from this specific character.\n\n' +
     'Calculate totalScore (sum of 4). Return ALL entries sorted by totalScore descending. ' +
     'The top 5 will be the final selections.\n\n' +
     'Return JSON:\n' +
@@ -272,15 +318,21 @@ function buildCommitPrompt(top5: { angle: string; direction: string; specifics: 
     'These 5 directions survived normalization, divergent brainstorming, ruthless critique, ' +
     'deep expansion, and competitive scoring. Now polish each into presentation-ready art direction.\n\n' +
     'For each, create:\n' +
-    '- **title**: Punchy 3-5 word title\n' +
-    '- **direction**: 2-3 sentences of specific, actionable ' + cfg.label.toLowerCase() + ' direction\n' +
-    '- **rationale**: Why this matters — what principle or precedent supports it\n' +
-    '- **reference**: A specific film, show, game, or creative work that exemplifies this\n\n' +
+    '- **title**: Punchy 3-5 word title that feels specific to THIS character (not a generic tagline)\n' +
+    '- **direction**: 2-3 sentences of specific, actionable ' + cfg.label.toLowerCase() + ' direction. ' +
+    'Must reference specific elements of the current design by name (garments, materials, colors, proportions).\n' +
+    '- **rationale**: Why this matters FOR THIS CHARACTER\'S STORY specifically — connect it to the ' +
+    'inferred backstory, not to abstract design principles. What does this direction reveal about who they are?\n' +
+    '- **reference**: A specific film, show, game, or creative work where a SIMILAR character-specific ' +
+    'design choice was made effectively. Explain briefly what was done and why it worked for THAT character. ' +
+    'Do NOT just name-drop a film — explain the specific design decision.\n\n' +
     'Also write an **overallVision** — one paragraph tying all 5 into a unified ' +
-    cfg.label.toLowerCase() + ' design philosophy.\n\n' +
+    cfg.label.toLowerCase() + ' design philosophy that is rooted in this character\'s inferred world and story. ' +
+    'This should read like a creative director\'s brief, not a generic mission statement.\n\n' +
     'Return JSON:\n' +
     '{ "overallVision": "...", "points": [{ "title": "...", "direction": "...", "rationale": "...", "reference": "..." }] }\n' +
-    'Exactly 5 points. These survived the gauntlet — make every word count.\n'
+    'Exactly 5 points. These survived the gauntlet — make every word count. ' +
+    'Final check: would swapping in a different character break these directions? If not, they\'re too generic. Rewrite.\n'
   );
 }
 
@@ -302,19 +354,6 @@ function getDocTexts(media: SeedMediaItem[]): string[] {
     .map((m) => `[${m.fileName}]\n${m.textContent!}`);
 }
 
-function renderMarkdown(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/^[-•] (.+)$/gm, '<li>$1</li>')
-    .replace(/(<li>.*<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`)
-    .replace(/^\d+\.\s(.+)$/gm, '<li>$1</li>')
-    .replace(/\n/g, '<br/>');
-}
-
 /* ── Component ───────────────────────────────────────────────────── */
 
 const AD_FOCUS_OPTIONS: ADFocus[] = ['character', 'environment', 'props'];
@@ -334,8 +373,6 @@ export default function ArtDirectorNode({ id, selected }: NodeProps) {
   const [result, setResult] = useState<FinalResult | null>(null);
   const [phase, setPhase] = useState<PipelinePhase>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(true);
-  const resultRef = useRef<HTMLDivElement>(null);
   const lastUpstreamSigRef = useRef<string | null>(null);
 
   const upstreamImageSig = useStore(
@@ -587,35 +624,8 @@ export default function ArtDirectorNode({ id, selected }: NodeProps) {
   }, [description, media, focus]);
 
 
-  /* ── Export helpers ── */
-  const markdownExport = useMemo(() => {
-    if (!result) return '';
-    let md = `# Art Direction Feedback\n\n## Overall Vision\n\n${result.overallVision}\n\n---\n\n`;
-    result.points.forEach((p, i) => {
-      md += `## ${i + 1}. ${p.title}\n\n`;
-      md += `**Direction:** ${p.direction}\n\n`;
-      md += `**Rationale:** ${p.rationale}\n\n`;
-      md += `**Reference:** ${p.reference}\n\n---\n\n`;
-    });
-    return md;
-  }, [result]);
-
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(markdownExport);
-  }, [markdownExport]);
-
-  const handleDownload = useCallback(() => {
-    const blob = new Blob([markdownExport], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'art-direction-feedback.md';
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [markdownExport]);
-
   return (
-    <div className={`artdir-node ${selected ? 'selected' : ''} ${result ? 'has-result' : ''}`}>
+    <div className={`artdir-node ${selected ? 'selected' : ''}`}>
       <Handle type="target" position={Position.Left} className="artdir-handle" />
       <Handle type="source" position={Position.Right} className="artdir-handle" />
 
@@ -711,57 +721,13 @@ export default function ArtDirectorNode({ id, selected }: NodeProps) {
 
       {error && <div className="artdir-error">{error}</div>}
 
-      {/* Results */}
+      {/* Done — results are shown in the downstream Art Direction Output node */}
       {result && phase === 'done' && (
-        <div className="artdir-results nodrag nowheel" ref={resultRef}>
-          {/* Overall vision */}
-          <div
-            className="artdir-vision"
-            onClick={() => setExpanded(!expanded)}
-          >
-            <div className="artdir-vision-header">
-              Overall Vision
-              {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </div>
-            <div className="artdir-vision-text">{result.overallVision}</div>
-          </div>
-
-          {expanded && (
-            <div className="artdir-points">
-              {result.points.map((p, i) => (
-                <div key={i} className="artdir-point">
-                  <div className="artdir-point-number">{i + 1}</div>
-                  <div className="artdir-point-content">
-                    <div className="artdir-point-title">{p.title}</div>
-                    <div
-                      className="artdir-point-direction"
-                      dangerouslySetInnerHTML={{ __html: renderMarkdown(p.direction) }}
-                    />
-                    <div className="artdir-point-rationale">
-                      <span className="artdir-point-label">Why it matters:</span>{' '}
-                      {p.rationale}
-                    </div>
-                    <div className="artdir-point-reference">
-                      <span className="artdir-point-label">Reference:</span>{' '}
-                      {p.reference}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="artdir-actions nodrag">
-            <button className="artdir-action-btn" onClick={handleCopy}>
-              <Copy size={12} /> Copy
-            </button>
-            <button className="artdir-action-btn" onClick={handleDownload}>
-              <Download size={12} /> Download .md
-            </button>
-            <button className="artdir-action-btn artdir-rerun-btn" onClick={handleRun}>
-              🎬 Re-run
-            </button>
-          </div>
+        <div className="artdir-done-bar nodrag">
+          <span className="artdir-done-label">✅ {result.points.length} directions ready — connect to Art Direction Output</span>
+          <button className="artdir-rerun-btn" onClick={() => { setResult(null); setPhase('idle'); }}>
+            🎬 Re-run
+          </button>
         </div>
       )}
     </div>

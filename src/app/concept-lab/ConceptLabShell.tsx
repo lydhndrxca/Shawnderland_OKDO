@@ -25,7 +25,7 @@ import CostWidget from '@/components/CostWidget';
 import GeminiEditorOverlay from '@/app/ideation/canvas/GeminiEditorOverlay';
 import { registerEditorOpener, unregisterEditorOpener } from '@/app/ideation/canvas/geminiEditorBridge';
 import { useCanvasSession, type CutLine } from '@/hooks/useCanvasSession';
-import { ALL_RAW_NODE_TYPES, ALL_DOCK_CATEGORIES, ALL_CTX_CATEGORIES, NODE_DEFAULTS } from '@/lib/sharedNodeTypes';
+import { ALL_RAW_NODE_TYPES, ALL_DOCK_CATEGORIES, ALL_CTX_CATEGORIES, NODE_DEFAULTS, NO_SLEEP } from '@/lib/sharedNodeTypes';
 import { applyResizeToAll } from '@/components/nodes/withNodeResize';
 import './ConceptLab.css';
 
@@ -253,6 +253,21 @@ function ConceptLabCanvas() {
     ? !!(cs.nodes.find((n) => n.id === ctxMenu.nodeId)?.data as Record<string, unknown>)?.expanded
     : false;
 
+  const isSleeping = ctxMenu?.nodeId
+    ? !!(cs.nodes.find((n) => n.id === ctxMenu.nodeId)?.data as Record<string, unknown>)?._sleeping
+    : false;
+
+  const handleToggleSleep = useCallback(() => {
+    if (!ctxMenu?.nodeId) return;
+    reactFlowInstance.setNodes((nds) =>
+      nds.map((n) =>
+        n.id === ctxMenu.nodeId
+          ? { ...n, data: { ...n.data, _sleeping: !(n.data as Record<string, unknown>)._sleeping } }
+          : n,
+      ),
+    );
+  }, [ctxMenu, reactFlowInstance]);
+
   return (
     <div className="cl-shell">
       <GlobalToolbar
@@ -397,6 +412,8 @@ function ConceptLabCanvas() {
               isGroupExpanded={isGroupExpanded}
               onOpenImage={handleOpenImage}
               onPasteImage={handlePasteImage}
+              onToggleSleep={ctxMenu.nodeId && !NO_SLEEP.has(cs.nodes.find((n) => n.id === ctxMenu.nodeId)?.type ?? '') ? handleToggleSleep : undefined}
+              isSleeping={isSleeping}
               onDeleteEdge={ctxMenu.edgeId ? () => { cs.removeEdge(ctxMenu.edgeId!); setCtxMenu(null); } : undefined}
             />
           )}

@@ -9,9 +9,14 @@ import {
   AGE_OPTIONS,
   RACE_OPTIONS,
   GENDER_OPTIONS,
+  hasContextData,
+  buildContextExtractionPrefix,
+  buildContextAttrExtractionPrefix,
+  type ContextLensInput,
 } from '@/lib/ideation/engine/conceptlab/characterPrompts';
 import { generateText, type GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { NODE_TOOLTIPS } from './nodeTooltips';
+import { devLog, devWarn } from '@/lib/devLog';
 import './CharacterNodes.css';
 
 interface Props {
@@ -56,6 +61,136 @@ function bestMatch(value: string, options: string[]): string {
   const partial = options.find((o) => o.toLowerCase().startsWith(firstWord));
   if (partial) return partial;
   return value;
+}
+
+function buildCostumeBriefFromData(d: Record<string, unknown>): string {
+  const lines: string[] = [];
+  const styles = d.costumeStyles as string[] | undefined;
+  const custom = d.costumeCustomStyles as string | undefined;
+  if (styles?.length || custom?.trim()) {
+    const all = [...(styles ?? [])];
+    if (custom?.trim()) all.push(custom.trim());
+    lines.push(`Style influences: ${all.join(', ')}`);
+  }
+  const origins = d.costumeOrigin as string[] | undefined;
+  if (origins?.length) lines.push(`Costume design: ${origins.join(', ')}`);
+  const mats = d.costumeMaterials as string[] | undefined;
+  if (mats?.length) lines.push(`Materials: ${mats.join(', ')}`);
+  const colors: string[] = [];
+  if (d.costumePrimaryColor) colors.push(`primary: ${d.costumePrimaryColor}`);
+  if (d.costumeSecondaryColor) colors.push(`secondary: ${d.costumeSecondaryColor}`);
+  if (d.costumeAccentColor) colors.push(`accent: ${d.costumeAccentColor}`);
+  if (d.costumeHardwareColor) {
+    const hwDetails = d.costumeHwDetails as string[] | undefined;
+    colors.push(`${d.costumeHardwareColor} for ${hwDetails?.length ? hwDetails.join(', ') : 'metal parts'}`);
+  }
+  if (colors.length) lines.push(`Color palette: ${colors.join('; ')}`);
+  if (d.costumeTextureRule) {
+    lines.push('Material choices should be a mixture of hard and soft, shiny, matte and satin that will remain richly textured no matter what the lighting condition.');
+  }
+  if (d.costumeNotes) lines.push(`Direction: ${d.costumeNotes}`);
+  const result = d.costumeResult as { overallVision?: string; points?: { title: string; direction: string }[] } | undefined;
+  if (result?.overallVision) lines.push(`Costume vision: ${result.overallVision}`);
+  if (result?.points?.length) {
+    lines.push('Costume directions:');
+    result.points.forEach((p, i) => lines.push(`  ${i + 1}. ${p.title}: ${p.direction}`));
+  }
+  return lines.join('\n');
+}
+
+function gatherExtractContext(
+  startId: string,
+  getNode: ReturnType<typeof useReactFlow>['getNode'],
+  getEdges: ReturnType<typeof useReactFlow>['getEdges'],
+): ContextLensInput {
+  const edges = getEdges();
+  const visited = new Set<string>();
+  const hubDisabled = new Set<string>();
+  const queue = [startId];
+  const result: ContextLensInput = {};
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (visited.has(current)) continue;
+    visited.add(current);
+
+    for (const e of edges) {
+      let neighbor: string | null = null;
+      if (e.source === current) neighbor = e.target;
+      else if (e.target === current) neighbor = e.source;
+      if (!neighbor || visited.has(neighbor)) continue;
+
+      const node = getNode(neighbor);
+      if (!node) continue;
+      const d = node.data as Record<string, unknown>;
+
+      if (d._sleeping) { queue.push(neighbor); continue; }
+      if (node.type === 'charGate' && d.enabled === false) continue;
+
+      if (node.type === 'contextHub') {
+        if (d.hubActive === false) continue;
+        const ht = d.hubToggles as Record<string, boolean> | undefined;
+        if (ht) {
+          if (ht.bible === false) hubDisabled.add('charBible');
+          if (ht.lock === false) hubDisabled.add('charPreservationLock');
+          if (ht.costume === false) hubDisabled.add('costumeDirector');
+          if (ht.styleFusion === false) hubDisabled.add('charStyleFusion');
+          if (ht.environment === false) hubDisabled.add('envPlacement');
+        }
+        queue.push(neighbor);
+        continue;
+      }
+
+      if (hubDisabled.has(node.type ?? '')) continue;
+
+      if (node.type === 'charBible') {
+        const parts: string[] = [];
+        if (d.characterName) parts.push(`Character: ${d.characterName}`);
+        if (d.roleArchetype) parts.push(`Role: ${d.roleArchetype}`);
+        if (d.backstory) parts.push(`Backstory: ${d.backstory}`);
+        if (d.worldContext) parts.push(`World: ${d.worldContext}`);
+        if (d.designIntent) parts.push(`Design intent: ${d.designIntent}`);
+        const dirs = d.directors as string[] | undefined;
+        if (dirs?.length) parts.push(`Production style: ${dirs.join('. ')}`);
+        if (d.customDirector) parts.push(`Production note: ${d.customDirector}`);
+        const tones = d.toneTags as string[] | undefined;
+        if (tones?.length) parts.push(`Tone: ${tones.join(', ')}`);
+        if (parts.length > 0) result.bibleContext = parts.join('\n');
+      }
+
+      if (node.type === 'charPreservationLock') {
+        const toggles = d.lockToggles as Record<string, boolean> | undefined;
+        const negs = d.lockNegatives as string[] | undefined;
+        const constraints: string[] = [];
+        if (negs) constraints.push(...negs.map((n: string) => `MUST AVOID: ${n}`));
+        if (toggles) {
+          if (toggles.keepFace) constraints.push('Do NOT change the face');
+          if (toggles.keepHair) constraints.push('Do NOT change the hairstyle');
+          if (toggles.keepHairColor) constraints.push('Do NOT change the hair color');
+          if (toggles.keepPose) constraints.push('Do NOT change the pose');
+          if (toggles.keepBodyType) constraints.push('Do NOT change the body type or build');
+          if (toggles.keepCameraAngle) constraints.push('Do NOT change the camera angle');
+          if (toggles.keepLighting) constraints.push('Do NOT change the lighting');
+          if (toggles.keepBackground) constraints.push('Do NOT change the background');
+        }
+        if (constraints.length > 0) result.lockConstraints = constraints.join('\n');
+      }
+
+      if (node.type === 'costumeDirector') {
+        const brief = buildCostumeBriefFromData(d);
+        if (brief) result.costumeBrief = brief;
+      }
+      if (node.type === 'charStyleFusion') {
+        if (d.fusionBrief) result.fusionBrief = d.fusionBrief as string;
+      }
+      if (node.type === 'envPlacement') {
+        if (d.envBrief) result.envBrief = d.envBrief as string;
+      }
+
+      queue.push(neighbor);
+    }
+  }
+  return result;
 }
 
 function findUpstreamImage(
@@ -163,10 +298,19 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
         ? `\n\n⚠️ MANDATORY USER OVERRIDE — HIGHEST PRIORITY (overrides "no none values" rule):\n${excludeList}${hint}\nIf the user says "no [item]", "ignore [item]", "remove [item]", "without [item]", or "exclude [item]", you MUST set ANY field that would describe that item to "none". For example: "no tool belt" → "waist": "none", "handprop": "none". "no hat" → "headwear": "none". This overrides everything else.`
         : '';
 
-      // Step 1: image → prose description (user override BEFORE the main prompt)
-      const description = await generateText(descHintBlock + DESCRIBE_IMAGE_PROMPT, img);
+      // Gather context BEFORE extraction so it can be injected into the prompts
+      const ctxLens = gatherExtractContext(id, getNode, getEdges);
+      const hasCtx = hasContextData(ctxLens);
+      const ctxDescPrefix = hasCtx ? buildContextExtractionPrefix(ctxLens) : '';
+      const ctxAttrSuffix = hasCtx ? buildContextAttrExtractionPrefix(ctxLens) : '';
 
-      // Post-process description: remove sentences that mention excluded items
+      console.log(`%c[ExtractAttributes] Context hub: ${hasCtx ? 'ON' : 'OFF'}, bible: ${!!ctxLens.bibleContext}, costume: ${!!ctxLens.costumeBrief}, fusion: ${!!ctxLens.fusionBrief}, env: ${!!ctxLens.envBrief}, lock: ${!!ctxLens.lockConstraints}`, 'color: #4caf50; font-weight: bold');
+      if (hasCtx) setStatus('Describing character through context lens...');
+
+      // Step 1: image → prose description
+      // If context hub is ON, the AI sees the image AND the creative direction together
+      const description = await generateText(descHintBlock + ctxDescPrefix + DESCRIBE_IMAGE_PROMPT, img);
+
       let cleanDescription = description;
       if (excludeTerms.length > 0) {
         const sentences = description.split(/(?<=[.!?])\s+/);
@@ -180,8 +324,8 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
 
       setStatus('Extracting identity and attributes...');
 
-      // Step 2: description → structured JSON attributes
-      const attrPrompt = `${EXTRACT_ATTRIBUTES_PROMPT}${attrHintBlock}\n\nCHARACTER DESCRIPTION:\n${cleanDescription}`;
+      // Step 2: description → structured JSON attributes (with context reinforcement)
+      const attrPrompt = `${EXTRACT_ATTRIBUTES_PROMPT}${attrHintBlock}${ctxAttrSuffix}\n\nCHARACTER DESCRIPTION:\n${cleanDescription}`;
       const attrText = await generateText(attrPrompt, img);
 
       const combined = `Description:\n${cleanDescription}\n\nAttributes:\n${attrText}`;
@@ -192,7 +336,6 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
 
       const json = JSON.parse(attrText.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
 
-      // Post-process: scrub attributes matching user exclusion patterns
       if (excludeTerms.length > 0) {
         for (const key of Object.keys(json)) {
           const val = (json[key] ?? '').toLowerCase();
@@ -203,6 +346,10 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
             }
           }
         }
+      }
+
+      if (hasCtx) {
+        console.log('%c[ExtractAttributes] Context-aware extraction complete — outfit reimagined through creative lens', 'color: #ff9800; font-weight: bold');
       }
 
       pushToDownstream(cleanDescription, json);

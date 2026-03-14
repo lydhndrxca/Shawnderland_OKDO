@@ -3,8 +3,9 @@
 import { memo, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Handle, Position, NodeResizer, useReactFlow, useStore } from '@xyflow/react';
 import { ImageContextMenu } from '@/components/ImageContextMenu';
-import { generateWithGeminiRef, restoreImageQuality, type GeneratedImage, type GeminiImageModel } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import { generateWithGeminiRef, restoreImageQuality, GEMINI_IMAGE_MODELS, type GeneratedImage, type GeminiImageModel } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { registerRequest, unregisterRequest } from '@/lib/activeRequests';
+import { synthesizeContextLens, hasContextData, type ContextLensInput } from '@/lib/ideation/engine/conceptlab/characterPrompts';
 import { NODE_TOOLTIPS } from './nodeTooltips';
 import { devLog, devWarn } from '@/lib/devLog';
 import './CharacterNodes.css';
@@ -25,21 +26,71 @@ const VIEW_CONFIG: Record<ViewKey, { label: string; color: string; compactW: num
   custom: { label: 'Custom View', color: '#7e57c2', compactW: 150, compactH: 200 },
 };
 
-const EDIT_PREFIX = 'VISUAL EDIT TASK:\nPreserve 100% of the existing design, only apply the following modification:\n';
-const EDIT_SUFFIX = '\nApply ONLY the above modification. Do NOT change anything else.\nBackground: Solid flat grey (#D3D3D3). No floor, no shadows, no environment.';
+const EDIT_PREFIX = 'VISUAL EDIT TASK (KEEP EXACT FRAMING — do NOT zoom in):\nPreserve 100% of the existing design, only apply the following modification:\n';
+const EDIT_SUFFIX = `\nApply ONLY the above modification. Do NOT change anything else.
+CRITICAL FRAMING RULE: Maintain the EXACT same camera distance, zoom level, and framing as the source image. The character must occupy the same area of the frame — do NOT zoom in, do NOT crop tighter, do NOT push the camera closer. If the source shows full body head-to-toe, the output MUST also show full body head-to-toe with the same amount of space above the head and below the feet. NEVER cut off the feet or head. The output image must have the IDENTICAL field of view as the input.
+Background: Solid flat neutral grey. No floor, no shadows, no environment. Do NOT render any text or labels.`;
 
-const CONTEXT_NODE_TYPES = new Set(['charBible', 'charPreservationLock', 'costumeDirector', 'charStyleFusion', 'envPlacement']);
+const CONTEXT_NODE_TYPES = new Set(['charBible', 'charPreservationLock', 'costumeDirector', 'charStyleFusion', 'envPlacement', 'contextHub']);
+
+function buildCostumeBriefFromData(d: Record<string, unknown>): string {
+  const lines: string[] = [];
+  const styles = d.costumeStyles as string[] | undefined;
+  const custom = d.costumeCustomStyles as string | undefined;
+  if (styles?.length || custom?.trim()) {
+    const all = [...(styles ?? [])];
+    if (custom?.trim()) all.push(custom.trim());
+    lines.push(`Style influences: ${all.join(', ')}`);
+  }
+  const origins = d.costumeOrigin as string[] | undefined;
+  if (origins?.length) lines.push(`Costume design: ${origins.join(', ')}`);
+  const mats = d.costumeMaterials as string[] | undefined;
+  if (mats?.length) lines.push(`Materials: ${mats.join(', ')}`);
+  const colors: string[] = [];
+  if (d.costumePrimaryColor) colors.push(`primary: ${d.costumePrimaryColor}`);
+  if (d.costumeSecondaryColor) colors.push(`secondary: ${d.costumeSecondaryColor}`);
+  if (d.costumeAccentColor) colors.push(`accent: ${d.costumeAccentColor}`);
+  if (d.costumeHardwareColor) {
+    const hwDetails = d.costumeHwDetails as string[] | undefined;
+    colors.push(`${d.costumeHardwareColor} for ${hwDetails?.length ? hwDetails.join(', ') : 'metal parts'}`);
+  }
+  if (colors.length) lines.push(`Color palette: ${colors.join('; ')}`);
+  if (d.costumeTextureRule) {
+    lines.push('Material choices should be a mixture of hard and soft, shiny, matte and satin that will remain richly textured no matter what the lighting condition.');
+  }
+  if (d.costumeNotes) lines.push(`Direction: ${d.costumeNotes}`);
+  const result = d.costumeResult as { overallVision?: string; points?: { title: string; direction: string }[] } | undefined;
+  if (result?.overallVision) lines.push(`Costume vision: ${result.overallVision}`);
+  if (result?.points?.length) {
+    lines.push('Costume directions:');
+    result.points.forEach((p, i) => lines.push(`  ${i + 1}. ${p.title}: ${p.direction}`));
+  }
+  return lines.join('\n');
+}
+
+interface UpstreamContext {
+  text: string;
+  styleText: string;
+  styleImages: GeneratedImage[];
+  contextLens: ContextLensInput;
+}
 
 function gatherUpstreamContext(
   nodeId: string,
   getNode: (id: string) => { id: string; type?: string; data: Record<string, unknown> } | undefined,
   getEdges: () => Array<{ source: string; target: string }>,
-): string {
+): UpstreamContext {
   const edges = getEdges();
   const visited = new Set<string>();
+  const hubDisabled = new Set<string>();
   const queue = [nodeId];
   let bibleContext = '';
   let lockConstraints = '';
+  let costumeBrief = '';
+  let fusionBrief = '';
+  let envBrief = '';
+  let styleText = '';
+  const styleImages: GeneratedImage[] = [];
 
   while (queue.length > 0) {
     const current = queue.shift()!;
@@ -61,6 +112,25 @@ function gatherUpstreamContext(
       }
       if ((node.data as Record<string, unknown>)._sleeping) {
         queue.push(neighbor);
+        continue;
+      }
+
+      if (node.type === 'contextHub') {
+        const nd = node.data as Record<string, unknown>;
+        if (nd.hubActive === false) continue;
+        const ht = nd.hubToggles as Record<string, boolean> | undefined;
+        if (ht) {
+          if (ht.bible === false) hubDisabled.add('charBible');
+          if (ht.lock === false) hubDisabled.add('charPreservationLock');
+          if (ht.costume === false) hubDisabled.add('costumeDirector');
+          if (ht.styleFusion === false) hubDisabled.add('charStyleFusion');
+          if (ht.environment === false) hubDisabled.add('envPlacement');
+        }
+        queue.push(neighbor);
+        continue;
+      }
+
+      if (hubDisabled.has(node.type ?? '')) {
         continue;
       }
 
@@ -99,16 +169,44 @@ function gatherUpstreamContext(
         if (constraints.length > 0) lockConstraints = constraints.join('\n');
       }
 
-      if (CONTEXT_NODE_TYPES.has(node.type ?? '') || !CONTEXT_NODE_TYPES.has(node.type ?? '')) {
-        queue.push(neighbor);
+      if (node.type === 'costumeDirector') {
+        const brief = buildCostumeBriefFromData(node.data);
+        if (brief) costumeBrief = brief;
       }
+
+      if (node.type === 'charStyleFusion') {
+        if (node.data.fusionBrief) fusionBrief = node.data.fusionBrief as string;
+      }
+
+      if (node.type === 'envPlacement') {
+        if (node.data.envBrief) envBrief = node.data.envBrief as string;
+      }
+
+      if (node.type === 'charStyle') {
+        if (node.data.styleText) styleText = node.data.styleText as string;
+        const imgs = node.data.styleImages as GeneratedImage[] | undefined;
+        if (imgs?.length) styleImages.push(...imgs);
+      }
+
+      queue.push(neighbor);
     }
   }
 
   const blocks: string[] = [];
   if (bibleContext) blocks.push(`## CHARACTER CONTEXT\n${bibleContext}`);
+  if (costumeBrief) blocks.push(`## COSTUME DIRECTION\n${costumeBrief}`);
+  if (fusionBrief) blocks.push(`## STYLE FUSION\n${fusionBrief}`);
+  if (envBrief) blocks.push(`## ENVIRONMENT\n${envBrief}`);
   if (lockConstraints) blocks.push(`## PRESERVATION CONSTRAINTS (MANDATORY — VIOLATING THESE IS FAILURE)\n${lockConstraints}`);
-  return blocks.join('\n\n');
+  const effectiveStyleText = styleText.trim()
+    || (styleImages.length > 0 ? 'Match the visual style shown in the style reference image(s). Replicate the exact rendering technique, color palette, and artistic approach.' : '');
+  if (effectiveStyleText) blocks.push(`## ART STYLE\nRender in this style: ${effectiveStyleText}`);
+  return {
+    text: blocks.join('\n\n'),
+    styleText: effectiveStyleText,
+    styleImages,
+    contextLens: { bibleContext, costumeBrief, fusionBrief, envBrief, lockConstraints },
+  };
 }
 
 
@@ -120,7 +218,7 @@ RENDERING STYLE — PHOTOREALISTIC CHARACTER SHEET:
 • Match the character's exact design details (body type, face, hair, clothing, materials, colors, accessories) from the reference image.
 • Do NOT stylize, do NOT add painterly brush strokes, do NOT use cel-shading or cartoon rendering. This must look photographic.`;
 
-const NO_TEXT_RULE = 'DO NOT render any text, titles, labels, letters, numbers, logos, captions, annotations, watermarks, or headers anywhere in the image. The image must contain ONLY the character on a plain background — absolutely nothing else.';
+const NO_TEXT_RULE = 'ZERO TEXT IN IMAGE: Do NOT render any text, titles, labels, letters, numbers, hex codes, color codes, logos, captions, annotations, watermarks, or headers anywhere in the image. The image must contain ONLY the character on a plain background — absolutely nothing written or printed.';
 
 const FULL_BODY_RULE = 'Show the COMPLETE character from the very top of the head (including all hair and headwear) down to the very bottom of the feet (including shoe soles). Leave generous padding above the head and below the feet. If the character is tall, zoom out to fit — NEVER crop the head or feet. This is a full-body character sheet, not a portrait.';
 
@@ -140,7 +238,7 @@ Visible elements: face (dead-on), chest, stomach, belt/buckle, front of both arm
 Preserve 100% of the character's design from the reference — body type, face, hair, skin tone, every garment, accessory, color, material, and wear detail. Change nothing except the viewing angle.
 ${RENDER_STYLE_BLOCK}
 ${FULL_BODY_RULE}
-Background: solid flat grey (#D3D3D3). No floor, no shadows, no environment.`,
+Background: solid flat neutral grey. No floor, no shadows, no environment.`,
 
   back: `${NO_TEXT_RULE}
 
@@ -157,7 +255,7 @@ Visible elements: back of head/hair, back of neck, shoulder blades, spine line, 
 Preserve 100% of the character's design from the reference. Extrapolate rear details consistent with the design language. Change nothing except the viewing angle.
 ${RENDER_STYLE_BLOCK}
 ${FULL_BODY_RULE}
-Background: solid flat grey (#D3D3D3). No floor, no shadows, no environment.`,
+Background: solid flat neutral grey. No floor, no shadows, no environment.`,
 
   side: `${NO_TEXT_RULE}
 
@@ -174,7 +272,7 @@ Visible elements: left profile of face (forehead, nose, lips, chin), left ear, l
 Preserve 100% of the character's design from the reference. Extrapolate side details consistent with the design language. Change nothing except the viewing angle.
 ${RENDER_STYLE_BLOCK}
 ${FULL_BODY_RULE}
-Background: solid flat grey (#D3D3D3). No floor, no shadows, no environment.`,
+Background: solid flat neutral grey. No floor, no shadows, no environment.`,
 };
 
 const CUSTOM_PROMPT_EXAMPLE = PERSPECTIVE_PROMPTS.front;
@@ -253,6 +351,18 @@ function getMultimodalModelFromGraph(
   return null;
 }
 
+function getAspectRatioFromGraph(
+  getNodes: () => Array<{ id: string; type?: string; data: Record<string, unknown> }>,
+): string {
+  const nodes = getNodes();
+  for (const n of nodes) {
+    if (n.type !== 'charModelSettings' && n.type !== 'charGenerate') continue;
+    const ar = n.data?.aspectRatio as string | undefined;
+    if (ar) return ar;
+  }
+  return '9:16';
+}
+
 const NODE_TYPE_TO_VIEW: Record<string, ViewKey> = {
   charMainViewer: 'main',
   charViewer: 'main',
@@ -271,7 +381,7 @@ function buildViewPrompt(viewKey: ViewKey, data: Record<string, unknown>): strin
     const useText = (data?.useText as boolean) ?? true;
     const viewPrompt = (data?.viewPrompt as string) ?? '';
     if (!useText || !viewPrompt.trim()) return null;
-    return NO_TEXT_RULE + '\n\n' + viewPrompt.trim() + '\n' + RENDER_STYLE_BLOCK + '\n' + FULL_BODY_RULE + '\nBackground: solid flat grey (#D3D3D3). No floor, no shadows, no environment.';
+    return NO_TEXT_RULE + '\n\n' + viewPrompt.trim() + '\n' + RENDER_STYLE_BLOCK + '\n' + FULL_BODY_RULE + '\nBackground: solid flat neutral grey. No floor, no shadows, no environment.';
   }
 
   return PERSPECTIVE_PROMPTS[viewKey as 'front' | 'back' | 'side'];
@@ -564,13 +674,19 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         if (n.id === id) continue;
         const resolved = NODE_TYPE_TO_VIEW[n.type ?? ''] ?? (n.data?.viewKey as string);
         if (resolved !== 'main') continue;
-        return (n.data?._orthoTrigger as number) ?? null;
+        const trigger = (n.data?._orthoTrigger as number) ?? null;
+        if (!trigger) continue;
+        const hubToggles = (n.data?._viewHubToggles as Record<string, boolean>) ?? null;
+        return JSON.stringify({ t: trigger, h: hubToggles });
       }
       return null;
     },
     [isMain, id],
   );
-  const orthoTrigger = useStore(orthoTriggerSelector);
+  const orthoTriggerRaw = useStore(orthoTriggerSelector);
+  const orthoTriggerParsed = orthoTriggerRaw ? JSON.parse(orthoTriggerRaw) as { t: number; h: Record<string, boolean> | null } : null;
+  const orthoTrigger = orthoTriggerParsed?.t ?? null;
+  const viewHubToggles = orthoTriggerParsed?.h ?? null;
 
   const lastTrigger = useRef<number | null>(null);
   const autoGenSessionRef = useRef<AbortController | null>(null);
@@ -586,8 +702,25 @@ function CharViewNodeInner({ id, data, selected }: Props) {
     if (!orthoTrigger || orthoTrigger === lastTrigger.current) return;
     lastTrigger.current = orthoTrigger;
 
-    const prompt = buildViewPrompt(viewKey, data);
+    if (viewHubToggles && viewHubToggles[viewKey] === false) {
+      devLog(`[CharView:${viewKey}] Skipping auto-gen — disabled in Image View Hub`);
+      return;
+    }
+
+    let prompt = buildViewPrompt(viewKey, data);
     if (!prompt) return;
+
+    const orthoCtx = gatherUpstreamContext(
+      id,
+      getNode as (id: string) => { id: string; type?: string; data: Record<string, unknown> } | undefined,
+      getEdges as () => Array<{ source: string; target: string }>,
+    );
+    if (orthoCtx.styleText || orthoCtx.styleImages.length > 0) {
+      prompt = prompt.replace(RENDER_STYLE_BLOCK, `\nRENDERING STYLE: Match the art style from the style reference(s). Preserve character design accuracy while using the referenced visual technique.\n`);
+    }
+    if (orthoCtx.text) {
+      prompt = orthoCtx.text + '\n\n' + prompt;
+    }
 
     // Cancel any in-flight auto-gen before starting new one
     if (autoGenSessionRef.current) {
@@ -603,17 +736,27 @@ function CharViewNodeInner({ id, data, selected }: Props) {
     const session = registerRequest();
     autoGenSessionRef.current = session;
 
-    const refImages: GeneratedImage | GeneratedImage[] = (() => {
+    const baseRefImages: GeneratedImage[] = (() => {
       if (isCustom && useImage && effectiveAngleRef) {
         return [referenceImage, effectiveAngleRef];
       }
-      return referenceImage;
+      return [referenceImage];
     })();
+    const allRefImages = orthoCtx.styleImages.length > 0
+      ? [...baseRefImages, ...orthoCtx.styleImages]
+      : baseRefImages;
+    if (orthoCtx.styleImages.length > 0) {
+      const imgCount = baseRefImages.length;
+      const styleStart = imgCount + 1;
+      prompt += `\n\nIMAGE LAYOUT: Images 1–${imgCount} are CHARACTER REFERENCES. Images ${styleStart}–${imgCount + orthoCtx.styleImages.length} are STYLE REFERENCES — replicate their visual style EXACTLY but do NOT copy any characters or scenes from them.`;
+    }
 
     (async () => {
       try {
         const mmModel = getMultimodalModelFromGraph(getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>) ?? 'gemini-flash-image';
-        const results = await generateWithGeminiRef(prompt, refImages, mmModel);
+        const arFromGraph = getAspectRatioFromGraph(getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>);
+        console.log(`%c[CharView:${viewKey}] Auto-gen: ${allRefImages.length} ref imgs (${orthoCtx.styleImages.length} style), aspect=${arFromGraph}`, 'color: #00bcd4; font-weight: bold');
+        const results = await generateWithGeminiRef(prompt, allRefImages, mmModel, arFromGraph);
         if (!autoGenMountedRef.current || session.signal.aborted) return;
 
         const img = results[0];
@@ -638,7 +781,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         setAutoGenBusy(false);
       }
     })();
-  }, [isMain, isCustom, referenceImage, orthoTrigger, viewKey, cfg, id, setNodes, pushHistory, data, useImage, effectiveAngleRef]);
+  }, [isMain, isCustom, referenceImage, orthoTrigger, viewKey, cfg, id, setNodes, pushHistory, data, useImage, effectiveAngleRef, viewHubToggles, getNode, getEdges, getNodes]);
 
   // ── Inline Edit ──
   const [editText, setEditText] = useState('');
@@ -646,9 +789,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
   const [editStatus, setEditStatus] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [editElapsed, setEditElapsed] = useState(0);
-  const [editModel, setEditModel] = useState<GeminiImageModel>(() => {
-    return getMultimodalModelFromGraph(getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>) ?? 'gemini-flash-image';
-  });
+  const editModel: GeminiImageModel = getMultimodalModelFromGraph(getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>) ?? 'gemini-flash-image';
   const editTimerRef = useRef<ReturnType<typeof setInterval>>(undefined);
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -684,23 +825,38 @@ function CharViewNodeInner({ id, data, selected }: Props) {
 
       if (isMain) {
         prompt = EDIT_PREFIX + editText.trim() + EDIT_SUFFIX;
-        refImages = srcImage;
+        refImages = upstreamCtx.styleImages.length > 0
+          ? [srcImage, ...upstreamCtx.styleImages]
+          : srcImage;
       } else {
         const mainImg = getMainStageImage(id, getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>);
         const contextNote = `This is a ${(isCustom ? (customLabel || cfg.label) : cfg.label).toLowerCase()} of the character shown in the first reference image (the main/canonical view).\n`;
         prompt = contextNote + EDIT_PREFIX + editText.trim() + EDIT_SUFFIX;
-        refImages = mainImg ? [mainImg, srcImage] : srcImage;
+        const base = mainImg ? [mainImg, srcImage] : [srcImage];
+        refImages = upstreamCtx.styleImages.length > 0
+          ? [...base, ...upstreamCtx.styleImages]
+          : base.length === 1 ? base[0] : base;
       }
 
-      if (upstreamCtx) {
-        prompt = upstreamCtx + '\n\n' + prompt;
+      if (upstreamCtx.styleImages.length > 0) {
+        const charCount = Array.isArray(refImages) ? refImages.length - upstreamCtx.styleImages.length : 1;
+        const styleStart = charCount + 1;
+        prompt += `\n\nIMAGE LAYOUT: Images 1–${charCount} are CHARACTER REFERENCES (edit these). Images ${styleStart}–${charCount + upstreamCtx.styleImages.length} are STYLE REFERENCES — maintain this visual style. Do NOT copy characters/scenes from style refs.`;
       }
 
+      if (upstreamCtx.text) {
+        prompt = upstreamCtx.text + '\n\n' + prompt;
+      }
+
+      prompt += '\n\nFINAL REMINDER: Output must have the IDENTICAL zoom level, camera distance, and field of view as the source image. Do NOT zoom in. Do NOT crop tighter. If the source shows full body head-to-toe, the output MUST also show full body head-to-toe.';
+
+      console.log(`%c[CharView:${viewKey}] Edit: ${Array.isArray(refImages) ? refImages.length : 1} ref imgs (${upstreamCtx.styleImages.length} style)`, 'color: #ff9800; font-weight: bold');
       devLog(`[CharView:${viewKey}] editing image (${Array.isArray(refImages) ? refImages.length + ' images' : (srcImage.base64.length / 1024).toFixed(0) + 'KB'})...`);
 
-      const modelLabel = editModel === 'gemini-flash-image' ? 'NB2' : 'NB Pro';
+      const modelLabel = GEMINI_IMAGE_MODELS[editModel]?.label ?? editModel;
+      const editAspect = getAspectRatioFromGraph(getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>);
       setEditStatus(`Waiting for ${modelLabel}…`);
-      const results = await generateWithGeminiRef(prompt, refImages, editModel);
+      const results = await generateWithGeminiRef(prompt, refImages, editModel, editAspect);
 
       devLog(`[CharView:${viewKey}] API returned. mounted=${mountedRef.current}, aborted=${session.signal.aborted}, results=${results?.length}`);
 
@@ -983,8 +1139,8 @@ function CharViewNodeInner({ id, data, selected }: Props) {
       return;
     }
 
-    const prompt = buildViewPrompt(viewKey, data);
-    if (!prompt) {
+    const basePrompt = buildViewPrompt(viewKey, data);
+    if (!basePrompt) {
       setEditError(isCustom ? 'Enable "Use Text" and enter a view description, or enable "Use Image" and provide/connect a reference.' : 'No prompt available');
       return;
     }
@@ -1001,27 +1157,54 @@ function CharViewNodeInner({ id, data, selected }: Props) {
     const session = registerRequest();
 
     try {
-      const refImages: GeneratedImage | GeneratedImage[] = (() => {
+      const genCtx = gatherUpstreamContext(
+        id,
+        getNode as (id: string) => { id: string; type?: string; data: Record<string, unknown> } | undefined,
+        getEdges as () => Array<{ source: string; target: string }>,
+      );
+
+      const baseRefs: GeneratedImage[] = (() => {
         if (isCustom && useImage && effectiveAngleRef) {
           return [mainImg, effectiveAngleRef];
         }
-        return mainImg;
+        return [mainImg];
       })();
+      const refImages: GeneratedImage | GeneratedImage[] = genCtx.styleImages.length > 0
+        ? [...baseRefs, ...genCtx.styleImages]
+        : baseRefs.length === 1 ? baseRefs[0] : baseRefs;
 
       const userEdit = editText.trim();
+      const renderBlock = (genCtx.styleText || genCtx.styleImages.length > 0)
+        ? `\nRENDERING STYLE: Match the art style from the style reference(s). Preserve character design accuracy while using the referenced visual technique.\n`
+        : RENDER_STYLE_BLOCK;
       let fullPrompt = isCustom && useImage && effectiveAngleRef && !useText
-        ? `${NO_TEXT_RULE}\n\nCreate a custom view of this character matching the camera angle and pose shown in the second reference image. Preserve the character's identity from the first reference image exactly.\n${RENDER_STYLE_BLOCK}\n${FULL_BODY_RULE}\nBackground: solid flat grey (#D3D3D3). No floor, no shadows, no environment.`
+        ? `${NO_TEXT_RULE}\n\nCreate a custom view of this character matching the camera angle and pose shown in the second reference image. Preserve the character's identity from the first reference image exactly.\n${renderBlock}\n${FULL_BODY_RULE}\nBackground: solid flat neutral grey. No floor, no shadows, no environment.`
         : (isCustom && useImage && effectiveAngleRef
-          ? prompt + '\nUse the second reference image as a guide for the desired camera angle, pose, and framing.'
-          : prompt);
+          ? basePrompt + '\nUse the second reference image as a guide for the desired camera angle, pose, and framing.'
+          : basePrompt);
+
+      if (genCtx.styleText || genCtx.styleImages.length > 0) {
+        fullPrompt = fullPrompt.replace(RENDER_STYLE_BLOCK, renderBlock);
+      }
+      if (genCtx.styleImages.length > 0) {
+        const charCount = baseRefs.length;
+        const styleStart = charCount + 1;
+        fullPrompt += `\n\nIMAGE LAYOUT: Images 1–${charCount} are CHARACTER REFERENCES. Images ${styleStart}–${charCount + genCtx.styleImages.length} are STYLE REFERENCES — replicate their visual style. Do NOT copy characters/scenes from style refs.`;
+      }
+
+      if (genCtx.text) {
+        fullPrompt = genCtx.text + '\n\n' + fullPrompt;
+      }
       if (userEdit) {
         fullPrompt += `\n\nAdditional instructions: ${userEdit}`;
       }
 
-      const modelLabel = editModel === 'gemini-flash-image' ? 'NB2' : 'NB Pro';
+      const modelLabel = GEMINI_IMAGE_MODELS[editModel]?.label ?? editModel;
+      const genAspect = getAspectRatioFromGraph(getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>);
       setEditStatus(`Generating (${modelLabel})…`);
+      console.log(`%c[CharView:${viewKey}] Generate: ${Array.isArray(refImages) ? refImages.length : 1} ref imgs (${genCtx.styleImages.length} style), aspect=${genAspect}`, 'color: #00bcd4; font-weight: bold');
 
-      const results = await generateWithGeminiRef(fullPrompt, refImages, editModel);
+      const results = await generateWithGeminiRef(fullPrompt, refImages, editModel, genAspect);
 
       if (!mountedRef.current || session.signal.aborted) return;
       if (!results[0]) throw new Error('No image returned');
@@ -1055,7 +1238,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         setEditElapsed(0);
       }
     }
-  }, [isMain, isCustom, genBusy, id, cfg, customLabel, data, viewKey, viewImage, editText, getNodes, setNodes, pushHistory, editModel, useText, useImage, effectiveAngleRef]);
+  }, [isMain, isCustom, genBusy, id, cfg, customLabel, data, viewKey, viewImage, editText, getNode, getNodes, getEdges, setNodes, pushHistory, editModel, useText, useImage, effectiveAngleRef]);
 
   const externalGenerating = (data?.generating as boolean) ?? false;
   const anyBusy = editBusy || genBusy || autoGenBusy || restoreBusy || externalGenerating;
@@ -1337,17 +1520,19 @@ function CharViewNodeInner({ id, data, selected }: Props) {
             <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
             <span className="char-viewer-zoom-info">{Math.round(zoom * 100)}%</span>
           </div>
-          {!isMain && (
+          {(!isMain || viewImage) && (
             <div className="char-viewer-toolbar" style={{ justifyContent: 'center' }}>
-              <button
-                className="char-btn nodrag"
-                onClick={handleGenerateView}
-                disabled={anyBusy || !mainStageImage}
-                title={mainStageImage ? `Generate ${displayLabel.toLowerCase()} from Main Stage` : 'No Main Stage image yet'}
-                style={{ background: anyBusy ? undefined : cfg.color, color: '#000', fontWeight: 600, flex: 1 }}
-              >
-                {genBusy ? `${editElapsed}s…` : viewImage ? 'Regenerate' : 'Generate View'}
-              </button>
+              {!isMain && (
+                <button
+                  className="char-btn nodrag"
+                  onClick={handleGenerateView}
+                  disabled={anyBusy || !mainStageImage}
+                  title={mainStageImage ? `Generate ${displayLabel.toLowerCase()} from Main Stage` : 'No Main Stage image yet'}
+                  style={{ background: anyBusy ? undefined : cfg.color, color: '#000', fontWeight: 600, flex: 1 }}
+                >
+                  {genBusy ? `${editElapsed}s…` : viewImage ? 'Regenerate' : 'Generate View'}
+                </button>
+              )}
               {viewImage && (
                 <button
                   className="char-btn nodrag"
@@ -1412,31 +1597,6 @@ function CharViewNodeInner({ id, data, selected }: Props) {
             >
               {editBusy ? `${editElapsed}s` : 'Enter'}
             </button>
-          </div>
-          <div style={{ marginTop: 4 }}>
-            <select
-              value={editModel}
-              onChange={(e) => setEditModel(e.target.value as GeminiImageModel)}
-              disabled={anyBusy}
-              className="nowheel"
-              style={{
-                width: '100%',
-                padding: '4px 6px',
-                fontSize: 10,
-                background: '#1a1a2e',
-                color: '#eee',
-                border: '1px solid #444',
-                borderRadius: 4,
-                cursor: anyBusy ? 'default' : 'pointer',
-                opacity: anyBusy ? 0.5 : 1,
-              }}
-            >
-              <option value="gemini-flash-image">⚡ NB2 (Gemini 3.1 Flash) — 4K — ~5-15s</option>
-              <option value="gemini-3-pro">✦ NB Pro (Gemini 3 Pro) — 4K — ~20-40s</option>
-              <option value="gemini-2.5-flash">⚡ Gemini 2.5 Flash — 1K — ~5-10s</option>
-              <option value="gemini-2.0-flash">⚡ Gemini 2.0 Flash — 1K — ~3-8s</option>
-              <option value="gemini-2.0-flash-lite">⚡ Gemini 2.0 Flash Lite — 1K — ~2-5s</option>
-            </select>
           </div>
           {!isMain && !mainStageImage && (
             <div style={{ fontSize: 9, color: '#ff9800', marginTop: 2, opacity: 0.8 }}>

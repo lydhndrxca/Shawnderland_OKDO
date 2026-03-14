@@ -27,7 +27,7 @@ import GuidedRunOverlay from './GuidedRunOverlay';
 import GeminiEditorOverlay from './GeminiEditorOverlay';
 import { registerEditorOpener, unregisterEditorOpener } from './geminiEditorBridge';
 import { useCanvasSession, type CutLine } from '@/hooks/useCanvasSession';
-import { ALL_RAW_NODE_TYPES, ALL_CTX_CATEGORIES, NODE_DEFAULTS } from '@/lib/sharedNodeTypes';
+import { ALL_RAW_NODE_TYPES, ALL_CTX_CATEGORIES, NODE_DEFAULTS, NO_SLEEP } from '@/lib/sharedNodeTypes';
 import {
   isValidConnection,
   STAGE_ORDER,
@@ -880,6 +880,21 @@ function FlowCanvasInner() {
     ? !!(flow.nodes.find((n) => n.id === ctxMenu.nodeId)?.data as Record<string, unknown>)?.expanded
     : false;
 
+  const isSleeping = ctxMenu?.nodeId
+    ? !!(flow.nodes.find((n) => n.id === ctxMenu.nodeId)?.data as Record<string, unknown>)?._sleeping
+    : false;
+
+  const handleToggleSleep = useCallback(() => {
+    if (!ctxMenu?.nodeId) return;
+    reactFlowInstance.setNodes((nds) =>
+      nds.map((n) =>
+        n.id === ctxMenu.nodeId
+          ? { ...n, data: { ...n.data, _sleeping: !(n.data as Record<string, unknown>)._sleeping } }
+          : n,
+      ),
+    );
+  }, [ctxMenu, reactFlowInstance]);
+
   const handleSavePreset = useCallback(() => {
     if (!ctxMenu?.nodeId) return;
     const node = flow.nodes.find((n) => n.id === ctxMenu.nodeId);
@@ -1090,6 +1105,8 @@ function FlowCanvasInner() {
             isGroupExpanded={isGroupExpanded}
             onOpenImage={handleOpenImage}
             onPasteImage={handlePasteImage}
+            onToggleSleep={ctxMenu.nodeId && !NO_SLEEP.has(flow.nodes.find((n) => n.id === ctxMenu.nodeId)?.type ?? '') ? handleToggleSleep : undefined}
+            isSleeping={isSleeping}
             customNodeActions={customNodeActions}
             onDeleteEdge={ctxMenu.edgeId ? () => { flow.removeEdge(ctxMenu.edgeId!); setCtxMenu(null); } : undefined}
           />

@@ -41,6 +41,8 @@ export interface CanvasContextMenuProps {
   isGroupExpanded?: boolean;
   onOpenImage?: () => void;
   onPasteImage?: () => void;
+  onToggleSleep?: () => void;
+  isSleeping?: boolean;
   customNodeActions?: CustomNodeAction[];
 
   edgeId?: string;
@@ -72,6 +74,8 @@ export default function CanvasContextMenu({
   isGroupExpanded,
   onOpenImage,
   onPasteImage,
+  onToggleSleep,
+  isSleeping,
   customNodeActions,
   edgeId,
   onDeleteEdge,
@@ -126,6 +130,16 @@ export default function CanvasContextMenu({
             <button className="context-menu-item" onClick={() => { onDuplicateSelected(); onClose(); }}>
               <span className="context-menu-icon">{'\u29C9'}</span>Duplicate Node(s)
             </button>
+          )}
+
+          {onToggleSleep && (
+            <>
+              <div className="context-menu-separator" />
+              <button className="context-menu-item" onClick={() => { onToggleSleep(); onClose(); }}>
+                <span className="context-menu-icon">{isSleeping ? '\u26A1' : '\uD83D\uDCA4'}</span>
+                {isSleeping ? 'Turn On' : 'Turn Off'}
+              </button>
+            </>
           )}
 
           {customNodeActions && customNodeActions.length > 0 && (

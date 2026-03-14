@@ -21,7 +21,7 @@ const IMAGE_GEN_MODELS: ModelDef[] = [
     id: 'nb2',
     apiId: 'gemini-3.1-flash-image-preview',
     label: 'Nano Banana 2',
-    timeEstimate: '~5-15s',
+    timeEstimate: '~20-45s',
     maxRes: { '1:1': '2048×2048', '9:16': '2304×4096', '16:9': '4096×2304', '3:4': '2048×2720', '4:3': '2720×2048' },
     note: '4K multimodal, best prompt following',
   },
@@ -29,7 +29,7 @@ const IMAGE_GEN_MODELS: ModelDef[] = [
     id: 'nb-pro',
     apiId: 'gemini-3-pro-image-preview',
     label: 'Nano Banana Pro',
-    timeEstimate: '~20-40s',
+    timeEstimate: '~40-90s',
     maxRes: { '1:1': '2048×2048', '9:16': '2304×4096', '16:9': '4096×2304', '3:4': '2048×2720', '4:3': '2720×2048' },
     note: '4K pro quality, slower but highest fidelity',
   },
@@ -37,7 +37,7 @@ const IMAGE_GEN_MODELS: ModelDef[] = [
     id: 'imagen4',
     apiId: 'imagen-4.0-generate-001',
     label: 'Imagen 4',
-    timeEstimate: '~15-25s',
+    timeEstimate: '~15-30s',
     maxRes: { '1:1': '2048×2048', '9:16': '1536×2816', '16:9': '2816×1536', '3:4': '1792×2560', '4:3': '2560×1792' },
     note: '2K photorealistic, dedicated image model',
   },
@@ -45,7 +45,7 @@ const IMAGE_GEN_MODELS: ModelDef[] = [
     id: 'imagen4-ultra',
     apiId: 'imagen-4.0-ultra-generate-001',
     label: 'Imagen 4 Ultra',
-    timeEstimate: '~30-60s',
+    timeEstimate: '~45-120s',
     maxRes: { '1:1': '2048×2048', '9:16': '1536×2816', '16:9': '2816×1536', '3:4': '1792×2560', '4:3': '2560×1792' },
     note: '2K ultra quality, maximum Imagen fidelity',
   },
@@ -53,7 +53,7 @@ const IMAGE_GEN_MODELS: ModelDef[] = [
     id: 'imagen4-fast',
     apiId: 'imagen-4.0-fast-generate-001',
     label: 'Imagen 4 Fast',
-    timeEstimate: '~5-10s',
+    timeEstimate: '~5-12s',
     maxRes: { '1:1': '1024×1024', '9:16': '768×1408', '16:9': '1408×768', '3:4': '896×1280', '4:3': '1280×896' },
     note: '1K fast iteration, lower res',
   },
@@ -64,7 +64,7 @@ const MULTIMODAL_MODELS: ModelDef[] = [
     id: 'nb2-mm',
     apiId: 'gemini-flash-image',
     label: 'Nano Banana 2 (Gemini 3.1 Flash)',
-    timeEstimate: '~5-15s',
+    timeEstimate: '~25-60s',
     maxRes: { '1:1': '2048×2048', '9:16': '2304×4096', '16:9': '4096×2304', '3:4': '2048×2720', '4:3': '2720×2048' },
     note: '4K, best prompt following, fast ortho views & edits',
   },
@@ -72,7 +72,7 @@ const MULTIMODAL_MODELS: ModelDef[] = [
     id: 'nb-pro-mm',
     apiId: 'gemini-3-pro',
     label: 'Nano Banana Pro (Gemini 3 Pro)',
-    timeEstimate: '~20-40s',
+    timeEstimate: '~45-120s',
     maxRes: { '1:1': '2048×2048', '9:16': '2304×4096', '16:9': '4096×2304', '3:4': '2048×2720', '4:3': '2720×2048' },
     note: '4K pro, highest reference fidelity, supports 14 ref images',
   },
@@ -80,39 +80,16 @@ const MULTIMODAL_MODELS: ModelDef[] = [
     id: 'gemini-2.5-flash-mm',
     apiId: 'gemini-2.5-flash',
     label: 'Gemini 2.5 Flash',
-    timeEstimate: '~5-10s',
+    timeEstimate: '~15-30s',
     maxRes: { '1:1': '1024×1024', '9:16': '768×1408', '16:9': '1408×768', '3:4': '896×1280', '4:3': '1280×896' },
     note: '1K, fast multimodal with strong reasoning, good balance',
   },
-  {
-    id: 'gemini-2.0-flash-mm',
-    apiId: 'gemini-2.0-flash',
-    label: 'Gemini 2.0 Flash',
-    timeEstimate: '~3-8s',
-    maxRes: { '1:1': '1024×1024', '9:16': '768×1408', '16:9': '1408×768', '3:4': '896×1280', '4:3': '1280×896' },
-    note: '1K, original Flash image gen, fast and reliable',
-  },
-  {
-    id: 'gemini-2.0-flash-lite-mm',
-    apiId: 'gemini-2.0-flash-lite',
-    label: 'Gemini 2.0 Flash Lite',
-    timeEstimate: '~2-5s',
-    maxRes: { '1:1': '1024×1024', '9:16': '768×1408', '16:9': '1408×768', '3:4': '896×1280', '4:3': '1280×896' },
-    note: '1K, fastest & cheapest, lower quality but minimal latency',
-  },
-];
-
-const IMAGE_RESOLUTIONS = [
-  { value: '1K', label: '1K (fast)', desc: '~768-1024px — fastest, good for iteration' },
-  { value: '2K', label: '2K (balanced)', desc: '~1536-2048px — good quality, reasonable speed' },
-  { value: '4K', label: '4K (max quality)', desc: '~2304-4096px — highest quality, slowest' },
 ];
 
 interface PresetData {
   imageGenModelId: string;
   multimodalModelId: string;
   aspectRatio: string;
-  imageResolution: string;
 }
 
 function loadPreset(): PresetData | null {
@@ -165,9 +142,6 @@ function ModelSettingsNodeInner({ id, data, selected }: Props) {
   const [aspectRatio, setAspectRatio] = useState<string>(
     (data?.aspectRatio as string) ?? preset?.aspectRatio ?? '9:16',
   );
-  const [imageResolution, setImageResolution] = useState<string>(
-    (data?.imageResolution as string) ?? preset?.imageResolution ?? '2K',
-  );
   const [saved, setSaved] = useState(false);
 
   const imgDef = IMAGE_GEN_MODELS.find((m) => m.id === imageGenModel) ?? IMAGE_GEN_MODELS[0];
@@ -186,20 +160,18 @@ function ModelSettingsNodeInner({ id, data, selected }: Props) {
       multimodalModelId: multimodalModel,
       multimodalApiId: mmDef.apiId,
       aspectRatio,
-      imageResolution,
     });
-  }, [imageGenModel, multimodalModel, aspectRatio, imageResolution, imgDef.apiId, mmDef.apiId, persist]);
+  }, [imageGenModel, multimodalModel, aspectRatio, imgDef.apiId, mmDef.apiId, persist]);
 
   const handleSavePreset = useCallback(() => {
     savePreset({
       imageGenModelId: imageGenModel,
       multimodalModelId: multimodalModel,
       aspectRatio,
-      imageResolution,
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  }, [imageGenModel, multimodalModel, aspectRatio, imageResolution]);
+  }, [imageGenModel, multimodalModel, aspectRatio]);
 
   return (
     <div className={`char-node ${selected ? 'selected' : ''}`} title={NODE_TOOLTIPS.charModelSettings ?? 'Model Settings'}>
@@ -277,48 +249,7 @@ function ModelSettingsNodeInner({ id, data, selected }: Props) {
           </select>
         </div>
 
-        {/* Image Resolution */}
-        <div>
-          <label style={{ fontSize: 10, color: '#aaa', display: 'block', marginBottom: 3, fontWeight: 600 }}>
-            Output Resolution
-          </label>
-          <span style={{ fontSize: 8, color: '#666', display: 'block', marginBottom: 3 }}>
-            Higher = better quality but slower. Only applies to NB2/NB Pro models.
-          </span>
-          <div style={{ display: 'flex', gap: 4 }}>
-            {IMAGE_RESOLUTIONS.map((r) => (
-              <button
-                key={r.value}
-                type="button"
-                className="nodrag"
-                onClick={() => setImageResolution(r.value)}
-                style={{
-                  flex: 1,
-                  padding: '6px 4px',
-                  fontSize: 10,
-                  fontWeight: imageResolution === r.value ? 700 : 500,
-                  borderRadius: 4,
-                  cursor: 'pointer',
-                  border: imageResolution === r.value
-                    ? '1px solid rgba(124, 77, 255, 0.6)'
-                    : '1px solid rgba(255,255,255,0.1)',
-                  background: imageResolution === r.value
-                    ? 'rgba(124, 77, 255, 0.2)'
-                    : 'transparent',
-                  color: imageResolution === r.value ? '#b388ff' : '#888',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
-          <div style={{ fontSize: 8, color: '#666', marginTop: 3 }}>
-            {IMAGE_RESOLUTIONS.find((r) => r.value === imageResolution)?.desc}
-          </div>
-        </div>
-
-        {/* Resolution Summary */}
+        {/* Output Summary */}
         <div style={{
           background: 'rgba(124, 77, 255, 0.08)',
           border: '1px solid rgba(124, 77, 255, 0.2)',
@@ -329,14 +260,13 @@ function ModelSettingsNodeInner({ id, data, selected }: Props) {
         }}>
           <div style={{ fontWeight: 700, color: '#b388ff', marginBottom: 4 }}>Output Summary</div>
           <div style={{ color: '#ccc' }}>
-            <span style={{ color: '#888' }}>Image Gen:</span> {imgDef.label} @ {imageResolution}
+            <span style={{ color: '#888' }}>New Image:</span> {imgDef.label}
           </div>
           <div style={{ color: '#ccc' }}>
-            <span style={{ color: '#888' }}>Multimodal:</span> {mmDef.label} @ {imageResolution}
+            <span style={{ color: '#888' }}>Edit &amp; Ref:</span> {mmDef.label}
           </div>
           <div style={{ color: '#ccc' }}>
-            <span style={{ color: '#888' }}>Est. Time:</span>{' '}
-            {imageResolution === '4K' ? '30-90s' : imageResolution === '2K' ? '10-30s' : '3-15s'} per image
+            <span style={{ color: '#888' }}>Aspect:</span> {aspectRatio}
           </div>
         </div>
 
@@ -366,6 +296,6 @@ function ModelSettingsNodeInner({ id, data, selected }: Props) {
   );
 }
 
-export { IMAGE_GEN_MODELS, MULTIMODAL_MODELS, IMAGE_RESOLUTIONS, PRESET_KEY, loadPreset };
+export { IMAGE_GEN_MODELS, MULTIMODAL_MODELS, PRESET_KEY, loadPreset };
 export type { ModelDef, PresetData };
 export default memo(ModelSettingsNodeInner);

@@ -16,9 +16,7 @@ export { getActiveBackend } from '../apiConfig';
 export type GeminiImageModel =
   | 'gemini-flash-image'
   | 'gemini-3-pro'
-  | 'gemini-2.5-flash'
-  | 'gemini-2.0-flash'
-  | 'gemini-2.0-flash-lite';
+  | 'gemini-2.5-flash';
 
 export const GEMINI_IMAGE_MODELS: Record<GeminiImageModel, {
   id: string;
@@ -39,16 +37,6 @@ export const GEMINI_IMAGE_MODELS: Record<GeminiImageModel, {
     id: 'gemini-2.5-flash-image',
     label: 'Gemini 2.5 Flash',
     description: 'Fast multimodal with image gen. Good balance of speed and quality.',
-  },
-  'gemini-2.0-flash': {
-    id: 'gemini-2.0-flash-exp',
-    label: 'Gemini 2.0 Flash',
-    description: 'Original Gemini Flash image generation. Fast, reliable.',
-  },
-  'gemini-2.0-flash-lite': {
-    id: 'gemini-2.0-flash-lite',
-    label: 'Gemini 2.0 Flash Lite',
-    description: 'Lightweight and fastest Gemini option. Lower quality, minimal latency.',
   },
 };
 
@@ -157,7 +145,6 @@ export async function generateWithImagen4(
   count: number = 1,
   model: string = 'imagen-4.0-generate-001',
   subjectRefs?: ImagenSubjectRef[],
-  negativePrompt?: string,
 ): Promise<GeneratedImage[]> {
   const modelId = model;
   const supports2K = model !== 'imagen-4.0-fast-generate-001';
@@ -175,7 +162,6 @@ export async function generateWithImagen4(
     aspectRatio,
     ...(supports2K ? { sampleImageSize: '2K' } : {}),
   };
-  if (negativePrompt) params.negativePrompt = negativePrompt;
 
   const json = await callApi(
     modelId,
@@ -204,15 +190,8 @@ export async function generateWithImagen4(
 const NB2_MODEL_ID = 'gemini-3.1-flash-image-preview';
 const NB2_LABEL = 'Nano Banana 2';
 
-const RESOLUTION_PRESET_KEY = 'okdo-model-settings-preset';
-
 export function getConfiguredResolution(): string {
-  try {
-    const raw = typeof window !== 'undefined' ? localStorage.getItem(RESOLUTION_PRESET_KEY) : null;
-    if (!raw) return '2K';
-    const preset = JSON.parse(raw) as { imageResolution?: string };
-    return preset.imageResolution ?? '2K';
-  } catch { return '2K'; }
+  return '4K';
 }
 
 const NB2_CAPABLE = new Set([
@@ -220,25 +199,29 @@ const NB2_CAPABLE = new Set([
   'gemini-3-pro-image-preview',
 ]);
 
-function getImageConfig(modelId: string): Record<string, unknown> | undefined {
-  if (!NB2_CAPABLE.has(modelId)) return undefined;
-  const res = getConfiguredResolution();
-  if (res === '1K') return undefined;
-  return { imageSize: res };
+function getImageConfig(modelId: string, aspectRatio?: string): Record<string, unknown> | undefined {
+  const cfg: Record<string, unknown> = {};
+  if (NB2_CAPABLE.has(modelId)) cfg.imageSize = '4K';
+  if (aspectRatio) cfg.aspectRatio = aspectRatio;
+  return Object.keys(cfg).length > 0 ? cfg : undefined;
 }
 
 export async function generateWithNanoBanana(
   prompt: string,
   aspectRatio: string = '9:16',
   count: number = 1,
+  modelId?: string,
 ): Promise<GeneratedImage[]> {
+  const model = modelId || NB2_MODEL_ID;
+  const label = model === NB2_MODEL_ID ? NB2_LABEL : model === 'gemini-3-pro-image-preview' ? 'Nano Banana Pro' : `Gemini (${model})`;
+
   const parts: Array<Record<string, unknown>> = [
     { text: `${prompt}\n\nAspect ratio: ${aspectRatio}. Generate ${count} image(s).` },
   ];
 
-  const imgCfg = getImageConfig(NB2_MODEL_ID);
+  const imgCfg = getImageConfig(model, aspectRatio);
   const json = await callApi(
-    NB2_MODEL_ID,
+    model,
     'generateContent',
     {
       contents: [{ parts }],
@@ -247,14 +230,14 @@ export async function generateWithNanoBanana(
         ...(imgCfg && { imageConfig: imgCfg }),
       },
     },
-    NB2_LABEL,
+    label,
     180_000,
   );
 
   if ((json as { usageMetadata?: object }).usageMetadata) {
     recordUsage(
       (json as { usageMetadata: { promptTokenCount?: number; candidatesTokenCount?: number } }).usageMetadata,
-      NB2_MODEL_ID,
+      model,
     );
   }
 
@@ -271,7 +254,7 @@ export async function generateWithNanoBanana(
       .filter((p: Record<string, unknown>) => (p as { text?: string }).text)
       .map((p: Record<string, unknown>) => (p as { text: string }).text)
       .join('\n');
-    throw new Error(`No image returned from ${NB2_LABEL}${textContent ? ': ' + textContent.slice(0, 100) : ''}`);
+    throw new Error(`No image returned from ${label}${textContent ? ': ' + textContent.slice(0, 100) : ''}`);
   }
 
   return imageParts.map((p: Record<string, unknown>) => {
@@ -285,11 +268,12 @@ export async function generateWithNanoBanana(
 async function _geminiRefCall(
   modelDef: { id: string; label: string },
   parts: Array<Record<string, unknown>>,
+  aspectRatio?: string,
 ): Promise<GeneratedImage[]> {
   const t0 = Date.now();
-  devLog(`[generateWithGeminiRef] calling callApi (${modelDef.label})...`);
+  devLog(`[generateWithGeminiRef] calling callApi (${modelDef.label}), aspectRatio=${aspectRatio ?? 'default'}...`);
 
-  const imgCfg = getImageConfig(modelDef.id);
+  const imgCfg = getImageConfig(modelDef.id, aspectRatio);
   const json = await callApi(
     modelDef.id,
     'generateContent',
@@ -338,7 +322,7 @@ async function _geminiRefCall(
   });
 }
 
-const FALLBACK_ORDER: GeminiImageModel[] = ['gemini-flash-image', 'gemini-3-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+const FALLBACK_ORDER: GeminiImageModel[] = ['gemini-flash-image', 'gemini-3-pro', 'gemini-2.5-flash'];
 const PRO_RETRY_DELAY_MS = 2000;
 const PRO_MAX_RETRIES = 2;
 
@@ -351,8 +335,9 @@ export async function generateWithGeminiRef(
   prompt: string,
   referenceImage: GeneratedImage | GeneratedImage[],
   model: GeminiImageModel = DEFAULT_GEMINI_IMAGE_MODEL,
+  aspectRatio?: string,
 ): Promise<GeneratedImage[]> {
-  const result = await generateWithGeminiRefDetailed(prompt, referenceImage, model);
+  const result = await generateWithGeminiRefDetailed(prompt, referenceImage, model, aspectRatio);
   return result.images;
 }
 
@@ -360,6 +345,7 @@ export async function generateWithGeminiRefDetailed(
   prompt: string,
   referenceImage: GeneratedImage | GeneratedImage[],
   model: GeminiImageModel = DEFAULT_GEMINI_IMAGE_MODEL,
+  aspectRatio?: string,
 ): Promise<GeminiRefResult> {
   const images = Array.isArray(referenceImage) ? referenceImage : [referenceImage];
 
@@ -368,9 +354,10 @@ export async function generateWithGeminiRefDetailed(
     devLog(`[generateWithGeminiRef] image[${i}] mime=${images[i].mimeType} base64 length=${images[i].base64.length}`);
   }
 
+  const promptWithAspect = aspectRatio ? `${prompt}\n\nOutput aspect ratio: ${aspectRatio}.` : prompt;
   const parts: Array<Record<string, unknown>> = [
     ...images.map((img) => ({ inlineData: { mimeType: img.mimeType, data: img.base64 } })),
-    { text: prompt },
+    { text: promptWithAspect },
   ];
 
   const modelsToTry = [model, ...FALLBACK_ORDER.filter((m) => m !== model)];
@@ -387,7 +374,7 @@ export async function generateWithGeminiRefDetailed(
           devLog(`[generateWithGeminiRef] Retry ${attempt}/${retries - 1} for ${modelDef.label} after ${PRO_RETRY_DELAY_MS}ms…`);
           await new Promise((r) => setTimeout(r, PRO_RETRY_DELAY_MS));
         }
-        const result = await _geminiRefCall(modelDef, parts);
+        const result = await _geminiRefCall(modelDef, parts, aspectRatio);
         return { images: result, modelUsed: modelDef.label };
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -571,9 +558,10 @@ export async function restoreImageQuality(
     '• MATERIALS: Leather shows real grain and sheen. Metal is properly reflective. Fabric has visible weave and natural drape. Everything has correct specular response\n' +
     '• EDGES: All edges crisp and clean — no blur halos, no ringing, no smearing\n' +
     '• HAIR: Individual strand definition, natural flow, proper highlights\n' +
-    '• BACKGROUND: Clean solid neutral grey (#D3D3D3) — smooth gradient-free, no artifacts from the original\n' +
+    '• BACKGROUND: Clean solid neutral grey — smooth gradient-free, no artifacts from the original\n' +
     '• LIGHTING: Proper studio lighting — soft key, gentle fill, subtle rim light for depth\n' +
-    '• ZERO artifacts, noise, banding, blur, or compression anywhere in the image\n\n' +
+    '• ZERO artifacts, noise, banding, blur, or compression anywhere in the image\n' +
+    '• ZERO TEXT — do NOT render any text, letters, numbers, hex codes, color codes, logos, labels, or watermarks anywhere in the image\n\n' +
     'DETAILED CHARACTER DESCRIPTION (recreate this exactly):\n' + description;
 
   onStatus?.('Recreating at max quality (Nano Banana 2)…');

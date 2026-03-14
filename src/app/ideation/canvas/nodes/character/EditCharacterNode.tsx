@@ -16,9 +16,11 @@ interface Props {
 }
 
 const EDIT_PREFIX =
-  'VISUAL EDIT TASK:\nPreserve 100% of the existing design, only apply the following modifications:\n\n';
+  'VISUAL EDIT TASK (KEEP EXACT FRAMING — do NOT zoom in):\nPreserve 100% of the existing design, only apply the following modifications:\n\n';
 const EDIT_SUFFIX =
-  '\n\nApply ONLY the above modifications. Do NOT change anything else.\nBackground: Solid flat grey (#D3D3D3). No floor, no shadows, no environment.';
+  `\n\nApply ONLY the above modifications. Do NOT change anything else.
+CRITICAL FRAMING RULE: Maintain the EXACT same camera distance, zoom level, and framing as the source image. The character must occupy the same area of the frame — do NOT zoom in, do NOT crop tighter, do NOT push the camera closer. If the source shows full body head-to-toe, the output MUST also show full body head-to-toe with the same amount of space above the head and below the feet. NEVER cut off the feet or head.
+Background: Solid flat neutral grey. No floor, no shadows, no environment. Do NOT render any text or labels.`;
 
 type ViewKind = 'main' | 'front' | 'back' | 'side';
 
@@ -274,7 +276,8 @@ function EditCharacterNodeInner({ id, data, selected }: Props) {
 
         const viewPrompt =
           `The first image is the main 3/4 view showing the full character for reference.\n` +
-          `The second image is the ${kind} view to edit.\n\n${fullPrompt}`;
+          `The second image is the ${kind} view to edit.\n\n${fullPrompt}` +
+          `\n\nFINAL REMINDER: Output must have the IDENTICAL zoom level, camera distance, and field of view as the source image. Do NOT zoom in. Do NOT crop tighter.`;
         const refs =
           mainImage !== entry.image ? [mainImage, entry.image] : entry.image;
 

@@ -35,16 +35,60 @@ export function listLayouts(appKey: string): SavedLayout[] {
   }
 }
 
+const HEAVY_DATA_KEYS = new Set([
+  'generatedImage', 'localImage', 'angleRefImage', 'styleImages', 'refImages',
+  'media', 'base64', 'imageHistory', 'history', 'artDirectionResult',
+  'videoData', 'audioData', 'textContent', 'extractedData',
+]);
+
+function stripHeavyData(nodeData?: Record<string, Record<string, unknown>>): Record<string, Record<string, unknown>> | undefined {
+  if (!nodeData) return undefined;
+  const stripped: Record<string, Record<string, unknown>> = {};
+  for (const [nodeId, data] of Object.entries(nodeData)) {
+    const clean: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(data)) {
+      if (HEAVY_DATA_KEYS.has(key)) continue;
+      if (typeof val === 'string' && val.length > 5000) continue;
+      clean[key] = val;
+    }
+    stripped[nodeId] = clean;
+  }
+  return stripped;
+}
+
 export function saveNamedLayout(appKey: string, name: string, snapshot: LayoutSnapshot): void {
+  const lightSnapshot: LayoutSnapshot = {
+    ...snapshot,
+    nodeData: stripHeavyData(snapshot.nodeData),
+  };
   const layouts = listLayouts(appKey);
   const existing = layouts.findIndex((l) => l.name === name);
-  const entry: SavedLayout = { name, snapshot, savedAt: new Date().toISOString() };
+  const entry: SavedLayout = { name, snapshot: lightSnapshot, savedAt: new Date().toISOString() };
   if (existing >= 0) {
     layouts[existing] = entry;
   } else {
     layouts.push(entry);
   }
-  localStorage.setItem(storageKey(appKey), JSON.stringify(layouts));
+  try {
+    localStorage.setItem(storageKey(appKey), JSON.stringify(layouts));
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+      const minimal: LayoutSnapshot = {
+        nodes: lightSnapshot.nodes,
+        edges: lightSnapshot.edges,
+        viewport: lightSnapshot.viewport,
+      };
+      const minEntry: SavedLayout = { name, snapshot: minimal, savedAt: new Date().toISOString() };
+      if (existing >= 0) {
+        layouts[existing] = minEntry;
+      } else {
+        layouts[layouts.length - 1] = minEntry;
+      }
+      localStorage.setItem(storageKey(appKey), JSON.stringify(layouts));
+    } else {
+      throw e;
+    }
+  }
 }
 
 export function loadNamedLayout(appKey: string, name: string): LayoutSnapshot | null {

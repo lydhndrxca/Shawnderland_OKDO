@@ -521,6 +521,7 @@
 
 .gs-canvas-area .react-flow__edge-path {
   cursor: pointer;
+  opacity: 0.25;
 }
 
 .gs-canvas-area .react-flow__connection-path {

@@ -5,22 +5,26 @@ import { Handle, Position, useReactFlow } from '@xyflow/react';
 import {
   buildCharacterDescription,
   buildCharacterViewPrompt,
+  synthesizeContextLens,
+  hasContextData,
   type CharacterIdentity,
   type CharacterAttributes,
+  type ContextLensInput,
 } from '@/lib/ideation/engine/conceptlab/characterPrompts';
 import {
   generateWithNanoBanana,
   generateWithGeminiRef,
   generateWithImagen4,
-  getConfiguredResolution,
   type GeneratedImage,
   type GeminiImageModel,
 } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { resolveNodeInfluences } from '@/lib/ideation/engine/conceptlab/resolveInfluences';
 import { getGlobalSettings } from '@/lib/globalSettings';
 import { createProcessingAnimator } from '@/lib/processingAnimation';
-import { IMAGE_GEN_MODELS, MULTIMODAL_MODELS, IMAGE_RESOLUTIONS, PRESET_KEY, loadPreset } from './ModelSettingsNode';
+import { IMAGE_GEN_MODELS, MULTIMODAL_MODELS, PRESET_KEY, loadPreset } from './ModelSettingsNode';
 import type { PresetData } from './ModelSettingsNode';
+import type { ViewHubToggles } from './ImageViewHubNode';
+import { DEFAULT_VIEW_HUB_TOGGLES } from './ImageViewHubNode';
 import { NODE_TOOLTIPS } from './nodeTooltips';
 import { devLog, devWarn } from '@/lib/devLog';
 import './CharacterNodes.css';
@@ -55,15 +59,22 @@ function buildCostumeBriefFromData(d: Record<string, unknown>): string {
     if (custom?.trim()) all.push(custom.trim());
     lines.push(`Style influences: ${all.join(', ')}`);
   }
+  const origins = d.costumeOrigin as string[] | undefined;
+  if (origins?.length) lines.push(`Costume design: ${origins.join(', ')}`);
   const mats = d.costumeMaterials as string[] | undefined;
   if (mats?.length) lines.push(`Materials: ${mats.join(', ')}`);
   const colors: string[] = [];
   if (d.costumePrimaryColor) colors.push(`primary: ${d.costumePrimaryColor}`);
   if (d.costumeSecondaryColor) colors.push(`secondary: ${d.costumeSecondaryColor}`);
   if (d.costumeAccentColor) colors.push(`accent: ${d.costumeAccentColor}`);
-  if (d.costumeHardwareColor) colors.push(`hardware: ${d.costumeHardwareColor}`);
+  if (d.costumeHardwareColor) {
+    const hwDetails = d.costumeHwDetails as string[] | undefined;
+    colors.push(`${d.costumeHardwareColor} for ${hwDetails?.length ? hwDetails.join(', ') : 'metal parts'}`);
+  }
   if (colors.length) lines.push(`Color palette: ${colors.join('; ')}`);
-  if (d.costumeTextureRule) lines.push('Ensure rich texture reads across all lighting conditions.');
+  if (d.costumeTextureRule) {
+    lines.push('Material choices should be a mixture of hard and soft, shiny, matte and satin that will remain richly textured no matter what the lighting condition.');
+  }
   if (d.costumeNotes) lines.push(`Direction: ${d.costumeNotes}`);
   const result = d.costumeResult as { overallVision?: string; points?: { title: string; direction: string }[] } | undefined;
   if (result?.overallVision) lines.push(`Costume vision: ${result.overallVision}`);
@@ -108,6 +119,26 @@ function gatherInputs(
       for (const ue of upstream) results.push(...resolveGate(ue.source));
       return results;
     }
+    if (n.type === 'contextHub') {
+      if (d.hubActive === false) return [];
+      const toggles = d.hubToggles as Record<string, boolean> | undefined;
+      const upstream = edges.filter((e) => e.target === sourceId);
+      const results: Array<{ node: ReturnType<typeof getNode>; data: Record<string, unknown> }> = [];
+      for (const ue of upstream) {
+        const resolved = resolveGate(ue.source);
+        for (const r of resolved) {
+          if (!r.node || !toggles) { results.push(r); continue; }
+          const t = (r.node as { type?: string }).type ?? '';
+          if (t === 'charBible' && toggles.bible === false) continue;
+          if (t === 'charPreservationLock' && toggles.lock === false) continue;
+          if (t === 'costumeDirector' && toggles.costume === false) continue;
+          if (t === 'charStyleFusion' && toggles.styleFusion === false) continue;
+          if (t === 'envPlacement' && toggles.environment === false) continue;
+          results.push(r);
+        }
+      }
+      return results;
+    }
     if (d._sleeping) {
       const upstream = edges.filter((e) => e.target === sourceId);
       const results: Array<{ node: ReturnType<typeof getNode>; data: Record<string, unknown> }> = [];
@@ -125,9 +156,10 @@ function gatherInputs(
     }
   }
 
-  devLog(`[gatherInputs] ${incoming.length} incoming edge(s) to node ${nodeId}, ${resolvedSources.length} after gate resolution`);
+  console.log(`%c[gatherInputs] ${incoming.length} incoming edge(s) → ${resolvedSources.length} resolved sources`, 'color: #00bcd4; font-weight: bold');
   for (const { node: src, data: d } of resolvedSources) {
-    devLog(`[gatherInputs] source type="${src.type}", keys=[${Object.keys(d).join(', ')}]`);
+    const keyHighlights = Object.keys(d).filter(k => !k.startsWith('_') && d[k] !== '' && d[k] !== undefined && d[k] !== null);
+    console.log(`  → type="${src.type}" | non-empty keys: [${keyHighlights.join(', ')}]`);
 
     if (src.type === 'charIdentity') {
       const id = d.identity as CharacterIdentity | undefined;
@@ -226,13 +258,25 @@ function gatherInputs(
   return { identity, description, attributes, pose, styleText, styleImages, refImages, callouts, contentRefs, projectName, outputDir, bibleContext, lockConstraints, costumeBrief, fusionBrief, envBrief };
 }
 
-function findDownstreamMainViewers(
+const VIEW_KEY_BY_NODE_TYPE: Record<string, keyof ViewHubToggles> = {
+  charMainViewer: 'main',
+  charViewer: 'main',
+  charImageViewer: 'main',
+  charFrontViewer: 'front',
+  charBackViewer: 'back',
+  charSideViewer: 'side',
+  charCustomView: 'custom',
+};
+
+function findDownstreamViewersAndHub(
   nodeId: string,
   getNode: ReturnType<typeof useReactFlow>['getNode'],
   getEdges: ReturnType<typeof useReactFlow>['getEdges'],
-): string[] {
+): { mainViewerIds: string[]; allViewerIds: string[]; viewHubToggles: ViewHubToggles } {
   const edges = getEdges();
-  const viewers: string[] = [];
+  const mainViewerIds: string[] = [];
+  const allViewerIds: string[] = [];
+  let viewHubToggles: ViewHubToggles = { ...DEFAULT_VIEW_HUB_TOGGLES };
   const visited = new Set<string>();
   const queue = [nodeId];
 
@@ -251,14 +295,31 @@ function findDownstreamMainViewers(
         if (!(gateData.enabled as boolean ?? true)) continue;
       }
 
-      if (MAIN_VIEWER_TYPES.has(target.type ?? '')) {
-        viewers.push(target.id);
+      if (target.type === 'imageViewHub') {
+        const d = target.data as Record<string, unknown>;
+        viewHubToggles = { ...DEFAULT_VIEW_HUB_TOGGLES, ...((d.viewHubToggles as Partial<ViewHubToggles>) ?? {}) };
+      }
+
+      const viewKey = VIEW_KEY_BY_NODE_TYPE[target.type ?? ''];
+      if (viewKey) {
+        allViewerIds.push(target.id);
+        if (MAIN_VIEWER_TYPES.has(target.type ?? '')) {
+          mainViewerIds.push(target.id);
+        }
       }
 
       queue.push(target.id);
     }
   }
-  return viewers;
+  return { mainViewerIds, allViewerIds, viewHubToggles };
+}
+
+function findDownstreamMainViewers(
+  nodeId: string,
+  getNode: ReturnType<typeof useReactFlow>['getNode'],
+  getEdges: ReturnType<typeof useReactFlow>['getEdges'],
+): string[] {
+  return findDownstreamViewersAndHub(nodeId, getNode, getEdges).mainViewerIds;
 }
 
 async function autoSaveImage(
@@ -328,9 +389,6 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
   const [aspectRatio, setAspectRatio] = useState<string>(
     (data?.aspectRatio as string) ?? preset?.aspectRatio ?? '9:16',
   );
-  const [imageResolution, setImageResolution] = useState<string>(
-    (data?.imageResolution as string) ?? preset?.imageResolution ?? '2K',
-  );
 
   const imgDef = IMAGE_GEN_MODELS.find((m) => m.id === imageGenModel) ?? IMAGE_GEN_MODELS[0];
   const mmDef = MULTIMODAL_MODELS.find((m) => m.id === multimodalModel) ?? MULTIMODAL_MODELS[0];
@@ -353,15 +411,14 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
       multimodalModelId: multimodalModel,
       multimodalApiId: mmDef.apiId,
       aspectRatio,
-      imageResolution,
     });
-  }, [imageGenModel, multimodalModel, aspectRatio, imageResolution, imgDef.apiId, mmDef.apiId, persist]);
+  }, [imageGenModel, multimodalModel, aspectRatio, imgDef.apiId, mmDef.apiId, persist]);
 
   const handleSavePreset = useCallback(() => {
-    savePreset({ imageGenModelId: imageGenModel, multimodalModelId: multimodalModel, aspectRatio, imageResolution });
+    savePreset({ imageGenModelId: imageGenModel, multimodalModelId: multimodalModel, aspectRatio });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  }, [imageGenModel, multimodalModel, aspectRatio, imageResolution]);
+  }, [imageGenModel, multimodalModel, aspectRatio]);
 
   const handleGenerate = useCallback(async () => {
     setGenerating(true);
@@ -380,9 +437,22 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
       const refImages = contentRefs.map((r) => r.image);
       const callouts = contentRefs.map((r) => r.callout);
 
-      devLog(`[GenerateCharImage] Inputs — style imgs: ${styleImages.length}, content refs: ${contentRefs.length} [${callouts.join('; ')}], styleText: "${styleText.slice(0, 50)}", desc: ${description.length} chars`);
-      devLog(`[GenerateCharImage] Models — imageGen: ${imgDef.label} (${imgDef.apiId}), multimodal: ${mmDef.label} (${mmDef.apiId}), resolution: ${imageResolution}`);
-      setProgress(`Inputs: ${styleImages.length} style img${styleImages.length !== 1 ? 's' : ''}, ${contentRefs.length} content ref${contentRefs.length !== 1 ? 's' : ''}${callouts.length > 0 ? ` (${callouts.join(', ')})` : ''}`);
+      const ctxParts: string[] = [];
+      if (bibleContext) ctxParts.push(`Bible ✓ (${bibleContext.length}ch)`);
+      if (lockConstraints) ctxParts.push(`Lock ✓ (${lockConstraints.split('\n').length} rules)`);
+      if (costumeBrief) ctxParts.push(`Costume ✓`);
+      if (fusionBrief) ctxParts.push(`Fusion ✓`);
+      if (envBrief) ctxParts.push(`Env ✓`);
+      if (styleText) ctxParts.push(`StyleText ✓`);
+      if (styleImages.length) ctxParts.push(`StyleImg ✓ (${styleImages.length})`);
+      if (contentRefs.length) ctxParts.push(`Refs ✓ (${contentRefs.length}: ${callouts.join(', ')})`);
+      const ctxSummary = ctxParts.length > 0 ? ctxParts.join(' | ') : '⚠ No context gathered';
+
+      devLog(`[GenerateCharImage] Context: ${ctxSummary}`);
+      devLog(`[GenerateCharImage] Desc: ${description.length} chars, Identity: ${JSON.stringify(identity)}`);
+      devLog(`[GenerateCharImage] Models — imageGen: ${imgDef.label} (${imgDef.apiId}), multimodal: ${mmDef.label} (${mmDef.apiId})`);
+      console.log(`%c[Generate] Context gathered: ${ctxSummary}`, 'color: #4caf50; font-weight: bold; font-size: 12px');
+      setProgress(`Context: ${ctxSummary}`);
 
       if (!pose && attributes.pose) {
         pose = attributes.pose;
@@ -391,7 +461,29 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
         attributes.pose = pose;
       }
 
-      const desc = buildCharacterDescription(identity, attributes, description);
+      const ctxLens: ContextLensInput = { bibleContext, costumeBrief, fusionBrief, envBrief, lockConstraints };
+      let synthIdentity = identity;
+      let synthDescription = description;
+      let synthAttributes = attributes;
+
+      if (hasContextData(ctxLens)) {
+        setProgress('Applying context lens...');
+        console.log('%c[Generate] Running context lens synthesis...', 'color: #ff9800; font-weight: bold');
+        try {
+          const synth = await synthesizeContextLens(identity, attributes, description, ctxLens);
+          synthIdentity = synth.identity;
+          synthDescription = synth.description;
+          synthAttributes = synth.attributes;
+          devLog('[GenerateCharImage] Context lens synthesis complete', { descLen: synthDescription.length, attrKeys: Object.keys(synthAttributes).length });
+        } catch (e) {
+          devWarn('[GenerateCharImage] Context lens synthesis failed, using raw inputs:', e);
+        }
+      }
+
+      const hasStyleOverride = styleText.trim().length > 0 || styleImages.length > 0;
+      const effectiveStyleText = styleText.trim()
+        || (styleImages.length > 0 ? 'Match the visual style shown in the style reference image(s). Replicate the exact rendering technique, color palette, and artistic approach.' : undefined);
+      const desc = buildCharacterDescription(synthIdentity, synthAttributes, synthDescription, hasStyleOverride ? effectiveStyleText : undefined);
 
       const influenceBlock = resolveNodeInfluences(
         id,
@@ -399,27 +491,18 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
         getEdges as () => { source: string; target: string }[],
       );
 
-      let fullPrompt = buildCharacterViewPrompt('main', desc) + influenceBlock;
-      if (styleText) {
-        fullPrompt = `ART STYLE: ${styleText}\n\n${fullPrompt}\n\nIMPORTANT: The image MUST be rendered in the art style described above. This style directive takes priority over any default rendering style.`;
-      }
-
-      if (bibleContext) fullPrompt = `## CHARACTER BIBLE\n${bibleContext}\n\n${fullPrompt}`;
-      if (costumeBrief) fullPrompt += `\n\n## COSTUME DIRECTION\n${costumeBrief}`;
-      if (fusionBrief) fullPrompt += `\n\n## STYLE FUSION\n${fusionBrief}`;
-      if (envBrief) fullPrompt += `\n\n## ENVIRONMENT\n${envBrief}`;
-      if (lockConstraints) fullPrompt += `\n\n## PRESERVATION CONSTRAINTS (MANDATORY — VIOLATING THESE IS FAILURE)\n${lockConstraints}`;
+      let fullPrompt = buildCharacterViewPrompt('main', desc, hasStyleOverride ? effectiveStyleText : undefined) + influenceBlock;
 
       const genMode = styleImages.length > 0
         ? `${mmDef.label} + ${styleImages.length} style ref${contentRefs.length > 0 ? ` + ${contentRefs.length} content ref` : ''}`
         : contentRefs.length > 0
           ? `${mmDef.label} + ${contentRefs.length} content ref`
-          : `${imgDef.label}, ${aspectRatio}, ${imageResolution}`;
+          : `${imgDef.label}, ${aspectRatio}`;
       setProgress(`Generating (${genMode})...`);
-      const mainViewerIdsEarly = findDownstreamMainViewers(id, getNode, getEdges);
+      const earlyIds = findDownstreamViewersAndHub(id, getNode, getEdges).mainViewerIds;
       setNodes((nds) =>
         nds.map((n) => {
-          if (n.id === id || mainViewerIdsEarly.includes(n.id)) {
+          if (n.id === id || earlyIds.includes(n.id)) {
             return { ...n, data: { ...n.data, generating: true } };
           }
           return n;
@@ -439,7 +522,7 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
       let result: GeneratedImage[];
       if (styleImages.length > 0 || contentRefs.length > 0) {
         const allRefImages = [...styleImages, ...refImages];
-        const styleDesc = styleText ? `The user describes the target style as: "${styleText}". Use this description to further guide your style analysis. ` : '';
+        const styleDesc = effectiveStyleText ? `The user describes the target style as: "${effectiveStyleText}". Use this description to further guide your style analysis. ` : '';
 
         const imageLines: string[] = [];
         styleImages.forEach((_, i) => {
@@ -484,12 +567,15 @@ ${fullPrompt}
 ${styleRules}
 ${contentRefs.length > 0 ? `- Every content reference item MUST appear on the character. This is MANDATORY — do not skip any.` : ''}`;
 
-        devLog(`[GenerateCharImage] Using multimodal (${mmDef.label}) with ${allRefImages.length} ref images. Prompt length: ${prompt.length}`);
-        result = await generateWithGeminiRef(prompt, allRefImages, mmDef.apiId as GeminiImageModel);
+        console.log(`%c[Generate] PATH: Multimodal (${mmDef.label}) — ${styleImages.length} style imgs + ${contentRefs.length} content refs, aspect=${aspectRatio}`, 'color: #ff9800; font-weight: bold');
+        devLog(`[GenerateCharImage] Multimodal prompt length: ${prompt.length}`);
+        result = await generateWithGeminiRef(prompt, allRefImages, mmDef.apiId as GeminiImageModel, aspectRatio);
       } else if (imgDef.apiId.startsWith('imagen-')) {
+        console.log(`%c[Generate] PATH: Imagen 4 text-only (${imgDef.label}) — prompt length: ${fullPrompt.length}`, 'color: #2196f3; font-weight: bold');
         result = await generateWithImagen4(fullPrompt, aspectRatio, 1, imgDef.apiId);
       } else {
-        result = await generateWithNanoBanana(fullPrompt, aspectRatio, 1);
+        console.log(`%c[Generate] PATH: Nano Banana text-only (${imgDef.label}) — prompt length: ${fullPrompt.length}`, 'color: #9c27b0; font-weight: bold');
+        result = await generateWithNanoBanana(fullPrompt, aspectRatio, 1, imgDef.apiId);
       }
       const mainImage = result[0];
       setHasImage(true);
@@ -514,29 +600,36 @@ ${contentRefs.length > 0 ? `- Every content reference item MUST appear on the ch
       autoSaveImage(mainImage, 'main_stage', projectName, outputDir || undefined)
         .then((r) => { if (!r.ok) devWarn('[auto-save]', r.error); });
 
-      const mainViewerIds = findDownstreamMainViewers(id, getNode, getEdges);
+      const { mainViewerIds, viewHubToggles } = findDownstreamViewersAndHub(id, getNode, getEdges);
+      const triggerTimestamp = Date.now();
+
       if (mainViewerIds.length > 0) {
         anim.markNodes(mainViewerIds, true);
         for (const vid of mainViewerIds) anim.markEdgesTo(vid, true);
         setNodes((nds) =>
           nds.map((n) =>
             mainViewerIds.includes(n.id)
-              ? { ...n, data: { ...n.data, generatedImage: mainImage, _orthoTrigger: Date.now() } }
+              ? { ...n, data: { ...n.data, generatedImage: mainImage, _orthoTrigger: triggerTimestamp, _viewHubToggles: viewHubToggles } }
               : n,
           ),
         );
       }
 
-      setProgress('Done! Ortho views auto-generating...');
+      const enabledOrthos = (['front', 'back', 'side', 'custom'] as const).filter((k) => viewHubToggles[k]);
+      if (enabledOrthos.length > 0) {
+        setProgress(`Done! Auto-generating ${enabledOrthos.join(', ')} views...`);
+      } else {
+        setProgress('Done!');
+      }
       setTimeout(() => { setProgress(''); }, 3000);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setGenerating(false);
-      const mainViewerIdsCleanup = findDownstreamMainViewers(id, getNode, getEdges);
+      const cleanupIds = findDownstreamViewersAndHub(id, getNode, getEdges).mainViewerIds;
       setNodes((nds) =>
         nds.map((n) => {
-          if (n.id === id || mainViewerIdsCleanup.includes(n.id)) {
+          if (n.id === id || cleanupIds.includes(n.id)) {
             return { ...n, data: { ...n.data, generating: false } };
           }
           return n;
@@ -544,7 +637,7 @@ ${contentRefs.length > 0 ? `- Every content reference item MUST appear on the ch
       );
       anim.clearAll();
     }
-  }, [id, getNode, getEdges, setNodes, setEdges, imgDef, mmDef, aspectRatio, imageResolution]);
+  }, [id, getNode, getEdges, setNodes, setEdges, imgDef, mmDef, aspectRatio]);
 
   return (
     <div className={`char-node ${selected ? 'selected' : ''} ${generating ? 'char-node-processing' : ''}`}
@@ -554,13 +647,13 @@ ${contentRefs.length > 0 ? `- Every content reference item MUST appear on the ch
       </div>
       <div className="char-node-body" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 
-        {/* Image Gen Model */}
+        {/* New Image Model */}
         <div>
           <label style={{ fontSize: 10, color: '#aaa', display: 'block', marginBottom: 2, fontWeight: 600 }}>
-            Image Generation Model
+            New Image Model
           </label>
           <span style={{ fontSize: 8, color: '#555', display: 'block', marginBottom: 2 }}>
-            Main stage character generation (text-to-image)
+            Creates fresh images from a text description — no reference image needed
           </span>
           <select className="nodrag nowheel" value={imageGenModel} disabled={generating}
             onChange={(e) => setImageGenModel(e.target.value)} style={selectStyle}>
@@ -573,19 +666,19 @@ ${contentRefs.length > 0 ? `- Every content reference item MUST appear on the ch
           <div style={{ fontSize: 8, color: '#666', marginTop: 2 }}>{imgDef.note}</div>
         </div>
 
-        {/* Multimodal Model */}
+        {/* Edit & Reference Model */}
         <div>
           <label style={{ fontSize: 10, color: '#aaa', display: 'block', marginBottom: 2, fontWeight: 600 }}>
-            Multimodal Model
+            Edit & Reference Model
           </label>
           <span style={{ fontSize: 8, color: '#555', display: 'block', marginBottom: 2 }}>
-            Ortho views, edits, reference-based generation
+            For edits, ortho views, and any generation that needs to see an existing image
           </span>
           <select className="nodrag nowheel" value={multimodalModel} disabled={generating}
             onChange={(e) => setMultimodalModel(e.target.value)} style={selectStyle}>
             {MULTIMODAL_MODELS.map((m) => (
               <option key={m.id} value={m.id}>
-                {m.label} — {m.timeEstimate}
+                {m.label} — {m.maxRes[aspectRatio] ?? 'auto'} — {m.timeEstimate}
               </option>
             ))}
           </select>
@@ -602,29 +695,6 @@ ${contentRefs.length > 0 ? `- Every content reference item MUST appear on the ch
               <option key={ar.value} value={ar.value}>{ar.label}</option>
             ))}
           </select>
-        </div>
-
-        {/* Resolution */}
-        <div>
-          <label style={{ fontSize: 10, color: '#aaa', display: 'block', marginBottom: 2, fontWeight: 600 }}>
-            Output Resolution
-          </label>
-          <div style={{ display: 'flex', gap: 4 }}>
-            {IMAGE_RESOLUTIONS.map((r) => (
-              <button key={r.value} type="button" className="nodrag"
-                onClick={() => setImageResolution(r.value)} disabled={generating}
-                style={{
-                  flex: 1, padding: '5px 2px', fontSize: 10, fontWeight: imageResolution === r.value ? 700 : 500,
-                  borderRadius: 4, cursor: generating ? 'default' : 'pointer',
-                  border: imageResolution === r.value ? '1px solid rgba(233,30,99,0.5)' : '1px solid rgba(255,255,255,0.1)',
-                  background: imageResolution === r.value ? 'rgba(233,30,99,0.15)' : 'transparent',
-                  color: imageResolution === r.value ? '#f48fb1' : '#777',
-                  transition: 'all 0.15s',
-                }}>
-                {r.label}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Save Preset */}

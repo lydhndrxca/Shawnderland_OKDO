@@ -5,10 +5,9 @@ import { useReactFlow, useStore } from '@xyflow/react';
 import { ImageContextMenu } from '@/components/ImageContextMenu';
 import {
   generateWithGeminiRef,
-  upscaleWithImagen,
+  restoreImageQuality,
   type GeneratedImage,
   type GeminiImageModel,
-  type UpscaleFactor,
 } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { registerRequest, unregisterRequest } from '@/lib/activeRequests';
 import './GeminiEditorOverlay.css';
@@ -211,44 +210,44 @@ export default function GeminiEditorOverlay({ editorNodeId, onClose }: Props) {
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
-  // ── Upscale ──
-  const [upscaleFactor, setUpscaleFactor] = useState<UpscaleFactor>('x2');
-  const [upscaleBusy, setUpscaleBusy] = useState(false);
-  const [upscaleStatus, setUpscaleStatus] = useState<string | null>(null);
+  // ── Restore ──
+  const [restoreBusy, setRestoreBusy] = useState(false);
+  const [restoreStatus, setRestoreStatus] = useState<string | null>(null);
 
-  const handleUpscale = useCallback(async () => {
-    if (!activeImage || upscaleBusy || editBusy || !activeSource) return;
-    setUpscaleBusy(true);
-    setUpscaleStatus(`Upscaling ${upscaleFactor.toUpperCase()}...`);
+  const handleRestore = useCallback(async () => {
+    if (!activeImage || restoreBusy || editBusy || !activeSource) return;
+    setRestoreBusy(true);
+    setRestoreStatus('Restoring...');
     setEditError(null);
     setEditElapsed(0);
     const t0 = Date.now();
     editTimerRef.current = setInterval(() => {
       if (mountedRef.current) setEditElapsed(Math.floor((Date.now() - t0) / 1000));
     }, 500);
-    pushHistory(activeImage, `Before upscale ${upscaleFactor}`);
     const controller = registerRequest();
     try {
-      const result = await upscaleWithImagen(activeImage, upscaleFactor);
+      const result = await restoreImageQuality(activeImage, (status) => {
+        if (mountedRef.current) setRestoreStatus(status);
+      });
       if (!mountedRef.current || controller.signal.aborted) return;
       const secs = ((Date.now() - t0) / 1000).toFixed(1);
-      setUpscaleStatus(`Upscaled in ${secs}s`);
-      pushHistory(result, `Upscale ${upscaleFactor.toUpperCase()}`);
+      setRestoreStatus(`Restored in ${secs}s`);
+      pushHistory(result, 'Restore');
       setNodes((nds) => nds.map((n) =>
         n.id === activeSource.nodeId ? { ...n, data: { ...n.data, generatedImage: result } } : n,
       ));
-      setTimeout(() => { if (mountedRef.current) setUpscaleStatus(null); }, 3000);
+      setTimeout(() => { if (mountedRef.current) setRestoreStatus(null); }, 3000);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (!msg.toLowerCase().includes('cancel') && !msg.toLowerCase().includes('abort')) setEditError(msg);
-      setUpscaleStatus(null);
+      setRestoreStatus(null);
     } finally {
       clearInterval(editTimerRef.current);
       unregisterRequest(controller);
-      setUpscaleBusy(false);
+      setRestoreBusy(false);
       setEditElapsed(0);
     }
-  }, [activeImage, activeSource, upscaleBusy, editBusy, upscaleFactor, setNodes, pushHistory]);
+  }, [activeImage, activeSource, restoreBusy, editBusy, setNodes, pushHistory]);
 
   // ── Mask / Brush ──
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -417,7 +416,7 @@ export default function GeminiEditorOverlay({ editorNodeId, onClose }: Props) {
 At that EXACT location in the image, please make the following change:
 ${text.trim()}
 
-Only modify what is at or immediately around that specific point. Do NOT change anything else in the image. Preserve the overall composition, art style, and quality.`;
+Only modify what is at or immediately around that specific point. Do NOT change anything else in the image. Preserve the overall composition, art style, quality, and — critically — the EXACT same camera distance, zoom level, and framing. Do NOT zoom in or crop tighter. NEVER cut off feet or head.`;
   }, [imgSize]);
 
   // ── Edit handler (shared for main edit + point edit) ──
@@ -494,10 +493,11 @@ ABSOLUTE CONSTRAINTS:
 2. Changes STRICTLY within the green boundary only.
 3. Blend seamlessly at edges — match lighting, color, texture, style.
 4. Same art style, perspective, proportions, quality.
-5. Full image at same resolution.`;
+5. Full image at same resolution.
+6. Maintain the EXACT same camera distance, zoom level, and framing — do NOT zoom in or crop tighter.`;
       refImages = [activeImage, composite];
     } else {
-      prompt = `Edit this image: ${editText.trim()}. Preserve the overall composition and style.`;
+      prompt = `Edit this image: ${editText.trim()}.\nPreserve the overall composition, style, and — critically — the EXACT same camera distance, zoom level, and framing. The character must occupy the same area of the frame. Do NOT zoom in, do NOT crop tighter, do NOT push the camera closer. If the image shows full body head-to-toe, keep full body head-to-toe with the same padding above the head and below the feet. NEVER cut off feet or head.`;
       refImages = activeImage;
     }
     await executeEdit(prompt, refImages);
@@ -521,20 +521,43 @@ ABSOLUTE CONSTRAINTS:
     ));
   }, [activeSource, setNodes]);
 
-  // ── Send to Photoshop ──
-  const sendToPhotoshop = useCallback(async (images: GeneratedImage[]) => {
-    for (const img of images) {
+  // ── Export helpers ──
+  const copyImage = useCallback(async () => {
+    if (!activeImage) return;
+    try {
+      const blob = await fetch(`data:${activeImage.mimeType};base64,${activeImage.base64}`).then(r => r.blob());
+      const pngBlob = activeImage.mimeType === 'image/png' ? blob : blob;
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+    } catch { /* best-effort */ }
+  }, [activeImage]);
+
+  const downloadImage = useCallback(async () => {
+    if (!activeImage) return;
+    try {
+      const blob = await fetch(`data:${activeImage.mimeType};base64,${activeImage.base64}`).then(r => r.blob());
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${activeSource?.label ?? 'image'}-${Date.now()}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* best-effort */ }
+  }, [activeImage, activeSource]);
+
+  const downloadAll = useCallback(async () => {
+    const allImgs = sources.filter(s => s.image).map(s => ({ image: s.image!, label: s.label }));
+    for (const { image, label } of allImgs) {
       try {
-        const blob = await fetch(`data:${img.mimeType};base64,${img.base64}`).then(r => r.blob());
+        const blob = await fetch(`data:${image.mimeType};base64,${image.base64}`).then(r => r.blob());
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `gemini-edit-${Date.now()}.png`;
+        a.download = `${label}-${Date.now()}.png`;
         a.click();
         URL.revokeObjectURL(url);
       } catch { /* best-effort */ }
     }
-  }, []);
+  }, [sources]);
 
   // ── Keyboard shortcuts ──
   useEffect(() => {
@@ -653,55 +676,48 @@ ABSOLUTE CONSTRAINTS:
             <span className="ge-ltool-group-label">Export</span>
             <button
               className="ge-ltool-btn"
-              onClick={() => activeImage && sendToPhotoshop([activeImage])}
+              onClick={copyImage}
               disabled={!activeImage}
-              title="Download active image"
+              title="Copy active image to clipboard"
             >
-              <span className="ge-ltool-icon">📥</span>
-              <span className="ge-ltool-label">Send to PS</span>
+              <span className="ge-ltool-icon">📋</span>
+              <span className="ge-ltool-label">Copy Image</span>
             </button>
             <button
               className="ge-ltool-btn"
-              onClick={() => {
-                const allImgs = sources.filter(s => s.image).map(s => s.image!);
-                if (allImgs.length > 0) sendToPhotoshop(allImgs);
-              }}
+              onClick={downloadImage}
+              disabled={!activeImage}
+              title="Download active image as PNG"
+            >
+              <span className="ge-ltool-icon">📥</span>
+              <span className="ge-ltool-label">Download Image</span>
+            </button>
+            <button
+              className="ge-ltool-btn"
+              onClick={downloadAll}
               disabled={sources.every(s => !s.image)}
               title="Download all connected images"
             >
               <span className="ge-ltool-icon">📦</span>
-              <span className="ge-ltool-label">Send All</span>
+              <span className="ge-ltool-label">Download All</span>
             </button>
 
             <div className="ge-ltool-sep" />
-            <span className="ge-ltool-group-label">AI Upscale</span>
-            <div style={{ display: 'flex', gap: 2, padding: '0 4px' }}>
-              {(['x2', 'x3', 'x4'] as UpscaleFactor[]).map((f) => (
-                <button
-                  key={f}
-                  className={`ge-ltool-btn ${upscaleFactor === f ? 'active' : ''}`}
-                  onClick={() => setUpscaleFactor(f)}
-                  style={{ flex: 1, padding: '4px 0', fontSize: 10, fontWeight: 700 }}
-                  title={`Upscale factor ${f.toUpperCase()}`}
-                >
-                  {f.toUpperCase()}
-                </button>
-              ))}
-            </div>
+            <span className="ge-ltool-group-label">Enhance</span>
             <button
               className="ge-ltool-btn"
-              onClick={handleUpscale}
-              disabled={!activeImage || upscaleBusy || editBusy}
-              title={`Upscale active image by ${upscaleFactor.toUpperCase()} using Imagen 4`}
+              onClick={handleRestore}
+              disabled={!activeImage || restoreBusy || editBusy}
+              title="Restore — regenerate with fresh background, resolution, and materials"
             >
-              <span className="ge-ltool-icon">🔍</span>
+              <span className="ge-ltool-icon">✨</span>
               <span className="ge-ltool-label">
-                {upscaleBusy ? `${editElapsed}s...` : 'Upscale'}
+                {restoreBusy ? `${editElapsed}s...` : 'Restore'}
               </span>
             </button>
-            {upscaleStatus && (
+            {restoreStatus && (
               <div style={{ fontSize: 9, color: '#69f0ae', textAlign: 'center', padding: '2px 4px' }}>
-                {upscaleStatus}
+                {restoreStatus}
               </div>
             )}
           </div>

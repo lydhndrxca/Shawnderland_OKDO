@@ -25,7 +25,7 @@ import PipelineEdge from '@/app/ideation/canvas/edges/PipelineEdge';
 import CanvasContextMenu from '@/components/CanvasContextMenu';
 import { useToolEditorStore } from './useToolEditorStore';
 import type { TENodeKind } from './types';
-import { ALL_RAW_NODE_TYPES, ALL_CTX_CATEGORIES } from '@/lib/sharedNodeTypes';
+import { ALL_RAW_NODE_TYPES, ALL_CTX_CATEGORIES, NO_SLEEP } from '@/lib/sharedNodeTypes';
 import { applyResizeToAll } from '@/components/nodes/withNodeResize';
 import './ToolEditorCanvas.css';
 
@@ -256,6 +256,21 @@ export default function ToolEditorCanvas() {
 
   const selectedCount = useMemo(() => nodes.filter((n) => n.selected).length, [nodes]);
 
+  const isSleeping = ctxMenu?.nodeId
+    ? !!(nodes.find((n) => n.id === ctxMenu.nodeId)?.data as Record<string, unknown>)?._sleeping
+    : false;
+
+  const handleToggleSleep = useCallback(() => {
+    if (!ctxMenu?.nodeId) return;
+    rf.setNodes((nds) =>
+      nds.map((n) =>
+        n.id === ctxMenu.nodeId
+          ? { ...n, data: { ...n.data, _sleeping: !(n.data as Record<string, unknown>)._sleeping } }
+          : n,
+      ),
+    );
+  }, [ctxMenu, rf]);
+
   return (
     <div
       className="te-canvas-wrap"
@@ -322,6 +337,8 @@ export default function ToolEditorCanvas() {
           onFitView={handleFitView}
           onCopy={copySelected}
           onPaste={pasteNodes}
+          onToggleSleep={ctxMenu.nodeId && !NO_SLEEP.has(nodes.find((n) => n.id === ctxMenu.nodeId)?.type ?? '') ? handleToggleSleep : undefined}
+          isSleeping={isSleeping}
           onDeleteEdge={ctxMenu.edgeId ? handleDeleteEdge : undefined}
         />
       )}

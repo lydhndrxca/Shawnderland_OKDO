@@ -1,4 +1,4 @@
-/* ── Node Sleep Toggle ── */
+/* ── Node Sleep Toggle (visual state only — toggled via right-click menu) ── */
 
 .node-sleep-wrapper {
   position: relative;
@@ -17,40 +17,6 @@
 .node-sleep-wrapper.node-sleeping textarea,
 .node-sleep-wrapper.node-sleeping input,
 .node-sleep-wrapper.node-sleeping select,
-.node-sleep-wrapper.node-sleeping button:not(.node-sleep-btn) {
+.node-sleep-wrapper.node-sleeping button {
   pointer-events: none;
-}
-
-.node-sleep-btn {
-  position: absolute;
-  top: -10px;
-  right: -10px;
-  z-index: 20;
-  width: 30px;
-  height: 18px;
-  border-radius: 9px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(30, 30, 40, 0.85);
-  color: #69f0ae;
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-  pointer-events: auto !important;
-}
-
-.node-sleep-btn:hover {
-  background: rgba(50, 50, 60, 0.95);
-  border-color: rgba(255, 255, 255, 0.3);
-  transform: scale(1.1);
-}
-
-.node-sleeping .node-sleep-btn {
-  color: #ff9800;
-  background: rgba(40, 30, 20, 0.9);
-  border-color: rgba(255, 152, 0, 0.4);
 }

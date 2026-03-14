@@ -229,8 +229,9 @@ RULES:
 - Reinterpret the design through the lens of the art direction feedback
 - Materials, colors, silhouette, accessories, and details should evolve based on the directions
 - Maintain photorealistic quality throughout
-- Background: solid flat grey (#D3D3D3). No floor, no shadows, no environment
+- Background: solid flat neutral grey. No floor, no shadows, no environment
 - Full body, head to toe visible, same framing as original
+- ZERO TEXT — do NOT render any text, letters, numbers, hex codes, color codes, logos, labels, or watermarks anywhere in the image
 - The result should feel like a clear evolution of the original — recognizably the same character but with the art direction applied`;
 
       const result = await generateWithGeminiRef(prompt, image);

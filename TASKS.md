@@ -69,9 +69,10 @@
 
 ### Health Audit Cleanup
 
-- [ ] Commit monorepo migration (Walter extraction, profile system, @shawnderland/ai)
+- [x] Commit monorepo migration (Walter extraction, profile system, @shawnderland/ai)
 - [ ] Consider Git LFS for lore files >100 KB
 - [x] Fix 3 pre-existing TS errors in GeminiEditorOverlay.tsx
+- [x] Fix doc drift: README.md, SPEC.md, DECISIONS.md still describe Walter as Electron-only/launcher-only
 
 ## Next
 
@@ -104,3 +105,4 @@
 - [x] Report 20260306_161152
 - [x] Report 20260311_001400
 - [x] Health audit report generated (report_id: 20260314_144353)
+- [x] Health audit report generated (report_id: 20260314_151000)

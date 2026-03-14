@@ -45,7 +45,7 @@ See `.env.example` for all options including Vertex AI and directory overrides.
 | **Tool Editor** | Visual tool designer with JSON export | Functional |
 | **AI Sprite Lab** | Sprites, pixel art, animations | Landing page |
 | **AI UI Lab** | Game UI generation | Workspace UI |
-| **Walter** | Video storyboarding (Electron) | Launcher only |
+| **Walter Storyboard Builder** | Canon-aware AI storyboarding + shoot sheet export | Functional |
 
 ## Architecture
 

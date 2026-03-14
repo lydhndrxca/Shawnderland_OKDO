@@ -23,10 +23,13 @@ Visited tool panels stay mounted (visibility: hidden) instead of unmounting.
 This preserves state, scroll position, and avoids re-initialization when
 switching between tools.
 
-## 005 — Walter as launcher-only
+## 005 — Walter as launcher-only *(SUPERSEDED by ADR 029)*
 
-Walter Storyboarding is Electron-only with no HTTP API layer. The hub shows
-a launcher/status page. Full web integration is deferred.
+~~Walter Storyboarding is Electron-only with no HTTP API layer. The hub shows
+a launcher/status page. Full web integration is deferred.~~
+
+Walter is now an extracted workspace package (`@tools/walter`) in `tools/walter/`,
+lazy-loaded by the hub via `next/dynamic`. See ADR 029.
 
 ## 006 — Shared design system as local package
 

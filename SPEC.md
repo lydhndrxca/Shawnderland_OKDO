@@ -33,7 +33,8 @@ Default: "All" (shows everything).
 
 Each external tool runs as its own service in its own repository.
 The hub proxies API calls and hosts native React UI for each tool.
-Walter Storyboarding is Electron-only (desktop launcher page in hub).
+Walter Storyboard Builder is an extracted workspace package (`@tools/walter`)
+in `tools/walter/`, lazy-loaded by the hub via `next/dynamic`.
 Hub-native tools (Tool Editor) live entirely inside this repo.
 
 ## Dual-Backend API

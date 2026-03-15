@@ -1,186 +1,332 @@
 "use client";
 
-import React, { useState } from "react";
-import { useWalterStore } from "./store";
-import { Tabs } from "./components/Tabs";
-import { EpisodeBuilder } from "./components/EpisodeBuilder";
-import { StoryboardEditor } from "./components/StoryboardEditor";
-import { TimelineEditor } from "./components/TimelineEditor";
-import { ThinkTankView } from "./components/ThinkTankView";
-import { ExportPanel } from "./components/ExportPanel";
-import { SettingsPanel } from "./components/SettingsPanel";
-import { ToastContainer } from "./components/ToastContainer";
-import { AIWriterPanel } from "./components/AIWriterPanel";
-import { EpisodeWizard } from "./components/EpisodeWizard";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useWalterStore, walterActions } from "./store";
+import { useSerlingLoader } from "@shawnderland/serling";
+import { useFielderLoader } from "@shawnderland/fielder";
+import { usePeraLoader } from "@shawnderland/pera";
+import { setUsageCallback } from "@shawnderland/ai";
 import {
-  Clapperboard, Sparkles, RotateCcw, Settings2,
-} from "lucide-react";
+  setActiveApp,
+  recordUsage,
+} from "@/lib/ideation/engine/provider/costTracker";
+import CostWidget from "@/components/CostWidget";
+import type { ScreenId } from "./types";
+import { PlanningPage } from "./components/PlanningPage";
+import { WritingRoom } from "./components/WritingRoom";
+import { StagingRoom } from "./components/StagingRoom";
+import { ToastContainer } from "./components/ToastContainer";
 import "./Walter.css";
 
-function AIWriterModal({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="settings-overlay" style={{ zIndex: 1100 }}>
-      <div
-        style={{
-          width: "90vw",
-          maxWidth: 700,
-          maxHeight: "85vh",
-          overflow: "auto",
-          background: "var(--bg-surface)",
-          border: "1px solid var(--border)",
-          borderRadius: "var(--radius-lg)",
-          padding: 24,
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <AIWriterPanel onClose={onClose} onProjectCreated={onClose} />
-      </div>
-    </div>
-  );
-}
-
-function fmtSec(sec: number): string {
-  const m = Math.floor(sec / 60);
-  const s = Math.round(sec % 60);
-  return m > 0 ? `${m}:${s.toString().padStart(2, "0")}` : `${s}s`;
-}
-
-function LandingScreen({
-  onNew,
-  onOpenSettings,
-}: {
-  onNew: () => void;
-  onOpenSettings: () => void;
-}) {
-  const { projects, actions } = useWalterStore();
-  const recent = projects.slice().reverse().slice(0, 8);
-
-  return (
-    <div className="landing">
-      <div className="landing-header">
-        <Clapperboard size={28} style={{ color: "var(--accent)" }} />
-        <div>
-          <h1 className="landing-title">Walter Storyboard Builder</h1>
-          <p className="landing-subtitle">AI-assisted episode planning for the Walter universe</p>
-        </div>
-        <button className="btn-ghost" onClick={onOpenSettings} style={{ marginLeft: "auto" }}>
-          <Settings2 size={13} /> Settings
-        </button>
-      </div>
-
-      <div className="landing-actions">
-        <button className="landing-action-card primary" onClick={onNew}>
-          <Sparkles size={20} />
-          <strong>New Episode</strong>
-          <span>Create with the guided wizard</span>
-        </button>
-      </div>
-
-      {recent.length > 0 && (
-        <div className="landing-recent">
-          <h3>Recent Projects</h3>
-          <div className="landing-recent-list">
-            {recent.map((p) => (
-              <button
-                key={p.id}
-                className="recent-btn"
-                onClick={() => actions.openProject(p.id)}
-              >
-                <span className="recent-title">{p.name}</span>
-                <span className="recent-date">
-                  {p.beats.length} beats &middot; {p.shots.length} shots
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+const SCREENS: { id: ScreenId; label: string; icon: string }[] = [
+  { id: "planning", label: "Planning", icon: "📋" },
+  { id: "writing", label: "Writing Room", icon: "💬" },
+  { id: "staging", label: "Staging Room", icon: "🎬" },
+];
 
 export default function WalterShell() {
-  const { project, activeTab, actions } = useWalterStore();
-  const [showSettings, setShowSettings] = useState(false);
-  const [showAIWriter, setShowAIWriter] = useState(false);
-  const [showWizard, setShowWizard] = useState(false);
+  const { session, sessions, toasts, actions } = useWalterStore();
+  const serling = useSerlingLoader();
+  const fielder = useFielderLoader();
+  const pera = usePeraLoader();
+  const [showSessions, setShowSessions] = useState(false);
+  const [showFileMenu, setShowFileMenu] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileMenuRef = useRef<HTMLDivElement>(null);
 
-  const totalDuration = project?.shots.reduce((sum, s) => sum + s.durationSec, 0) ?? 0;
+  useEffect(() => {
+    setActiveApp("walter");
+    setUsageCallback((usage, model) => recordUsage(usage, model));
+    return () => setUsageCallback(null);
+  }, []);
 
-  if (!project && !showWizard) {
+  useEffect(() => {
+    if (!showFileMenu) return;
+    function onClickOutside(e: MouseEvent) {
+      if (fileMenuRef.current && !fileMenuRef.current.contains(e.target as Node)) {
+        setShowFileMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [showFileMenu]);
+
+  const handleNew = useCallback(() => {
+    actions.newSession();
+    setShowSessions(false);
+  }, [actions]);
+
+  const handleOpen = useCallback(
+    (id: string) => {
+      actions.openSession(id);
+      setShowSessions(false);
+    },
+    [actions],
+  );
+
+  const handleDelete = useCallback(
+    (id: string) => {
+      if (confirm("Delete this session?")) actions.deleteSession(id);
+    },
+    [actions],
+  );
+
+  const handleReset = useCallback(() => {
+    if (confirm("Reset this session? All progress will be lost.")) {
+      actions.resetSession();
+      setShowFileMenu(false);
+    }
+  }, [actions]);
+
+  const handleSave = useCallback(() => {
+    const json = actions.exportSession();
+    if (!json) return;
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${session?.name ?? "walter-session"}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setShowFileMenu(false);
+  }, [actions, session?.name]);
+
+  const handleSaveAs = useCallback(() => {
+    const name = prompt("Save as:", session?.name ?? "Untitled Episode");
+    if (!name) return;
+    actions.renameSession(name);
+    setTimeout(() => {
+      const json = actions.exportSession();
+      if (!json) return;
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${name}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }, 50);
+    setShowFileMenu(false);
+  }, [actions, session?.name]);
+
+  const handleOpenFile = useCallback(() => {
+    fileInputRef.current?.click();
+    setShowFileMenu(false);
+  }, []);
+
+  const handleFileImport = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = actions.importSession(reader.result as string);
+        if (!result) {
+          actions.addToast("Failed to import session file.", "error");
+        } else {
+          actions.addToast("Session imported.", "success");
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = "";
+    },
+    [actions],
+  );
+
+  /* ─── No session: landing screen ─────────────────── */
+  if (!session) {
     return (
-      <div className="app">
-        <LandingScreen
-          onNew={() => setShowWizard(true)}
-          onOpenSettings={() => setShowSettings(true)}
+      <div className="ws-root">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json"
+          style={{ display: "none" }}
+          onChange={handleFileImport}
         />
-        {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
-        <ToastContainer />
+        <div className="ws-landing">
+          <div className="ws-landing-hero">
+            <h1>Walter Storyboard Generator</h1>
+            <p>
+              Brainstorm, develop, and plan Walter episodes with a collaborative
+              AI writing room. Walk onto set with a complete production plan.
+            </p>
+          </div>
+          <div className="ws-landing-actions">
+            <button className="ws-btn ws-btn-primary" onClick={handleNew}>
+              New Episode
+            </button>
+            <button
+              className="ws-btn ws-btn-secondary"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              Open File...
+            </button>
+            {sessions.length > 0 && (
+              <button
+                className="ws-btn ws-btn-secondary"
+                onClick={() => setShowSessions(true)}
+              >
+                Open Session ({sessions.length})
+              </button>
+            )}
+          </div>
+          {serling.loaded && (
+            <div className="ws-serling-landing-badge">
+              🚬 Serling Engine: {serling.corpusSize} corpus chunks · {serling.decisionCount} decisions
+            </div>
+          )}
+          {serling.loading && (
+            <div className="ws-serling-landing-badge ws-serling-loading">
+              Loading Serling corpus...
+            </div>
+          )}
+
+          {showSessions && (
+            <div className="ws-session-list">
+              <h3>Saved Sessions</h3>
+              {sessions.map((s) => (
+                <div key={s.id} className="ws-session-row">
+                  <button
+                    className="ws-session-name"
+                    onClick={() => handleOpen(s.id)}
+                  >
+                    <strong>{s.name}</strong>
+                    <span className="ws-session-meta">
+                      {s.activeScreen} &middot;{" "}
+                      {new Date(s.updatedAt).toLocaleDateString()}
+                    </span>
+                  </button>
+                  <button
+                    className="ws-btn ws-btn-ghost ws-btn-sm"
+                    onClick={() => handleDelete(s.id)}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <ToastContainer toasts={toasts} onDismiss={actions.removeToast} />
+        <CostWidget appKey="walter" />
       </div>
     );
   }
 
-  if (!project && showWizard) {
-    return (
-      <div className="app">
-        <div className="wizard-shell">
-          <div className="wizard-shell-header">
-            <button className="btn-ghost" onClick={() => setShowWizard(false)}>
-              &larr; Back
-            </button>
-            <button className="btn-ghost" onClick={() => setShowSettings(true)}>
-              <Settings2 size={13} /> Settings
-            </button>
-          </div>
-          <EpisodeWizard onComplete={() => setShowWizard(false)} />
-        </div>
-        {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
-        <ToastContainer />
-      </div>
-    );
-  }
+  /* ─── Active session ─────────────────────────────── */
+  const activeScreen = session.activeScreen;
 
   return (
-    <div className="app">
-      <div className="app-toolbar">
-        <Clapperboard size={16} style={{ color: "var(--accent)" }} />
-        <span className="project-title">{project!.name || "Untitled"}</span>
-        <span className="project-meta">
-          {project!.beats.length} beats &middot; {project!.shots.length} shots &middot; {fmtSec(totalDuration)}
-        </span>
-        <div style={{ flex: 1 }} />
-        <button className="btn-ghost" onClick={() => setShowAIWriter(true)}>
-          <Sparkles size={12} /> AI Writer
-        </button>
-        <button className="btn-ghost" onClick={() => setShowSettings(true)}>
-          <Settings2 size={12} /> Settings
-        </button>
-        <button
-          className="btn-ghost toolbar-start-over"
-          onClick={() => {
-            if (window.confirm("Discard this episode and start over?")) {
-              actions.deleteProject(project!.id);
-              setShowWizard(false);
-            }
-          }}
-        >
-          <RotateCcw size={12} /> Start Over
-        </button>
-      </div>
+    <div className="ws-root">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        style={{ display: "none" }}
+        onChange={handleFileImport}
+      />
 
-      <Tabs active={activeTab} onChange={actions.setActiveTab} />
+      {/* Top bar */}
+      <header className="ws-topbar">
+        <div className="ws-topbar-left">
+          <button
+            className="ws-btn ws-btn-ghost ws-btn-sm"
+            onClick={() => {
+              walterActions.openSession("");
+              localStorage.setItem("walter-active-session", "");
+            }}
+            title="Back to sessions"
+          >
+            ←
+          </button>
 
-      <div className="tab-content">
-        {activeTab === "episode" && <EpisodeBuilder />}
-        {activeTab === "storyboard" && <StoryboardEditor />}
-        {activeTab === "timeline" && <TimelineEditor />}
-        {activeTab === "ideation" && <ThinkTankView />}
-        {activeTab === "export" && <ExportPanel />}
-      </div>
+          <div className="ws-file-menu-wrap" ref={fileMenuRef}>
+            <button
+              className="ws-btn ws-btn-ghost ws-btn-sm"
+              onClick={() => { setShowFileMenu(!showFileMenu); setShowSessions(false); }}
+            >
+              File
+            </button>
+            {showFileMenu && (
+              <div className="ws-file-menu">
+                <button onClick={handleNew}>New</button>
+                <button onClick={handleOpenFile}>Open...</button>
+                <div className="ws-file-menu-divider" />
+                <button onClick={handleSave}>Save</button>
+                <button onClick={handleSaveAs}>Save As...</button>
+                <div className="ws-file-menu-divider" />
+                <button onClick={handleReset} className="ws-file-menu-danger">Reset</button>
+              </div>
+            )}
+          </div>
 
-      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
-      {showAIWriter && <AIWriterModal onClose={() => setShowAIWriter(false)} />}
-      <ToastContainer />
+          <input
+            className="ws-session-title-input"
+            value={session.name}
+            onChange={(e) => actions.renameSession(e.target.value)}
+          />
+        </div>
+
+        <nav className="ws-screen-nav">
+          {SCREENS.map((sc) => (
+            <button
+              key={sc.id}
+              className={`ws-screen-tab ${activeScreen === sc.id ? "ws-screen-tab--active" : ""}`}
+              onClick={() => actions.setScreen(sc.id)}
+            >
+              <span className="ws-screen-tab-icon">{sc.icon}</span>
+              {sc.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="ws-topbar-right">
+          <button
+            className="ws-btn ws-btn-ghost ws-btn-sm"
+            onClick={() => setShowSessions(!showSessions)}
+          >
+            Sessions
+          </button>
+        </div>
+      </header>
+
+      {/* Session picker dropdown */}
+      {showSessions && (
+        <div className="ws-session-dropdown">
+          <button className="ws-btn ws-btn-primary ws-btn-sm" onClick={handleNew}>
+            + New Episode
+          </button>
+          {sessions.map((s) => (
+            <button
+              key={s.id}
+              className={`ws-session-row ${s.id === session.id ? "ws-session-row--active" : ""}`}
+              onClick={() => handleOpen(s.id)}
+            >
+              <strong>{s.name}</strong>
+              <span className="ws-session-meta">
+                {new Date(s.updatedAt).toLocaleDateString()}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Screen content — all three stay mounted for persistence */}
+      <main className="ws-content">
+        <div style={{ display: activeScreen === "planning" ? "flex" : "none" }} className="ws-screen">
+          <PlanningPage />
+        </div>
+        <div style={{ display: activeScreen === "writing" ? "flex" : "none" }} className="ws-screen">
+          <WritingRoom />
+        </div>
+        <div style={{ display: activeScreen === "staging" ? "flex" : "none" }} className="ws-screen">
+          <StagingRoom />
+        </div>
+      </main>
+
+      <ToastContainer toasts={toasts} onDismiss={actions.removeToast} />
+      <CostWidget appKey="walter" />
     </div>
   );
 }

@@ -41,53 +41,7 @@ export type TransitionType =
   | "j-cut"
   | "l-cut";
 
-/* ─── Core Entities ───────────────────────────────────── */
-
-export interface Shot {
-  id: string;
-  beatId: string;
-  title: string;
-  description: string;
-  dialogue: string;
-  voiceOver: string;
-  shotType: ShotType;
-  cameraMove: CameraMove;
-  transition: TransitionType;
-  durationSec: number;
-  thumbnailUrl: string;
-  audioNote: string;
-  sfxNote: string;
-  order: number;
-  visualDescription: string;
-  narration: string;
-  onScreenText: string;
-  soundNotes: string;
-  purpose: string;
-  characters: string[];
-  location: string;
-}
-
-export interface Beat {
-  id: string;
-  label: string;
-  description: string;
-  color: string;
-  order: number;
-  startMs: number;
-  endMs: number;
-  breakdown: string;
-  storyGoal: string;
-  tone: string;
-}
-
-export interface ArcTemplate {
-  id: string;
-  name: string;
-  description: string;
-  beats: Omit<Beat, "id" | "startMs" | "endMs" | "breakdown" | "storyGoal" | "tone">[];
-}
-
-/* ─── Tone & Constraints ──────────────────────────────── */
+/* ─── Tone ───────────────────────────────────────────── */
 
 export type ToneMood =
   | "mysterious"
@@ -101,76 +55,270 @@ export type ToneMood =
   | "curious"
   | "playful"
   | "bittersweet"
-  | "wistful";
+  | "wistful"
+  | "scary"
+  | "calm"
+  | "asmr"
+  | "whimsical"
+  | "nostalgic"
+  | "dreamy";
 
-export const TONE_OPTIONS: { id: ToneMood; label: string; emoji: string }[] = [
-  { id: "mysterious", label: "Mysterious", emoji: "?" },
-  { id: "eerie", label: "Eerie", emoji: "~" },
-  { id: "melancholy", label: "Melancholy", emoji: "-" },
-  { id: "funny", label: "Funny", emoji: "!" },
-  { id: "surreal", label: "Surreal", emoji: "*" },
-  { id: "warm", label: "Warm", emoji: "+" },
-  { id: "uncanny", label: "Uncanny", emoji: "%" },
-  { id: "ominous", label: "Ominous", emoji: "#" },
-  { id: "curious", label: "Curious", emoji: "&" },
-  { id: "playful", label: "Playful", emoji: "^" },
-  { id: "bittersweet", label: "Bittersweet", emoji: "/" },
-  { id: "wistful", label: "Wistful", emoji: "..." },
+export const TONE_OPTIONS: { id: ToneMood; label: string }[] = [
+  { id: "mysterious", label: "Mysterious" },
+  { id: "eerie", label: "Eerie" },
+  { id: "melancholy", label: "Melancholy" },
+  { id: "funny", label: "Funny" },
+  { id: "surreal", label: "Surreal" },
+  { id: "warm", label: "Warm" },
+  { id: "uncanny", label: "Uncanny" },
+  { id: "ominous", label: "Ominous" },
+  { id: "curious", label: "Curious" },
+  { id: "playful", label: "Playful" },
+  { id: "bittersweet", label: "Bittersweet" },
+  { id: "wistful", label: "Wistful" },
+  { id: "scary", label: "Scary" },
+  { id: "calm", label: "Calm" },
+  { id: "asmr", label: "Weird ASMR" },
+  { id: "whimsical", label: "Whimsical" },
+  { id: "nostalgic", label: "Nostalgic" },
+  { id: "dreamy", label: "Dreamy" },
 ];
 
-export interface EpisodeConstraints {
-  allowedCharacters: string[];
-  allowedLocations: string[];
-  easyToFilm: boolean;
-  shotDensity: "low" | "normal" | "high";
-  narrationHeavy: boolean;
-  dialogueHeavy: boolean;
+/* ─── Planning Data ──────────────────────────────────── */
+
+export type SeasonalMode = "none" | "date" | "holiday" | "national-day" | "historical";
+
+export type Season = "" | "winter" | "spring" | "summer" | "fall";
+
+export const SEASON_OPTIONS: { id: Season; label: string; description: string }[] = [
+  { id: "", label: "Not set", description: "Let the writers decide" },
+  { id: "winter", label: "Winter", description: "Snow on ground, bare trees, cold breath, holiday lights, frost on windows" },
+  { id: "spring", label: "Spring", description: "Fresh green, flowers blooming, rain puddles, pastel light, birds" },
+  { id: "summer", label: "Summer", description: "Warm golden light, lush green, fireflies, long evenings, sprinklers" },
+  { id: "fall", label: "Fall", description: "Fallen leaves, orange/amber palette, bare branches, fog, harvest decor" },
+];
+
+export interface PlanningData {
+  episodeLength: string;
+  mood: ToneMood | "";
+  season: Season;
+  seasonalMode: SeasonalMode;
+  releaseDate: string;
+  seasonalTheme: string;
+  characterFocus: string;
+  uniqueElements: string;
+  locations: string[];
+  customLocation: string;
+  timeOfDay: "day" | "night" | "";
+  finalNotes: string;
 }
 
-export const DEFAULT_CONSTRAINTS: EpisodeConstraints = {
-  allowedCharacters: [],
-  allowedLocations: [],
-  easyToFilm: false,
-  shotDensity: "normal",
-  narrationHeavy: false,
-  dialogueHeavy: false,
+export const DEFAULT_PLANNING: PlanningData = {
+  episodeLength: "standard-reel",
+  mood: "",
+  season: "",
+  seasonalMode: "none",
+  releaseDate: "",
+  seasonalTheme: "",
+  characterFocus: "",
+  uniqueElements: "",
+  locations: [],
+  customLocation: "",
+  timeOfDay: "",
+  finalNotes: "",
 };
 
-/* ─── Premise Concept ─────────────────────────────────── */
+/* ─── Agent / Persona System ─────────────────────────── */
 
-export interface PremiseConcept {
+export type AgentRole = "producer" | "writer" | "director" | "cinematographer";
+
+export const AGENT_ROLES: { id: AgentRole; label: string; icon: string }[] = [
+  { id: "producer", label: "Producer", icon: "🎬" },
+  { id: "writer", label: "Writer", icon: "✍️" },
+  { id: "director", label: "Director", icon: "🎭" },
+  { id: "cinematographer", label: "Cinematographer", icon: "📷" },
+];
+
+export interface AgentPersona {
   id: string;
-  title: string;
-  premise: string;
-  tone: string;
-  characters: string[];
-  whyItFitsWalter: string;
+  role: AgentRole;
+  name: string;
+  referenceName: string;
+  isPreset: boolean;
+  researchData: string;
+  avatar: string;
 }
 
-/* ─── Project ─────────────────────────────────────────── */
+export interface RoomAgent {
+  personaId: string;
+  approved: boolean;
+}
 
-export interface WalterProject {
+/* ─── Chat / Writing Room ────────────────────────────── */
+
+export type MessageSender = "agent" | "user" | "system";
+
+export interface ChatMessage {
+  id: string;
+  timestamp: number;
+  sender: MessageSender;
+  agentId: string | null;
+  agentName: string;
+  agentRole: AgentRole | "user" | "system";
+  agentAvatar: string;
+  content: string;
+  isApproval?: boolean;
+  isTldr?: boolean;
+  referencedShotId?: string;
+}
+
+export type RoomPhase =
+  | "idle"
+  | "briefing"
+  | "rounds"
+  | "approval"
+  | "pitch"
+  | "revision"
+  | "approved";
+
+/* ─── Round-Based Writing Room ──────────────────────── */
+
+export type CreativeRoundId =
+  | "premise"
+  | "opening-frame"
+  | "the-strange"
+  | "the-response"
+  | "the-turn"
+  | "final-frame"
+  | "shot-planning";
+
+export interface CreativeRound {
+  id: CreativeRoundId;
+  label: string;
+  question: string;
+  locksField: string;
+  agentPool: AgentRole[];
+  minTurns: number;
+  maxTurns: number;
+  corpusHint: string;
+  serlingMemory: string;
+}
+
+export interface LockedDecision {
+  roundId: CreativeRoundId;
+  label: string;
+  value: string;
+  lockedBy: "user" | string;
+  lockedAt: number;
+}
+
+export interface RoundState {
+  currentRoundIndex: number;
+  turnsInRound: number;
+  lockedDecisions: LockedDecision[];
+}
+
+/* ─── Producer Episode State ─────────────────────────── */
+
+export interface ProducerEpisodeState {
+  creatorBrief: string;
+  episodePremise: string;
+  runtimeTarget: string;
+  openingHook: string;
+  strangeEvent: string;
+  development: string;
+  keyVisualMoment: string;
+  endingBeat: string;
+  themeOrFeeling: string;
+  practicalConcerns: string[];
+  unresolvedQuestions: string[];
+  selectedDirection: string;
+  rejectedAlternatives: string[];
+  checkpoint: "none" | "premise-lock" | "visual-lock" | "ending-lock" | "production-sanity";
+}
+
+export const DEFAULT_EPISODE_STATE: ProducerEpisodeState = {
+  creatorBrief: "",
+  episodePremise: "",
+  runtimeTarget: "",
+  openingHook: "",
+  strangeEvent: "",
+  development: "",
+  keyVisualMoment: "",
+  endingBeat: "",
+  themeOrFeeling: "",
+  practicalConcerns: [],
+  unresolvedQuestions: [],
+  selectedDirection: "",
+  rejectedAlternatives: [],
+  checkpoint: "none",
+};
+
+/* ─── Staging Room ───────────────────────────────────── */
+
+export interface StoryArcPhase {
+  id: string;
+  label: string;
+  order: number;
+  color: string;
+  description: string;
+}
+
+export interface StoryElement {
+  id: string;
+  arcPhaseId: string;
+  label: string;
+  description: string;
+  order: number;
+}
+
+export interface StagingShot {
+  id: string;
+  elementId: string;
+  order: number;
+  description: string;
+  characters: string[];
+  location: string;
+  dialogue: string;
+  narration: string;
+  shotType: string;
+  cameraMove: string;
+  transition: string;
+  audioNotes: string;
+  durationSec: number;
+  userEdited: boolean;
+}
+
+/* ─── Session (top-level project) ────────────────────── */
+
+export type ScreenId = "planning" | "writing" | "staging";
+
+export interface WalterSession {
   id: string;
   name: string;
-  description: string;
-  arcTemplateId: string;
-  beats: Beat[];
-  shots: Shot[];
-  aspectRatio: "16:9" | "9:16" | "1:1" | "4:5";
-  fps: number;
   createdAt: number;
   updatedAt: number;
-  storyOverview: string;
-  tone: ToneMood | "";
-  runtimePresetId: string;
-  steeringPrompt: string;
-  constraints: EpisodeConstraints;
-  selectedPremise: PremiseConcept | null;
+
+  planning: PlanningData;
+
+  producerBrief: string | null;
+
+  roomAgents: RoomAgent[];
+  chatHistory: ChatMessage[];
+  roomPhase: RoomPhase;
+  roundState: RoundState;
+
+  episodeState: ProducerEpisodeState;
+
+  storyArc: StoryArcPhase[];
+  storyElements: StoryElement[];
+  shots: StagingShot[];
+
+  activeScreen: ScreenId;
+  userApproved: boolean;
 }
 
-/* ─── UI State Types ──────────────────────────────────── */
-
-export type TabId = "episode" | "storyboard" | "timeline" | "ideation" | "export";
+/* ─── UI State ───────────────────────────────────────── */
 
 export interface ToastItem {
   id: string;
@@ -178,16 +326,7 @@ export interface ToastItem {
   type: "info" | "success" | "error" | "warning";
 }
 
-export interface IdeaCard {
-  id: string;
-  text: string;
-  operator: string;
-  starred: boolean;
-  stage: "diverge" | "expand";
-  parentId?: string;
-}
-
-/* ─── Walter Brain (Canon Memory) ─────────────────────── */
+/* ─── Walter Brain (Canon Memory) — kept from before ── */
 
 export interface WalterCharacter {
   id: string;
@@ -231,6 +370,11 @@ export interface WalterBrain {
   archivedEpisodes: ArchivedEpisode[];
 }
 
-/* ─── Wizard Step ─────────────────────────────────────── */
+/* ─── Arc Template (kept from before) ────────────────── */
 
-export type WizardStep = "title" | "tone" | "arc" | "steering" | "premises" | "confirm";
+export interface ArcTemplate {
+  id: string;
+  name: string;
+  description: string;
+  beats: { label: string; description: string; color: string; order: number }[];
+}

@@ -8,15 +8,43 @@ const PROXY_URL = "/api/ai-generate";
 const GEMINI_FLASH_MODEL = "gemini-2.0-flash";
 const DEFAULT_TIMEOUT_MS = 180_000;
 
+export type UsageCallback = (
+  usage: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number },
+  model: string,
+) => void;
+
+let _onUsage: UsageCallback | null = null;
+
+export function setUsageCallback(cb: UsageCallback | null) {
+  _onUsage = cb;
+}
+
 export interface GeneratedImage {
   base64: string;
   mimeType: string;
 }
 
+export interface GenerateOptions {
+  temperature?: number;
+  image?: GeneratedImage;
+}
+
 export async function generateText(
   prompt: string,
-  image?: GeneratedImage,
+  imageOrOpts?: GeneratedImage | GenerateOptions,
 ): Promise<string> {
+  let image: GeneratedImage | undefined;
+  let temperature = 0.4;
+
+  if (imageOrOpts) {
+    if ("base64" in imageOrOpts) {
+      image = imageOrOpts;
+    } else {
+      image = imageOrOpts.image;
+      if (imageOrOpts.temperature !== undefined) temperature = imageOrOpts.temperature;
+    }
+  }
+
   const parts: Array<Record<string, unknown>> = [];
   if (image) {
     parts.push({
@@ -30,7 +58,7 @@ export async function generateText(
     method: "generateContent",
     body: {
       contents: [{ parts }],
-      generationConfig: { temperature: 0.4 },
+      generationConfig: { temperature },
     },
   });
 
@@ -54,7 +82,16 @@ export async function generateText(
       candidates?: Array<{
         content?: { parts?: Array<{ text?: string }> };
       }>;
+      usageMetadata?: {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        totalTokenCount?: number;
+      };
     };
+
+    if (_onUsage && json.usageMetadata) {
+      try { _onUsage(json.usageMetadata, GEMINI_FLASH_MODEL); } catch { /* ignore */ }
+    }
 
     const text =
       json.candidates?.[0]?.content?.parts

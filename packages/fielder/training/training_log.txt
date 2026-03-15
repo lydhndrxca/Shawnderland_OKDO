@@ -1,0 +1,107 @@
+
+=== Fielder LoRA Training Log — 2026-03-15 10:23:21.453244 ===
+[10:23:21] GPU: NVIDIA GeForce RTX 5090
+[10:23:21] VRAM: 34.2 GB
+[10:23:21] Training pairs: C:\Dev\Shawnderland_OKDO\packages\fielder\training\fielder_pairs.json
+[10:23:21] Batch size: 1, Grad accum: 16, Effective: 16
+[10:23:21] Max seq length: 1024
+[10:23:21] Resume mode: False
+[10:23:21] Loaded 2485 training pairs
+[10:23:21] Loading model...
+[10:23:56] Model loaded
+[10:23:56] Applying LoRA adapters...
+[10:24:00] LoRA adapters applied
+[10:24:00] Building trainer...
+[10:24:04] Starting training: 2 epochs, 16 effective batch
+[10:24:04] Model: unsloth/Mistral-Nemo-Base-2407-bnb-4bit, LoRA rank: 32
+[10:24:04] Checkpoints every 50 steps, keeping last 3
+[10:24:05] Training started: 312 total steps
+[10:27:29] Step 10/312 (3.2%) | loss=2.2737030029296874 | lr=9e-05 | elapsed=204s
+[10:31:23] Step 20/312 (6.4%) | loss=1.8983943939208985 | lr=0.00019 | elapsed=438s
+[10:34:58] Step 30/312 (9.6%) | loss=1.6215435028076173 | lr=0.00019383561643835617 | elapsed=653s
+[10:38:11] Step 40/312 (12.8%) | loss=1.5525601387023926 | lr=0.00018698630136986303 | elapsed=846s
+[10:40:44] Step 50/312 (16.0%) | loss=1.5342700958251954 | lr=0.00018013698630136988 | elapsed=999s
+[10:40:46] Checkpoint saved at step 50
+[10:45:03] Step 60/312 (19.2%) | loss=1.396068286895752 | lr=0.00017328767123287673 | elapsed=1258s
+[10:48:48] Step 70/312 (22.4%) | loss=1.4027488708496094 | lr=0.00016643835616438356 | elapsed=1483s
+[10:53:45] Step 80/312 (25.6%) | loss=1.3742881774902345 | lr=0.0001595890410958904 | elapsed=1780s
+[10:58:35] Step 90/312 (28.8%) | loss=1.228323745727539 | lr=0.0001527397260273973 | elapsed=2070s
+[11:02:35] Step 100/312 (32.1%) | loss=1.3345157623291015 | lr=0.00014589041095890411 | elapsed=2310s
+[11:02:37] Checkpoint saved at step 100
+[11:05:49] Step 110/312 (35.3%) | loss=1.249859619140625 | lr=0.00013904109589041097 | elapsed=2504s
+[11:09:27] Step 120/312 (38.5%) | loss=1.2250816345214843 | lr=0.00013219178082191782 | elapsed=2722s
+[11:12:52] Step 130/312 (41.7%) | loss=1.177980899810791 | lr=0.00012534246575342465 | elapsed=2927s
+
+=== Fielder LoRA Training Log — 2026-03-15 11:15:40.404959 ===
+[11:15:40] GPU: NVIDIA GeForce RTX 5090
+[11:15:40] VRAM: 34.2 GB
+[11:15:40] Training pairs: C:\Dev\Shawnderland_OKDO\packages\fielder\training\fielder_pairs.json
+[11:15:40] Batch size: 1, Grad accum: 16, Effective: 16
+[11:15:40] Max seq length: 1024
+[11:15:40] Resume mode: True
+[11:15:40] Loaded 2485 training pairs
+[11:15:40] Loading model...
+[11:16:07] Model loaded
+[11:16:07] Applying LoRA adapters...
+[11:16:11] LoRA adapters applied
+[11:16:11] Will resume from: C:\Dev\Shawnderland_OKDO\packages\fielder\training\fielder-lora-adapter\checkpoint-100
+[11:16:11] Building trainer...
+[11:16:14] Starting training: 2 epochs, 16 effective batch
+[11:16:14] Model: unsloth/Mistral-Nemo-Base-2407-bnb-4bit, LoRA rank: 32
+[11:16:14] Checkpoints every 50 steps, keeping last 3
+[11:16:16] Training started: 312 total steps
+[11:18:34] Step 110/312 (35.3%) | loss=1.249859619140625 | lr=0.00013904109589041097 | elapsed=139s
+
+=== Fielder LoRA Training Log — 2026-03-15 11:23:41.928458 ===
+[11:23:41] GPU: NVIDIA GeForce RTX 5090
+[11:23:41] VRAM: 34.2 GB
+[11:23:41] Training pairs: C:\Dev\Shawnderland_OKDO\packages\fielder\training\fielder_pairs.json
+[11:23:41] Batch size: 1, Grad accum: 16, Effective: 16
+[11:23:41] Max seq length: 1024
+[11:23:41] Resume mode: True
+[11:23:41] Loaded 2485 training pairs
+[11:23:41] Loading model...
+[11:24:03] Model loaded
+[11:24:03] Applying LoRA adapters...
+[11:24:07] LoRA adapters applied
+[11:24:07] Will resume from: C:\Dev\Shawnderland_OKDO\packages\fielder\training\fielder-lora-adapter\checkpoint-100
+[11:24:07] Building trainer...
+[11:24:09] Starting training: 2 epochs, 16 effective batch
+[11:24:09] Model: unsloth/Mistral-Nemo-Base-2407-bnb-4bit, LoRA rank: 32
+[11:24:09] Checkpoints every 50 steps, keeping last 3
+[11:24:11] Training started: 312 total steps
+[11:27:01] Step 110/312 (35.3%) | loss=1.249859619140625 | lr=0.00013904109589041097 | elapsed=170s
+[11:30:37] Step 120/312 (38.5%) | loss=1.2250816345214843 | lr=0.00013219178082191782 | elapsed=386s
+[11:34:54] Step 130/312 (41.7%) | loss=1.177980899810791 | lr=0.00012534246575342465 | elapsed=643s
+[11:38:42] Step 140/312 (44.9%) | loss=1.108830738067627 | lr=0.00011849315068493152 | elapsed=871s
+[11:42:42] Step 150/312 (48.1%) | loss=1.1419735908508302 | lr=0.00011164383561643836 | elapsed=1111s
+[11:42:44] Checkpoint saved at step 150
+[11:46:36] Step 160/312 (51.3%) | loss=0.999442195892334 | lr=0.0001047945205479452 | elapsed=1345s
+[11:50:05] Step 170/312 (54.5%) | loss=0.9235309600830078 | lr=9.794520547945207e-05 | elapsed=1554s
+[11:53:41] Step 180/312 (57.7%) | loss=0.8188360214233399 | lr=9.109589041095891e-05 | elapsed=1770s
+[11:56:40] Step 190/312 (60.9%) | loss=0.839541244506836 | lr=8.424657534246576e-05 | elapsed=1949s
+[12:01:22] Step 200/312 (64.1%) | loss=0.8010114669799805 | lr=7.73972602739726e-05 | elapsed=2231s
+[12:01:24] Checkpoint saved at step 200
+[12:04:20] Step 210/312 (67.3%) | loss=0.7897696018218994 | lr=7.054794520547947e-05 | elapsed=2409s
+[12:07:31] Step 220/312 (70.5%) | loss=0.8062549591064453 | lr=6.36986301369863e-05 | elapsed=2600s
+[12:10:30] Step 230/312 (73.7%) | loss=0.7720629692077636 | lr=5.684931506849316e-05 | elapsed=2779s
+[12:13:27] Step 240/312 (76.9%) | loss=0.716214370727539 | lr=5e-05 | elapsed=2956s
+[12:17:02] Step 250/312 (80.1%) | loss=0.7302986145019531 | lr=4.3150684931506855e-05 | elapsed=3171s
+[12:17:04] Checkpoint saved at step 250
+[12:20:46] Step 260/312 (83.3%) | loss=0.6751915454864502 | lr=3.63013698630137e-05 | elapsed=3395s
+[12:23:33] Step 270/312 (86.5%) | loss=0.6179083824157715 | lr=2.945205479452055e-05 | elapsed=3562s
+[12:25:20] Step 280/312 (89.7%) | loss=0.6054875373840332 | lr=2.2602739726027396e-05 | elapsed=3669s
+[12:28:58] Step 290/312 (92.9%) | loss=0.6291541576385498 | lr=1.5753424657534248e-05 | elapsed=3887s
+[12:31:41] Step 300/312 (96.2%) | loss=0.576706838607788 | lr=8.904109589041095e-06 | elapsed=4050s
+[12:31:43] Checkpoint saved at step 300
+[12:34:49] Step 310/312 (99.4%) | loss=0.5531420707702637 | lr=2.054794520547945e-06 | elapsed=4238s
+[12:35:16] Checkpoint saved at step 312
+[12:35:16] Step 312/312 (100.0%) | loss=? | lr=? | elapsed=4265s
+[12:35:16] Training complete! 312 steps in 4265s (71.1m)
+[12:35:17] Saving final LoRA adapter...
+[12:35:18] LoRA adapter saved to C:\Dev\Shawnderland_OKDO\packages\fielder\training\fielder-lora-adapter
+[12:35:18] Exporting to GGUF (q5_k_m quantization)...
+[12:39:22] GGUF export error: Unsloth: GGUF conversion failed: Unsloth: Failed to install Git.Git via winget.
+Install manually: winget install Git.Git
+[12:39:22] You can run convert_to_gguf.py separately after fixing the issue.
+[12:39:22] DONE — Next: python export_to_ollama.py

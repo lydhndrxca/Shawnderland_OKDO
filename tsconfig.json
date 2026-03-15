@@ -19,6 +19,8 @@
       "@shawnderland/ui": ["./packages/ui/src/index.ts"],
       "@shawnderland/ui/*": ["./packages/ui/src/*"],
       "@shawnderland/ai": ["./packages/ai/src/index.ts"],
+      "@shawnderland/serling": ["./packages/serling/src/index.ts"],
+      "@shawnderland/serling/*": ["./packages/serling/src/*"],
       "@tools/walter": ["./tools/walter/src/index.tsx"],
       "@tools/walter/*": ["./tools/walter/src/*"]
     }

@@ -57,15 +57,15 @@
 - [x] Walter: convert from landing page to functional application shell
 - [x] Walter: ShawnderMind visual theme (#09090b, #6c63ff, system-ui)
 - [x] Walter: Walter Brain (canon memory) — characters, locations, lore, 28 episodes
-- [x] Walter: 6-step Episode Wizard (Setup → Tone → Structure → Direction → Premise → Review)
-- [x] Walter: 5 runtime presets (Micro, Mini, Short, Standard, Full Episode)
-- [x] Walter: Staged generation pipeline (overview → beats → shots)
-- [x] Walter: Timeline block library (Hook, Reveal, Climax, etc.)
-- [x] Walter: Scoped AI rewrite (double-click beat)
-- [x] Walter: Shot split from timeline inspector
-- [x] Walter: Shoot sheet plaintext export
-- [x] Walter: Expanded data model (Shot purpose/characters/location, Beat storyGoal/tone)
-- [x] Walter: Episode lore integration — 28 per-episode analysis files in lore/, typed index, brain seeded from real Gemini analysis, API route for on-demand loading
+- [x] Walter: Episode lore integration — 28 per-episode analysis files in lore/
+- [x] Walter: Complete rebuild — 3-screen workflow (Planning → Writing Room → Staging Room)
+- [x] Walter: Multi-agent persona system (Producer, Writer, Director, Cinematographer)
+- [x] Walter: Agent conversation engine with phase-based progression
+- [x] Walter: Session-based state management (save/open/rename/duplicate)
+- [x] Walter: Planning Page (constraints, randomize, send to producer)
+- [x] Walter: Writing Room (chat, auto-run, phase controls, persona builder)
+- [x] Walter: Staging Room (3-level timeline, shot editor, feedback loop, one-sheet export)
+- [x] Walter: Deleted 19 old components, replaced with 5 new screen components
 
 ### Health Audit Cleanup
 
@@ -73,6 +73,10 @@
 - [ ] Consider Git LFS for lore files >100 KB
 - [x] Fix 3 pre-existing TS errors in GeminiEditorOverlay.tsx
 - [x] Fix doc drift: README.md, SPEC.md, DECISIONS.md still describe Walter as Electron-only/launcher-only
+- [x] Fix doc drift: ARCHITECTURE.md missing 8 API routes and writer packages (ai-embed, ai-local, ai-status, fielder-corpus, list-dirs, pera-corpus, serling-corpus, video-analyze)
+- [x] Fix doc drift: SPEC.md missing writer agent packages, LoRA training pipeline, Ollama integration
+- [x] Gitignore training artifacts (tokenizer.json, checkpoint dirs, *-gguf/, *-merged-16bit/)
+- [ ] Evaluate Git LFS for corpus/taxonomy JSON (~271 MB combined)
 
 ## Next
 
@@ -106,3 +110,4 @@
 - [x] Report 20260311_001400
 - [x] Health audit report generated (report_id: 20260314_144353)
 - [x] Health audit report generated (report_id: 20260314_151000)
+- [x] Health audit report generated (report_id: 20260315_143559)

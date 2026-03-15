@@ -288,3 +288,14 @@ Each tool is tagged with profiles (work, personal, or both). Sidebar,
 command palette, and home page filter by active profile. Stored in
 localStorage. Rationale: user needs work tools hidden during personal
 use and vice versa; no access control needed, just UI filtering.
+
+## 031 — Walter rebuild as multi-agent 3-screen workflow
+
+Replaced the tab-based storyboard editor with a 3-screen architecture:
+Planning Page → Writing Room → Staging Room. Rationale: the user's
+production outline requires collaborative AI episode development with
+producer orchestration, multi-agent personas, and a timeline-based staging
+room — fundamentally different from the previous wizard + grid + timeline
+layout. The agent/persona system uses deep research-driven profiles
+(not shallow role labels) for richer creative collaboration. Session-based
+state (not project-based) keeps all screens persistent and revisitable.

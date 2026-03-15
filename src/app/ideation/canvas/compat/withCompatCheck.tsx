@@ -30,7 +30,6 @@ function CompatBanner({ errors }: { errors: CompatError[] }) {
  * HOC that wraps a React Flow node component and renders
  * compatibility error banners below the node when issues exist.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function withCompatCheck(WrappedNode: React.ComponentType<any>): React.ComponentType<any> {
   const WithCompat = memo(function WithCompat(props: { id: string; [key: string]: unknown }) {
     const errors = useCompatErrors(props.id);

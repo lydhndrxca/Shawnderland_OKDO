@@ -1,0 +1,64 @@
+
+=== Pera LoRA Training Log — 2026-03-15 12:57:11.449216 ===
+[12:57:11] GPU: NVIDIA GeForce RTX 5090
+[12:57:11] VRAM: 34.2 GB
+[12:57:11] Training pairs: C:\Dev\Shawnderland_OKDO\packages\pera\training\pera_pairs.json
+[12:57:11] Batch size: 1, Grad accum: 16, Effective: 16
+[12:57:11] Max seq length: 1024
+[12:57:11] Resume mode: False
+[12:57:11] Loaded 2448 training pairs
+[12:57:11] Loading model...
+[12:58:08] Model loaded
+[12:58:08] Applying LoRA adapters...
+[12:58:12] LoRA adapters applied
+[12:58:12] Building trainer...
+[12:58:14] Starting training: 2 epochs, 16 effective batch
+[12:58:14] Model: unsloth/Mistral-Nemo-Base-2407-bnb-4bit, LoRA rank: 32
+[12:58:14] Checkpoints every 50 steps, keeping last 3
+[12:58:15] Training started: 306 total steps
+[12:59:55] Step 10/306 (3.3%) | loss=2.393143653869629 | lr=9e-05 | elapsed=100s
+[13:01:24] Step 20/306 (6.5%) | loss=1.4418343544006347 | lr=0.00019 | elapsed=189s
+[13:03:00] Step 30/306 (9.8%) | loss=0.8629244804382324 | lr=0.00019370629370629372 | elapsed=284s
+[13:04:33] Step 40/306 (13.1%) | loss=0.6904818058013916 | lr=0.0001867132867132867 | elapsed=378s
+[13:06:00] Step 50/306 (16.3%) | loss=0.5838194370269776 | lr=0.00017972027972027973 | elapsed=465s
+[13:06:02] Checkpoint saved at step 50
+[13:07:28] Step 60/306 (19.6%) | loss=0.5543777942657471 | lr=0.00017272727272727275 | elapsed=552s
+[13:08:54] Step 70/306 (22.9%) | loss=0.5567986011505127 | lr=0.00016573426573426574 | elapsed=639s
+[13:10:27] Step 80/306 (26.1%) | loss=0.5115345001220704 | lr=0.00015874125874125876 | elapsed=732s
+[13:11:56] Step 90/306 (29.4%) | loss=0.5295556068420411 | lr=0.00015174825174825175 | elapsed=820s
+[13:13:14] Step 100/306 (32.7%) | loss=0.47983951568603517 | lr=0.00014475524475524476 | elapsed=899s
+[13:13:16] Checkpoint saved at step 100
+[13:14:27] Step 110/306 (35.9%) | loss=0.4543272018432617 | lr=0.00013776223776223778 | elapsed=971s
+[13:15:31] Step 120/306 (39.2%) | loss=0.43621006011962893 | lr=0.00013076923076923077 | elapsed=1036s
+[13:16:36] Step 130/306 (42.5%) | loss=0.42229795455932617 | lr=0.00012377622377622376 | elapsed=1101s
+[13:17:41] Step 140/306 (45.8%) | loss=0.36947762966156006 | lr=0.0001167832167832168 | elapsed=1165s
+[13:18:46] Step 150/306 (49.0%) | loss=0.38607397079467776 | lr=0.0001097902097902098 | elapsed=1230s
+[13:18:48] Checkpoint saved at step 150
+[13:19:52] Step 160/306 (52.3%) | loss=0.2847013235092163 | lr=0.00010279720279720279 | elapsed=1297s
+[13:20:57] Step 170/306 (55.6%) | loss=0.26323847770690917 | lr=9.580419580419581e-05 | elapsed=1361s
+[13:22:01] Step 180/306 (58.8%) | loss=0.25807311534881594 | lr=8.881118881118881e-05 | elapsed=1426s
+[13:23:07] Step 190/306 (62.1%) | loss=0.24610393047332763 | lr=8.181818181818183e-05 | elapsed=1491s
+[13:24:11] Step 200/306 (65.4%) | loss=0.24573159217834473 | lr=7.482517482517482e-05 | elapsed=1556s
+[13:24:13] Checkpoint saved at step 200
+[13:25:18] Step 210/306 (68.6%) | loss=0.23112084865570068 | lr=6.783216783216784e-05 | elapsed=1622s
+[13:26:20] Step 220/306 (71.9%) | loss=0.21511716842651368 | lr=6.083916083916085e-05 | elapsed=1685s
+[13:27:27] Step 230/306 (75.2%) | loss=0.220222544670105 | lr=5.384615384615385e-05 | elapsed=1751s
+[13:28:31] Step 240/306 (78.4%) | loss=0.19064582586288453 | lr=4.685314685314686e-05 | elapsed=1816s
+[13:29:36] Step 250/306 (81.7%) | loss=0.1990693211555481 | lr=3.986013986013986e-05 | elapsed=1881s
+[13:29:38] Checkpoint saved at step 250
+[13:30:42] Step 260/306 (85.0%) | loss=0.19488072395324707 | lr=3.2867132867132866e-05 | elapsed=1946s
+[13:31:46] Step 270/306 (88.2%) | loss=0.19497663974761964 | lr=2.5874125874125877e-05 | elapsed=2011s
+[13:32:50] Step 280/306 (91.5%) | loss=0.1796890139579773 | lr=1.888111888111888e-05 | elapsed=2074s
+[13:33:53] Step 290/306 (94.8%) | loss=0.18147530555725097 | lr=1.188811188811189e-05 | elapsed=2138s
+[13:34:57] Step 300/306 (98.0%) | loss=0.17549113035202027 | lr=4.895104895104895e-06 | elapsed=2201s
+[13:34:58] Checkpoint saved at step 300
+[13:35:37] Checkpoint saved at step 306
+[13:35:37] Step 306/306 (100.0%) | loss=? | lr=? | elapsed=2242s
+[13:35:37] Training complete! 306 steps in 2242s (37.4m)
+[13:35:37] Saving final LoRA adapter...
+[13:35:38] LoRA adapter saved to C:\Dev\Shawnderland_OKDO\packages\pera\training\pera-lora-adapter
+[13:35:38] Exporting to GGUF (q5_k_m quantization)...
+[13:39:44] GGUF export error: Unsloth: GGUF conversion failed: Unsloth: Failed to install Git.Git via winget.
+Install manually: winget install Git.Git
+[13:39:44] You can run convert_to_gguf.py separately after fixing the issue.
+[13:39:44] DONE — Next: python export_to_ollama.py

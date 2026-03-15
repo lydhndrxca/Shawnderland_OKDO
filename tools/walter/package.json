@@ -9,6 +9,9 @@
   },
   "dependencies": {
     "@shawnderland/ai": "*",
+    "@shawnderland/fielder": "*",
+    "@shawnderland/pera": "*",
+    "@shawnderland/serling": "*",
     "@shawnderland/ui": "*"
   },
   "peerDependencies": {

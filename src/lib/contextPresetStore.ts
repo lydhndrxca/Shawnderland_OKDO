@@ -127,7 +127,6 @@ export function restoreContextSnapshot(
   snapshots: ContextNodeSnapshot[],
   getNode: (id: string) => { id: string; type?: string; data: Record<string, unknown> } | undefined,
   getEdges: () => Array<{ source: string; target: string }>,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   setNodes: (updater: (nodes: any[]) => any[]) => void,
 ): number {
   const edges = getEdges();

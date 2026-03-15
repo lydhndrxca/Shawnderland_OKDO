@@ -16,6 +16,7 @@ const APP_LABELS: Record<string, string> = {
   'concept-lab': 'ConceptLab',
   'gemini-studio': 'Gemini Studio',
   'tool-editor': 'Tool Editor',
+  walter: 'Walter Storyboard',
 };
 
 function formatTokens(n: number): string {

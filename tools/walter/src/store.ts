@@ -1,83 +1,72 @@
 import { useSyncExternalStore } from "react";
 import type {
-  WalterProject, Shot, Beat, ShotType, CameraMove, TransitionType,
-  TabId, ToastItem, IdeaCard, ToneMood, EpisodeConstraints, PremiseConcept,
+  WalterSession, PlanningData, ChatMessage, RoomAgent, RoomPhase,
+  StoryArcPhase, StoryElement, StagingShot, ScreenId, ToastItem,
+  LockedDecision, CreativeRoundId, ProducerEpisodeState,
 } from "./types";
-import { ARC_TEMPLATES } from "./arcTemplates";
+import { DEFAULT_PLANNING, DEFAULT_EPISODE_STATE } from "./types";
 
 function uid() {
   return `w-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-const LS_KEY = "walter-projects";
-const LS_ACTIVE = "walter-active-project";
+const LS_SESSIONS = "walter-sessions-v2";
+const LS_ACTIVE = "walter-active-session";
 
-function loadProjects(): WalterProject[] {
+/* ─── Persistence ────────────────────────────────────── */
+
+function loadSessions(): WalterSession[] {
   try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return [];
-    const projects: WalterProject[] = JSON.parse(raw);
-    return projects.map(migrateProject);
+    const raw = localStorage.getItem(LS_SESSIONS);
+    return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
   }
 }
 
-function migrateProject(p: WalterProject): WalterProject {
+function saveSessions(sessions: WalterSession[]) {
+  localStorage.setItem(LS_SESSIONS, JSON.stringify(sessions));
+}
+
+/* ─── Default Session ────────────────────────────────── */
+
+function createBlankSession(name = "Untitled Episode"): WalterSession {
   return {
-    ...p,
-    tone: p.tone ?? "",
-    runtimePresetId: p.runtimePresetId ?? "standard-reel",
-    steeringPrompt: p.steeringPrompt ?? "",
-    constraints: p.constraints ?? {
-      allowedCharacters: [],
-      allowedLocations: [],
-      easyToFilm: false,
-      shotDensity: "normal",
-      narrationHeavy: false,
-      dialogueHeavy: false,
-    },
-    selectedPremise: p.selectedPremise ?? null,
-    beats: (p.beats ?? []).map((b) => ({
-      ...b,
-      storyGoal: (b as Beat).storyGoal ?? "",
-      tone: (b as Beat).tone ?? "",
-    })),
-    shots: (p.shots ?? []).map((s) => ({
-      ...s,
-      purpose: (s as Shot).purpose ?? "",
-      characters: (s as Shot).characters ?? [],
-      location: (s as Shot).location ?? "",
-    })),
+    id: uid(),
+    name,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    planning: { ...DEFAULT_PLANNING },
+    producerBrief: null,
+    roomAgents: [],
+    chatHistory: [],
+    roomPhase: "idle",
+    roundState: { currentRoundIndex: 0, turnsInRound: 0, lockedDecisions: [] },
+    episodeState: { ...DEFAULT_EPISODE_STATE },
+    storyArc: [],
+    storyElements: [],
+    shots: [],
+    activeScreen: "planning",
+    userApproved: false,
   };
 }
 
-function saveProjects(projects: WalterProject[]) {
-  localStorage.setItem(LS_KEY, JSON.stringify(projects));
-}
+/* ─── Store State ────────────────────────────────────── */
 
 interface StoreState {
-  projects: WalterProject[];
-  activeProjectId: string | null;
-  selectedShotId: string | null;
-  selectedBeatId: string | null;
-  activeTab: TabId;
-  playheadMs: number;
+  sessions: WalterSession[];
+  activeSessionId: string | null;
   toasts: ToastItem[];
-  ideas: IdeaCard[];
-  seedPrompt: string;
+  generating: boolean;
+  autoRun: boolean;
 }
 
 let state: StoreState = {
-  projects: loadProjects(),
-  activeProjectId: localStorage.getItem(LS_ACTIVE) || null,
-  selectedShotId: null,
-  selectedBeatId: null,
-  activeTab: "episode",
-  playheadMs: 0,
+  sessions: loadSessions(),
+  activeSessionId: localStorage.getItem(LS_ACTIVE) || null,
   toasts: [],
-  ideas: [],
-  seedPrompt: "",
+  generating: false,
+  autoRun: false,
 };
 
 const listeners = new Set<() => void>();
@@ -100,152 +89,248 @@ function update(partial: Partial<StoreState>) {
   emit();
 }
 
-function persistProjects() {
-  saveProjects(state.projects);
+function persistSessions() {
+  saveSessions(state.sessions);
 }
 
-function getActiveProject(): WalterProject | undefined {
-  return state.projects.find((p) => p.id === state.activeProjectId);
+function getActiveSession(): WalterSession | undefined {
+  return state.sessions.find((s) => s.id === state.activeSessionId);
 }
 
-function updateProject(id: string, updater: (p: WalterProject) => WalterProject) {
-  const projects = state.projects.map((p) =>
-    p.id === id ? updater({ ...p, updatedAt: Date.now() }) : p
+function updateSession(id: string, updater: (s: WalterSession) => WalterSession) {
+  const sessions = state.sessions.map((s) =>
+    s.id === id ? updater({ ...s, updatedAt: Date.now() }) : s,
   );
-  update({ projects });
-  persistProjects();
+  update({ sessions });
+  persistSessions();
 }
 
-function defaultShot(beatId: string, order: number, totalShots: number): Shot {
-  return {
-    id: uid(),
-    beatId,
-    title: `Shot ${totalShots + 1}`,
-    description: "",
-    dialogue: "",
-    voiceOver: "",
-    shotType: "medium",
-    cameraMove: "static",
-    transition: "cut",
-    durationSec: 3,
-    thumbnailUrl: "",
-    audioNote: "",
-    sfxNote: "",
-    order,
-    visualDescription: "",
-    narration: "",
-    onScreenText: "",
-    soundNotes: "",
-    purpose: "",
-    characters: [],
-    location: "",
-  };
-}
+/* ─── Actions ────────────────────────────────────────── */
 
 export const walterActions = {
-  createProject(
-    name: string,
-    arcTemplateId: string,
-    opts?: {
-      tone?: ToneMood;
-      runtimePresetId?: string;
-      steeringPrompt?: string;
-      constraints?: EpisodeConstraints;
-      selectedPremise?: PremiseConcept;
-      durationMs?: number;
-    }
-  ) {
-    const template = ARC_TEMPLATES.find((t) => t.id === arcTemplateId);
-    const totalMs = opts?.durationMs ?? 60000;
-    const beatCount = template?.beats.length || 1;
-    const msPerBeat = totalMs / beatCount;
-    const beats: Beat[] = (template?.beats ?? []).map((b, i) => ({
-      ...b,
-      id: uid(),
-      order: i,
-      startMs: Math.round(i * msPerBeat),
-      endMs: Math.round((i + 1) * msPerBeat),
-      breakdown: "",
-      storyGoal: "",
-      tone: "",
-    }));
-    const project: WalterProject = {
-      id: uid(),
-      name,
-      description: opts?.selectedPremise?.premise ?? "",
-      arcTemplateId,
-      beats,
-      shots: [],
-      aspectRatio: "9:16",
-      fps: 30,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      storyOverview: opts?.selectedPremise?.premise ?? "",
-      tone: opts?.tone ?? "",
-      runtimePresetId: opts?.runtimePresetId ?? "standard-reel",
-      steeringPrompt: opts?.steeringPrompt ?? "",
-      constraints: opts?.constraints ?? {
-        allowedCharacters: [],
-        allowedLocations: [],
-        easyToFilm: false,
-        shotDensity: "normal",
-        narrationHeavy: false,
-        dialogueHeavy: false,
-      },
-      selectedPremise: opts?.selectedPremise ?? null,
-    };
-    const projects = [...state.projects, project];
-    update({
-      projects,
-      activeProjectId: project.id,
-      selectedShotId: null,
-      selectedBeatId: null,
-      activeTab: "episode",
-    });
-    localStorage.setItem(LS_ACTIVE, project.id);
-    persistProjects();
-    return project.id;
+  /* Session management */
+  newSession(name?: string) {
+    const session = createBlankSession(name);
+    const sessions = [...state.sessions, session];
+    update({ sessions, activeSessionId: session.id });
+    localStorage.setItem(LS_ACTIVE, session.id);
+    persistSessions();
+    return session.id;
   },
 
-  openProject(id: string) {
-    update({ activeProjectId: id, selectedShotId: null, selectedBeatId: null, activeTab: "episode" });
+  openSession(id: string) {
+    update({ activeSessionId: id });
     localStorage.setItem(LS_ACTIVE, id);
   },
 
-  deleteProject(id: string) {
-    const projects = state.projects.filter((p) => p.id !== id);
-    const activeProjectId =
-      state.activeProjectId === id ? (projects[0]?.id ?? null) : state.activeProjectId;
-    update({ projects, activeProjectId, selectedShotId: null, selectedBeatId: null });
-    localStorage.setItem(LS_ACTIVE, activeProjectId ?? "");
-    persistProjects();
+  deleteSession(id: string) {
+    const sessions = state.sessions.filter((s) => s.id !== id);
+    const activeSessionId =
+      state.activeSessionId === id ? (sessions[0]?.id ?? null) : state.activeSessionId;
+    update({ sessions, activeSessionId });
+    localStorage.setItem(LS_ACTIVE, activeSessionId ?? "");
+    persistSessions();
   },
 
-  updateProjectMeta(
-    fields: Partial<Pick<WalterProject,
-      "name" | "description" | "aspectRatio" | "fps" | "storyOverview" |
-      "tone" | "runtimePresetId" | "steeringPrompt" | "constraints" | "selectedPremise"
-    >>
+  renameSession(name: string) {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => ({ ...sess, name }));
+  },
+
+  resetSession() {
+    const s = getActiveSession();
+    if (!s) return;
+    const blank = createBlankSession(s.name);
+    blank.id = s.id;
+    updateSession(s.id, () => blank);
+  },
+
+  exportSession(): string | null {
+    const s = getActiveSession();
+    if (!s) return null;
+    return JSON.stringify(s, null, 2);
+  },
+
+  importSession(json: string) {
+    try {
+      const imported = JSON.parse(json) as WalterSession;
+      imported.id = uid();
+      imported.updatedAt = Date.now();
+      const sessions = [...state.sessions, imported];
+      update({ sessions, activeSessionId: imported.id });
+      localStorage.setItem(LS_ACTIVE, imported.id);
+      persistSessions();
+      return imported.id;
+    } catch {
+      return null;
+    }
+  },
+
+  duplicateSession() {
+    const s = getActiveSession();
+    if (!s) return;
+    const copy: WalterSession = {
+      ...JSON.parse(JSON.stringify(s)),
+      id: uid(),
+      name: s.name + " (copy)",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    const sessions = [...state.sessions, copy];
+    update({ sessions, activeSessionId: copy.id });
+    localStorage.setItem(LS_ACTIVE, copy.id);
+    persistSessions();
+    return copy.id;
+  },
+
+  /* Navigation */
+  setScreen(screen: ScreenId) {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => ({ ...sess, activeScreen: screen }));
+  },
+
+  /* Planning */
+  updatePlanning(fields: Partial<PlanningData>) {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => ({
+      ...sess,
+      planning: { ...sess.planning, ...fields },
+    }));
+  },
+
+  setFullPlanning(planning: PlanningData) {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => ({ ...sess, planning }));
+  },
+
+  /* Producer */
+  setProducerBrief(brief: string) {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => ({ ...sess, producerBrief: brief }));
+  },
+
+  /* Writing Room */
+  setRoomAgents(agents: RoomAgent[]) {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => ({ ...sess, roomAgents: agents }));
+  },
+
+  setRoomPhase(phase: RoomPhase) {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => ({ ...sess, roomPhase: phase }));
+  },
+
+  addChatMessage(message: ChatMessage) {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => ({
+      ...sess,
+      chatHistory: [...sess.chatHistory, message],
+    }));
+  },
+
+  setAgentApproval(personaId: string, approved: boolean) {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => ({
+      ...sess,
+      roomAgents: sess.roomAgents.map((a) =>
+        a.personaId === personaId ? { ...a, approved } : a,
+      ),
+    }));
+  },
+
+  setUserApproved(approved: boolean) {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => ({ ...sess, userApproved: approved }));
+  },
+
+  /* Staging Room */
+  setStoryStructure(
+    arc: StoryArcPhase[],
+    elements: StoryElement[],
+    shots: StagingShot[],
   ) {
-    const p = getActiveProject();
-    if (!p) return;
-    updateProject(p.id, (proj) => ({ ...proj, ...fields }));
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => ({
+      ...sess,
+      storyArc: arc,
+      storyElements: elements,
+      shots,
+    }));
   },
 
-  setActiveTab(tab: TabId) {
-    update({ activeTab: tab });
+  updateShot(shotId: string, fields: Partial<StagingShot>) {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => ({
+      ...sess,
+      shots: sess.shots.map((sh) =>
+        sh.id === shotId ? { ...sh, ...fields, userEdited: true } : sh,
+      ),
+    }));
   },
 
-  selectShot(id: string | null) {
-    update({ selectedShotId: id });
+  updateEpisodeState(patch: Partial<ProducerEpisodeState>) {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => ({
+      ...sess,
+      episodeState: { ...sess.episodeState, ...patch },
+    }));
   },
 
-  selectBeat(id: string | null) {
-    update({ selectedBeatId: id });
+  /* Round-Based Writing Room */
+  lockDecision(roundId: CreativeRoundId, label: string, value: string, lockedBy: string) {
+    const s = getActiveSession();
+    if (!s) return;
+    const decision: LockedDecision = {
+      roundId,
+      label,
+      value,
+      lockedBy,
+      lockedAt: Date.now(),
+    };
+    updateSession(s.id, (sess) => {
+      const rs = sess.roundState ?? { currentRoundIndex: 0, turnsInRound: 0, lockedDecisions: [] };
+      return { ...sess, roundState: { ...rs, lockedDecisions: [...rs.lockedDecisions, decision] } };
+    });
   },
 
-  setPlayhead(ms: number) {
-    update({ playheadMs: Math.max(0, ms) });
+  advanceRound() {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => {
+      const rs = sess.roundState ?? { currentRoundIndex: 0, turnsInRound: 0, lockedDecisions: [] };
+      return { ...sess, roundState: { ...rs, currentRoundIndex: rs.currentRoundIndex + 1, turnsInRound: 0 } };
+    });
+  },
+
+  incrementRoundTurns() {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => {
+      const rs = sess.roundState ?? { currentRoundIndex: 0, turnsInRound: 0, lockedDecisions: [] };
+      return { ...sess, roundState: { ...rs, turnsInRound: rs.turnsInRound + 1 } };
+    });
+  },
+
+  /* UI State */
+  setGenerating(generating: boolean) {
+    update({ generating });
+  },
+
+  setAutoRun(autoRun: boolean) {
+    update({ autoRun });
   },
 
   addToast(message: string, type: ToastItem["type"] = "info") {
@@ -259,314 +344,17 @@ export const walterActions = {
   removeToast(id: string) {
     update({ toasts: state.toasts.filter((t) => t.id !== id) });
   },
-
-  addBeat(label: string) {
-    const p = getActiveProject();
-    if (!p) return;
-    const totalMs = p.shots.reduce((sum, s) => sum + s.durationSec * 1000, 0) || 60000;
-    const beat: Beat = {
-      id: uid(),
-      label,
-      description: "",
-      color: "#64748b",
-      order: p.beats.length,
-      startMs: totalMs,
-      endMs: totalMs + 5000,
-      breakdown: "",
-      storyGoal: "",
-      tone: "",
-    };
-    updateProject(p.id, (proj) => ({ ...proj, beats: [...proj.beats, beat] }));
-    return beat.id;
-  },
-
-  updateBeat(beatId: string, fields: Partial<Omit<Beat, "id">>) {
-    const p = getActiveProject();
-    if (!p) return;
-    updateProject(p.id, (proj) => ({
-      ...proj,
-      beats: proj.beats.map((b) => (b.id === beatId ? { ...b, ...fields } : b)),
-    }));
-  },
-
-  deleteBeat(beatId: string) {
-    const p = getActiveProject();
-    if (!p) return;
-    updateProject(p.id, (proj) => ({
-      ...proj,
-      beats: proj.beats.filter((b) => b.id !== beatId).map((b, i) => ({ ...b, order: i })),
-      shots: proj.shots.filter((s) => s.beatId !== beatId),
-    }));
-    if (state.selectedBeatId === beatId) update({ selectedBeatId: null });
-  },
-
-  addShot(beatId: string) {
-    const p = getActiveProject();
-    if (!p) return;
-    const shotsInBeat = p.shots.filter((s) => s.beatId === beatId);
-    const shot = defaultShot(beatId, shotsInBeat.length, p.shots.length);
-    updateProject(p.id, (proj) => ({ ...proj, shots: [...proj.shots, shot] }));
-    update({ selectedShotId: shot.id });
-    return shot.id;
-  },
-
-  updateShot(shotId: string, fields: Partial<Omit<Shot, "id">>) {
-    const p = getActiveProject();
-    if (!p) return;
-    updateProject(p.id, (proj) => ({
-      ...proj,
-      shots: proj.shots.map((s) => (s.id === shotId ? { ...s, ...fields } : s)),
-    }));
-  },
-
-  deleteShot(shotId: string) {
-    const p = getActiveProject();
-    if (!p) return;
-    updateProject(p.id, (proj) => ({
-      ...proj,
-      shots: proj.shots.filter((s) => s.id !== shotId),
-    }));
-    if (state.selectedShotId === shotId) update({ selectedShotId: null });
-  },
-
-  duplicateShot(shotId: string) {
-    const p = getActiveProject();
-    if (!p) return;
-    const source = p.shots.find((s) => s.id === shotId);
-    if (!source) return;
-    const shot: Shot = {
-      ...source,
-      id: uid(),
-      title: source.title + " (copy)",
-      order: p.shots.filter((s) => s.beatId === source.beatId).length,
-    };
-    updateProject(p.id, (proj) => ({ ...proj, shots: [...proj.shots, shot] }));
-    update({ selectedShotId: shot.id });
-  },
-
-  reorderShots(beatId: string, orderedIds: string[]) {
-    const p = getActiveProject();
-    if (!p) return;
-    updateProject(p.id, (proj) => ({
-      ...proj,
-      shots: proj.shots.map((s) => {
-        if (s.beatId !== beatId) return s;
-        const idx = orderedIds.indexOf(s.id);
-        return idx >= 0 ? { ...s, order: idx } : s;
-      }),
-    }));
-  },
-
-  applyArcTemplate(arcTemplateId: string, durationMs?: number) {
-    const p = getActiveProject();
-    if (!p) return;
-    const template = ARC_TEMPLATES.find((t) => t.id === arcTemplateId);
-    if (!template) return;
-    const totalMs = durationMs ?? 60000;
-    const beatCount = template.beats.length || 1;
-    const msPerBeat = totalMs / beatCount;
-    const beats: Beat[] = template.beats.map((b, i) => ({
-      ...b,
-      id: uid(),
-      order: i,
-      startMs: Math.round(i * msPerBeat),
-      endMs: Math.round((i + 1) * msPerBeat),
-      breakdown: "",
-      storyGoal: "",
-      tone: "",
-    }));
-    updateProject(p.id, (proj) => ({
-      ...proj,
-      arcTemplateId,
-      beats,
-      shots: [],
-      storyOverview: "",
-    }));
-    update({ selectedShotId: null, selectedBeatId: null });
-  },
-
-  updateBeatTiming(beatId: string, startMs: number, endMs: number) {
-    const p = getActiveProject();
-    if (!p) return;
-    updateProject(p.id, (proj) => ({
-      ...proj,
-      beats: proj.beats.map((b) =>
-        b.id === beatId ? { ...b, startMs, endMs } : b
-      ),
-    }));
-  },
-
-  setSeedPrompt(prompt: string) {
-    update({ seedPrompt: prompt });
-  },
-
-  setIdeas(ideas: IdeaCard[]) {
-    update({ ideas });
-  },
-
-  toggleStarIdea(id: string) {
-    update({
-      ideas: state.ideas.map((i) =>
-        i.id === id ? { ...i, starred: !i.starred } : i
-      ),
-    });
-  },
-
-  removeIdea(id: string) {
-    update({ ideas: state.ideas.filter((i) => i.id !== id) });
-  },
-
-  createProjectFromStructure(input: {
-    name: string;
-    description: string;
-    arcTemplateId: string;
-    aspectRatio?: WalterProject["aspectRatio"];
-    beats: Array<{ label: string; description: string; color: string }>;
-    shots: Array<{
-      beatIndex: number;
-      title: string;
-      description: string;
-      durationSec: number;
-      shotType?: string;
-      cameraMove?: string;
-      transition?: string;
-      dialogue?: string;
-      voiceOver?: string;
-      audioNote?: string;
-      sfxNote?: string;
-    }>;
-  }): string {
-    const totalMs = input.shots.reduce((sum, s) => sum + s.durationSec * 1000, 0) || 60000;
-    const beatCount = input.beats.length || 1;
-    const msPerBeat = totalMs / beatCount;
-
-    const beats: Beat[] = input.beats.map((b, i) => ({
-      id: uid(),
-      label: b.label,
-      description: b.description,
-      color: b.color,
-      order: i,
-      startMs: Math.round(i * msPerBeat),
-      endMs: Math.round((i + 1) * msPerBeat),
-      breakdown: "",
-      storyGoal: "",
-      tone: "",
-    }));
-
-    const shots: Shot[] = input.shots.map((s, i) => ({
-      id: uid(),
-      beatId: beats[Math.min(s.beatIndex, beats.length - 1)]?.id ?? beats[0]?.id ?? "",
-      title: s.title,
-      description: s.description,
-      dialogue: s.dialogue ?? "",
-      voiceOver: s.voiceOver ?? "",
-      shotType: (s.shotType ?? "medium") as ShotType,
-      cameraMove: (s.cameraMove ?? "static") as CameraMove,
-      transition: (s.transition ?? "cut") as TransitionType,
-      durationSec: s.durationSec,
-      thumbnailUrl: "",
-      audioNote: s.audioNote ?? "",
-      sfxNote: s.sfxNote ?? "",
-      order: i,
-      visualDescription: s.description,
-      narration: s.voiceOver ?? "",
-      onScreenText: "",
-      soundNotes: s.sfxNote ?? "",
-      purpose: "",
-      characters: [],
-      location: "",
-    }));
-
-    const project: WalterProject = {
-      id: uid(),
-      name: input.name,
-      description: input.description,
-      arcTemplateId: input.arcTemplateId,
-      beats,
-      shots,
-      aspectRatio: input.aspectRatio ?? "9:16",
-      fps: 30,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      storyOverview: "",
-      tone: "",
-      runtimePresetId: "standard-reel",
-      steeringPrompt: "",
-      constraints: {
-        allowedCharacters: [],
-        allowedLocations: [],
-        easyToFilm: false,
-        shotDensity: "normal",
-        narrationHeavy: false,
-        dialogueHeavy: false,
-      },
-      selectedPremise: null,
-    };
-    const projects = [...state.projects, project];
-    update({ projects, activeProjectId: project.id, selectedShotId: null, selectedBeatId: null });
-    localStorage.setItem(LS_ACTIVE, project.id);
-    persistProjects();
-    return project.id;
-  },
-
-  exportCapCutJson(): string {
-    const p = getActiveProject();
-    if (!p) return "{}";
-    const sortedBeats = [...p.beats].sort((a, b) => a.order - b.order);
-    let offsetMs = 0;
-    const tracks = sortedBeats.flatMap((beat) => {
-      const shots = [...p.shots]
-        .filter((s) => s.beatId === beat.id)
-        .sort((a, b) => a.order - b.order);
-      return shots.map((shot) => {
-        const durationMs = shot.durationSec * 1000;
-        const entry = {
-          type: "video",
-          name: shot.title,
-          description: shot.description || shot.visualDescription,
-          beat: beat.label,
-          shotType: shot.shotType,
-          cameraMove: shot.cameraMove,
-          transition: shot.transition,
-          dialogue: shot.dialogue,
-          voiceOver: shot.voiceOver || shot.narration,
-          sfx: shot.sfxNote || shot.soundNotes,
-          audio: shot.audioNote,
-          onScreenText: shot.onScreenText,
-          startMs: offsetMs,
-          endMs: offsetMs + durationMs,
-          durationMs,
-        };
-        offsetMs += durationMs;
-        return entry;
-      });
-    });
-    return JSON.stringify(
-      {
-        projectName: p.name,
-        description: p.description,
-        aspectRatio: p.aspectRatio,
-        fps: p.fps,
-        totalDurationMs: offsetMs,
-        tracks,
-      },
-      null,
-      2
-    );
-  },
 };
+
+/* ─── Hook ───────────────────────────────────────────── */
 
 export function useWalterStore() {
   const snap = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-  const project = snap.projects.find((p) => p.id === snap.activeProjectId) ?? null;
-  const selectedShot = project?.shots.find((s) => s.id === snap.selectedShotId) ?? null;
-  const selectedBeat = project?.beats.find((b) => b.id === snap.selectedBeatId) ?? null;
+  const session = snap.sessions.find((s) => s.id === snap.activeSessionId) ?? null;
 
   return {
     ...snap,
-    project,
-    selectedShot,
-    selectedBeat,
+    session,
     actions: walterActions,
   };
 }

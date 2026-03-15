@@ -358,119 +358,161 @@ categories from `ALL_DOCK_CATEGORIES` in `sharedNodeTypes.ts`.
 
 | Service | Route | Keys | Purpose |
 |---------|-------|------|---------|
+| Google AI | `/api/ai-generate` | `GEMINI_API_KEY` | Server-side image generation/editing |
+| Google AI | `/api/ai-embed` | `GEMINI_API_KEY` | Text embedding (gemini-embedding-001) |
+| Ollama | `/api/ai-local` | None (localhost) | Local LoRA model inference |
 | Meshy AI | `/api/meshy` | `MESHY_API_KEY` | 3D model generation |
 | Hitem3D | `/api/hitem3d` | `HITEM3D_ACCESS_KEY`, `HITEM3D_SECRET_KEY` | 3D generation with portrait models |
 | ElevenLabs | `/api/elevenlabs` | `ELEVENLABS_API_KEY` | TTS, SFX, voice cloning |
-| Google AI | `/api/ai-generate` | `GEMINI_API_KEY` | Server-side image generation/editing |
 
 All keys are server-side only — the client calls local proxy routes.
+Ollama runs locally and requires no API key.
 
-## Walter Storyboard Builder — Canon-Aware Storyboard Generator
+## Walter Storyboard Generator — Multi-Agent AI Episode Planning
 
-Full-application storyboard editor with AI-powered generation via Gemini.
-Uses ShawnderMind visual theme (#09090b base, #6c63ff accent, system-ui fonts).
+Three-screen collaborative episode planning tool with multi-agent AI writing
+room. Uses ShawnderMind visual theme (#09090b base, #6c63ff accent).
 
-### Layout
+### Three-Screen Workflow
 
-- **Top bar**: File menu (New, AI Generate, Recent Projects), project name,
-  beat/shot/duration stats, AI Writer button, Settings, Export
-- **Beat sidebar** (left): ordered list of narrative beats with color coding
-- **Shot grid** (center): shot cards grouped by beat with thumbnails,
-  shot type, camera move, transition, duration
-- **Shot editor** (right): detailed property editor for selected shot
-  with AI Rework (Scene Refiner)
-- **Timeline** (bottom): proportional shot segments with beat colors
+1. **Planning Page** — Gather creative constraints: episode length, mood/vibe,
+   seasonal/date options, character focus, unique story elements, locations,
+   time of day, final notes. "Send to Producer" or "Randomize & Send" actions.
+2. **Writing Room** — Collaborative AI chat environment where agent personas
+   (Producer, Writer, Director, Cinematographer) discuss and develop the episode.
+   Phase-based progression: briefing → writing → directing → approval → pitch.
+   User can interact, guide discussion, and approve the final pitch.
+3. **Staging Room** — Timeline-based production breakdown with three levels:
+   Story Arc phases, Story Elements, and individual Shots. All fields are
+   directly editable. Feedback can be sent back to the writing room.
+
+### Agent / Persona System
+
+- 7 preset personas: Producer (IP guardian), Writer, Director, Cinematographer,
+  Rod Serling (LoRA-trained), Nathan Fielder (LoRA-trained), Joe Pera (LoRA-trained)
+- Each persona has deep research-driven creative profiles (not shallow prompts)
+- LoRA-trained personas use corpus retrieval (RAG) and optional local Ollama
+  voice refinement for stylistically accurate output
+- Custom persona creation: pick a role, name a creative reference (e.g. "Wes
+  Anderson"), AI researches and builds a full creative persona profile
+- Personas stored in localStorage, survive sessions
+
+### Creative Rounds
+
+7 structured writing rounds drive the conversation:
+
+1. **Premise** — Theme and human truth (writer + producer)
+2. **Opening Frame** — First composed visual (writer + director + cinematographer)
+3. **The Strange Thing** — Inciting anomaly (all agents)
+4. **Walter's Response** — Character reaction (writer + director)
+5. **The Turn** — Story pivot or escalation (all agents)
+6. **Final Frame** — Closing visual moment (writer + director + cinematographer)
+7. **Shot Planning** — Per-shot breakdown (director + cinematographer)
+
+Each round has configurable turn limits, agent pools, and corpus hints for
+RAG-augmented context. Locked decisions accumulate across rounds.
+
+### Producer Orchestration
+
+The Producer compiles standardized briefs from planning inputs, presents to
+the creative team, monitors discussions, mediates disagreements, tracks
+requirement compliance, and pitches the final episode to the user.
+
+The Producer maintains an `episodeState` object tracking:
+- Creator brief, premise, runtime target
+- Opening hook, strange event, development, key visual moment, ending beat
+- Theme/feeling, practical concerns, unresolved questions
+- Checkpoint progression: none → premise-lock → visual-lock → ending-lock → production-sanity
+
+### Physical Violation Detection
+
+The agent engine enforces miniature figure constraints via regex patterns
+applied to all agent responses. Violations (e.g., "holds an object",
+"picks up", "sprints", "waves") are flagged and agents are instructed to
+rephrase. Quoted text within agent responses is stripped before checking
+to prevent false positives when agents discuss prohibited actions.
 
 ### Walter Brain (Canon Memory System)
 
 Persistent localStorage database (`walterBrain.ts`) storing:
 
-- **Canonical characters**: Walter, Rusty, Neighbor, Duck — with descriptions,
+- **Canonical characters**: Walter, Rusty, Sam, The Dogs — with descriptions,
   behavior, voice traits, relationships, typical uses
 - **Locations**: front yard, house exterior, trailer, truck, street, trees,
-  interior — with common shot suggestions
+  christmas village — with common shot suggestions
 - **Lore rules**: tone, metaphysical, theme, continuity constraints
-- **28 archived episodes** from the real Walter Instagram series
+- **28 archived episodes** from real Gemini video analysis
 
-All AI generation injects Walter Brain context for canon-aware output.
+All AI generation injects full Walter Brain context for canon-aware output.
 
-### Multi-Step Episode Wizard
+### Session Management
 
-6-step guided creation flow (`EpisodeWizard.tsx`):
+Full save/open/save-as: all project state (planning inputs, writing room
+history, agent selections, story outputs, staging breakdowns, manual edits)
+persists in localStorage. Multiple sessions supported.
 
-1. **Setup** — Episode title + runtime preset (Micro Moment, Mini Reel,
-   Short Scene, Standard Reel, Full Episode)
-2. **Tone/Mood** — Selection from predefined tone options
-3. **Story Structure** — Arc template + narrative pattern (8 templates)
-4. **Creative Direction** — Steering prompt + constraints (characters,
-   locations, easyToFilm, shotDensity, narration/dialogue heavy)
-5. **AI Premise Generation** — 4 distinct concepts from AI
-6. **Review & Create** — Select premise and create project
+### One-Sheet Export
 
-### Runtime Presets
+Filmmaker-friendly plaintext production plan exported from the Staging Room:
 
-| Preset | Duration | Shot Range |
-|--------|----------|------------|
-| Micro Moment | 8–15s | 2–3 shots |
-| Mini Reel | 15–30s | 3–5 shots |
-| Short Scene | 30–45s | 5–8 shots |
-| Standard Reel | 45–60s | 8–12 shots |
-| Full Walter Episode | 75–90s | 12–18 shots |
-
-### Staged Generation Pipeline
-
-Three-stage AI pipeline (brain-aware):
-
-1. **Stage 1** — AI generates story overview from premise + brain context
-2. **Stage 2** — Beat-by-beat breakdown with story goals and tone per beat
-3. **Stage 3** — Shot expansion: framing, camera, dialogue, narration,
-   audio cues, characters, locations per shot
-
-### Timeline Block Library
-
-Sidebar with draggable story blocks. Adding a block creates a new beat:
-
-- Hook, Reveal, Dialogue Beat, Surreal Moment, Reflective Pause
-- Escalation, Climax, Ending Tag, Cliffhanger
-
-Story blocks map to beats (same concept, consistent naming).
-
-### Scoped AI Rewrite
-
-Double-click a beat band on the timeline to trigger AI rewrite of just that
-block. Preserves surrounding narrative; prevents destructive full regeneration.
-
-### Shot Split
-
-Split any shot into two halves from the timeline inspector.
-
-### Shoot Sheet Export
-
-Filmmaker-friendly plaintext production plan:
-
-- Episode info (title, runtime, arc)
-- Numbered shot list: timestamp, framing, characters, location, action,
-  dialogue, narration, audio
-- Production summary: locations, characters, complex shots, audio requirements
-
-Alternative to JSON export. Portable, printable, no dependencies.
+- Episode info, mood, length
+- Story arc and element breakdown
+- Numbered shot list with framing, characters, location, dialogue, narration, audio
+- Production summary: total shots, duration, locations, characters
 
 ### Data Model
 
-- **Shot**: purpose, characters[], location (expanded from original)
-- **Beat**: storyGoal, tone
-- **WalterProject**: tone, runtimePresetId, steeringPrompt, constraints,
-  selectedPremise
+- **WalterSession**: top-level project containing planning data, producer brief,
+  room agents, chat history, room phase, episode state, story arc, story elements, shots
+- **PlanningData**: episode constraints and creative direction
+- **AgentPersona**: role, name, research data, avatar
+- **ChatMessage**: timestamped messages with sender identity and approval flags
+- **ProducerEpisodeState**: producer's running state (brief, premise, checkpoints)
+- **StoryArcPhase / StoryElement / StagingShot**: three-level staging hierarchy
+- **CreativeRound**: round definition with question, agent pool, turn limits, corpus hints
 
-### Features
+## LoRA-Trained Writer Agent Packages
 
-- Landing screen inline in WalterShell (no separate page)
-- File menu with New Project, Generate with AI, Recent Projects
-- 8 narrative arc templates (Quiet Reveal, 3-Act, Hero's Journey, etc.)
-- CapCut-ready JSON export with shot timings and audio notes
-- Project settings (name, description, aspect ratio, FPS, arc template)
-- localStorage persistence for all projects
-- Store migrates old projects to new schema automatically
+Three writer packages (`@shawnderland/serling`, `@shawnderland/fielder`,
+`@shawnderland/pera`) provide deep creative persona support for the Walter
+Writing Room. Each package has an identical architecture:
+
+### Corpus & Taxonomy
+
+Each writer has a curated corpus of source material (essays, interviews,
+scripts, lectures, narrations) chunked and indexed for retrieval-augmented
+generation (RAG). A taxonomy of creative decisions maps patterns from the
+writer's body of work (narrative choices, structural patterns, thematic
+tendencies) organized by category and episode.
+
+### Retrieval Pipeline
+
+1. Agent engine determines the active persona and writing phase
+2. `get*Context()` builds a retrieval query from the current conversation
+3. Corpus chunks and taxonomy decisions are retrieved via cosine similarity
+4. Retrieved context is injected into the agent's system prompt
+5. Gemini generates the response with full contextual awareness
+
+### Voice Refinement & Local Models
+
+Each writer has a LoRA fine-tuned model (Mistral-Nemo-Base-2407-bnb-4bit)
+trained on style-matched input/output pairs. The training pipeline:
+
+1. **Corpus generation** — `.mjs` scripts scrape and chunk source material
+2. **Taxonomy generation** — AI analyzes corpus to extract creative patterns
+3. **Training pair generation** — Pairs of (prompt, stylistically-accurate response)
+4. **LoRA training** — `train_*.py` using Unsloth for fast fine-tuning
+5. **GGUF conversion** — `convert_to_gguf.py` converts adapter to GGUF format
+6. **Ollama registration** — `export_to_ollama.py` registers models with Ollama
+
+Registered models (`serling-mind`, `fielder-mind`, `pera-mind`) are available
+via `/api/ai-local` for optional voice refinement post-processing.
+
+### Embedding Support
+
+`@shawnderland/ai` provides `embedText()` and `embedTexts()` which call
+`/api/ai-embed` (Gemini `gemini-embedding-001`) for vector embeddings
+used by the retrieval pipeline.
 
 ## Pending
 

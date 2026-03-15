@@ -34,6 +34,7 @@ See `.env.example` for all required/optional variables.
 | `ELEVENLABS_API_KEY` | No | ElevenLabs TTS, SFX, voice cloning |
 | `SESSIONS_DIR` | No | Filesystem session storage (default: `saved-sessions/`) |
 | `CHARACTER_OUTPUT_DIR` | No | Character image output (default: `character-output/`) |
+| `OLLAMA_HOST` | No | Ollama server URL for local LoRA models (default: `http://localhost:11434`) |
 
 ## Dual-Backend API Configuration
 
@@ -51,38 +52,57 @@ from this module. No other file should construct API URLs directly.
 
 ```
 tools/                          Extracted tool workspace packages
-  walter/                       @tools/walter — Walter Storyboard Builder
+  walter/                       @tools/walter — Walter Storyboard Generator
     src/
-      WalterShell.tsx/.css      Main shell (topbar + 3-panel layout + timeline)
+      WalterShell.tsx           3-screen shell (Planning → Writing Room → Staging Room)
+      Walter.css                Full application CSS (ShawnderMind dark theme)
+      types.ts                  Session, PlanningData, AgentPersona, ChatMessage, StagingShot
+      store.ts                  Session-based external store (useSyncExternalStore)
+      agents.ts                 Persona system: preset + custom, research-driven profiles
+      agentEngine.ts            Conversation engine: briefs, turn generation, structure parsing
       walterBrain.ts            Canon memory: characters, locations, lore, 28 episodes
-      store.ts                  External store (projects, beats, shots); migrates old schema
-      types.ts                  Shot, Beat, WalterProject, brain entities, wizard steps
       arcTemplates.ts           Arc templates (3-Act, Hero's Journey, etc.)
       episodePresets.ts         5 runtime presets + 8 narrative arc templates
-      aiWriter.ts               Staged AI pipeline (overview → beats → shots)
+      aiWriter.ts               Legacy staged AI pipeline (kept for reference)
+      components/
+        PlanningPage.tsx        Constraint gathering with randomize + send-to-producer
+        WritingRoom.tsx         Multi-agent chat with phase controls + auto-run
+        StagingRoom.tsx         3-level timeline + shot editor + one-sheet export
+        PersonaBuilder.tsx      Modal for selecting or creating agent personas
+        ToastContainer.tsx      Toast notification display
+      creativeRounds.ts         7 creative rounds with per-role instructions
       lore/                     Episode lore reference (Gemini video analysis)
         MASTER_ANALYSIS.md      Combined 28-episode master analysis
         episode-01.md … 28.md   Per-episode detailed analysis
         episodes.ts             Typed EpisodeMeta index for all 28 episodes
-      components/
-        EpisodeWizard.tsx      6-step guided creation flow
-        BeatSidebar.tsx         Left panel: beat list
-        ShotGrid.tsx            Center: shot cards by beat
-        ShotEditor.tsx          Right panel: shot property editor
-        Timeline.tsx            Bottom: timeline segments + block library
-        AIWriterPanel.tsx       Multi-step AI storyboard generator
-        SceneRefiner.tsx        Per-scene AI rework (scoped rewrite)
-        ExportDialog.tsx        CapCut JSON + Shoot Sheet plaintext export
-        ConceptCard.tsx         AI concept card with scores
 
 packages/
   ui/                           @shawnderland/ui design system
     src/canvas/                 PipelineEdge (used by HubCanvas)
     src/                        Button, Input, Select, Textarea, tokens
-  ai/                           @shawnderland/ai — shared Gemini text generation utility
+  ai/                           @shawnderland/ai — shared Gemini text generation + embedding
     src/
       generateText.ts           generateText() for Gemini API calls
+      embedText.ts              embedText() / embedTexts() for Gemini embeddings
       index.ts                  Barrel export
+  serling/                      @shawnderland/serling — Rod Serling writer agent
+    src/
+      corpus/                   Chunked source material (essays, scripts, narrations)
+      taxonomy/                 Creative decision taxonomy (episode-level patterns)
+      retrieval/                Vector store + context retrieval (RAG)
+      voice/                    Local Ollama model integration (serling-mind, serling-voice)
+      serlingContext.ts         High-level context builder for agent engine
+      useSerlingLoader.ts       React hook for lazy corpus/taxonomy loading
+    scripts/                    Corpus generation, embedding, taxonomy scripts (.mjs)
+    training/                   LoRA training pipeline (Python)
+      train_serling.py          Unsloth LoRA fine-tuning on Mistral-Nemo
+      convert_to_gguf.py        Adapter → GGUF conversion
+      export_to_ollama.py       GGUF → Ollama model registration
+  fielder/                      @shawnderland/fielder — Nathan Fielder writer agent
+    (same structure as serling/)
+  pera/                         @shawnderland/pera — Joe Pera writer agent
+    (same structure as serling/)
+  training-env/                 Shared Python venv (Unsloth, transformers, torch, PEFT)
 
 src/app/
   page.tsx                      Root page (App Router)
@@ -218,16 +238,24 @@ src/app/
     UILabShell.tsx              Lab shell with tool tabs
     components/                 Generate, extract, remove, plan panels
 
-  api/                          Next.js API routes
-    ai-generate/route.ts        Server-side proxy for Google AI Studio
+  api/                          Next.js API routes (18 routes)
+    ai-embed/route.ts           Gemini embedding proxy (gemini-embedding-001)
+    ai-generate/route.ts        Server-side proxy for Google AI Studio / Vertex AI
+    ai-local/route.ts           Ollama local model proxy (GET models, POST generate)
+    ai-status/route.ts          API key availability check
     character-save/route.ts     Save character images to local disk
     elevenlabs/route.ts         Server-side proxy for ElevenLabs API
+    fielder-corpus/route.ts     Fielder corpus/taxonomy data endpoint
     hitem3d/route.ts            Server-side proxy for Hitem3D API
+    list-dirs/route.ts          Directory listing utility
     meshy/route.ts              Server-side proxy for Meshy API (incl. GLB proxy)
     meshy-export/route.ts       Save 3D models to local filesystem
     open-folder/route.ts        Open image output folder
+    pera-corpus/route.ts        Pera corpus/taxonomy data endpoint
     send-to-photoshop/route.ts  Send images to Adobe Photoshop
+    serling-corpus/route.ts     Serling corpus/taxonomy data endpoint
     session/route.ts            Named session save/load (filesystem-backed)
+    video-analyze/route.ts      Video analysis via Gemini
     walter-lore/route.ts        Serve per-episode lore from tools/walter/src/lore/ on demand
 
 src/components/                 Hub-level shared components
@@ -310,8 +338,11 @@ The project uses npm workspaces (`packages/*`, `tools/*`):
   (e.g. `@tools/walter`). Tools are imported by the hub via `next/dynamic` for
   lazy-loading.
 - **Shared packages** live in `packages/` — `@shawnderland/ui` (design system),
-  `@shawnderland/ai` (Gemini text generation). Shared UI propagates via tokens
-  in `packages/ui/src/tokens.css`.
+  `@shawnderland/ai` (Gemini text generation + embedding).
+- **Writer agent packages** live in `packages/` — `@shawnderland/serling`,
+  `@shawnderland/fielder`, `@shawnderland/pera`. Each provides corpus retrieval,
+  taxonomy data, voice refinement, and local Ollama model integration for its
+  respective writer persona. Used by the Walter agent engine.
 - **Hub** (root Next.js app) imports tool packages and renders them in route
   panels. Per-tool Cursor workspaces are possible by opening `tools/walter/`
   etc. directly.
@@ -361,12 +392,14 @@ scroll position, and in-flight requests.
   useSyncExternalStore. No React Context — the store is a module-level
   singleton accessed via hook. GlobalToolbar and CanvasContextMenu
   map to store actions.
-- **Walter**: Now a workspace package (`@tools/walter`) imported via
-  `next/dynamic`. Singleton external store (`useWalterStore`) with
-  `useSyncExternalStore`. Projects, beats, shots persisted to localStorage.
-  Walter Brain (walterBrain.ts) stores canon memory in localStorage.
-  AI Writer calls Gemini via `generateText()` from `@shawnderland/ai`.
-  Store migrates old projects to new schema on load.
+- **Walter**: Workspace package (`@tools/walter`) imported via `next/dynamic`.
+  Session-based external store (`useWalterStore`) with `useSyncExternalStore`.
+  Sessions contain planning data, chat history, room agents, episode state,
+  staging structure. Walter Brain (walterBrain.ts) stores canon memory in
+  localStorage. Agent engine calls Gemini via `generateText()` from
+  `@shawnderland/ai`. LoRA-trained writer personas (Serling, Fielder, Pera) use
+  their respective packages for corpus retrieval and voice refinement, with
+  optional local Ollama inference via `/api/ai-local`.
 - **UI Lab**: React Context (UILabContext).
 - **Hub**: WorkspaceContext for navigation and keep-alive.
 
@@ -417,6 +450,8 @@ the proxy adds authentication and forwards to the external service.
 | Hitem3D | `/api/hitem3d` | `hitem3dApi.ts` | Image-to-3D with portrait models, fine-grained mesh control |
 | ElevenLabs | `/api/elevenlabs` | `elevenlabsApi.ts` | TTS, sound effects, voice cloning, audio isolation |
 | Google AI | `/api/ai-generate` | `imageGenApi.ts` | Server-side Gemini/Imagen calls (image editing, generation) |
+| Google AI | `/api/ai-embed` | `embedText.ts` | Text embedding via gemini-embedding-001 |
+| Ollama | `/api/ai-local` | `localModel.ts` | Local LoRA model inference (serling-mind, fielder-mind, pera-mind) |
 
 ### Async Polling
 
@@ -480,24 +515,70 @@ Node components that use `useState` for local editable fields implement a
 timestamp on node data, and the node's `useEffect` detects this change and
 re-syncs local state from the restored data.
 
-## Walter Storyboard Builder Subsystem
+## Walter Storyboard Generator Subsystem
 
 Walter is an extracted workspace package (`@tools/walter`) in `tools/walter/`.
 The hub lazy-loads it via `next/dynamic` and renders it at the `/walter` route.
 Lore files are served by `/api/walter-lore` from `tools/walter/src/lore/`.
 
+### Architecture: Three-Screen Workflow
+
+| Screen | Component | Purpose |
+|--------|-----------|---------|
+| **Planning Page** | PlanningPage.tsx | Gather creative constraints, randomize blanks, send brief to producer |
+| **Writing Room** | WritingRoom.tsx | Multi-agent AI chat with phase progression (briefing → writing → directing → approval → pitch) |
+| **Staging Room** | StagingRoom.tsx | 3-level timeline (Story Arc → Story Elements → Shots), inline editing, feedback loop, one-sheet export |
+
+### Agent / Persona System
+
 | Module | Purpose |
 |--------|---------|
-| **Episode Generator** | 6-step wizard (EpisodeWizard.tsx), premise generation, staged pipeline |
-| **Timeline Editor** | Beat bands, shot segments, block library, shot split |
-| **Scoped Rewrite Engine** | Double-click beat → AI rewrite of single block, continuity preserved |
-| **Canon Memory** | walterBrain.ts — characters, locations, lore, 28 archived episodes from real Gemini video analysis |
-| **Episode Lore** | lore/ — 28 per-episode markdown files + typed index; served via /api/walter-lore |
-| **Export Engine** | CapCut JSON, Shoot Sheet plaintext (filmmaker production plan) |
+| **agents.ts** | 7 preset personas (Producer, Writer, Director, Cinematographer, Rod Serling, Nathan Fielder, Joe Pera) + custom persona creation via AI research |
+| **agentEngine.ts** | Conversation engine: brief compilation, agent turn generation, speaker selection, story structure parsing, physical violation detection, producer episode state management |
+| **creativeRounds.ts** | 7 creative rounds (premise, opening-frame, the-strange, the-response, the-turn, final-frame, shot-planning) with per-role instructions |
+| **PersonaBuilder.tsx** | Modal UI for selecting existing or creating new personas |
 
-Walter uses ShawnderMind visual theme (#09090b, #6c63ff). Store migrates old
-projects to new schema (tone, runtimePresetId, steeringPrompt, constraints,
-selectedPremise) automatically.
+### Core Modules
+
+| Module | Purpose |
+|--------|---------|
+| **store.ts** | Session-based state (useSyncExternalStore); sessions contain planning, chat history, room agents, staging data |
+| **walterBrain.ts** | Canon memory — characters, locations, lore rules, 28 archived episodes from real Gemini video analysis |
+| **Episode Lore** | lore/ — 28 per-episode markdown files + typed index; served via /api/walter-lore |
+| **Export** | One-sheet plaintext production plan from Staging Room |
+
+Walter uses ShawnderMind visual theme (#09090b, #6c63ff). Session data is
+persisted to localStorage with full save/open/duplicate support.
+
+## LoRA Writer Agent Architecture
+
+Three writer agent packages share an identical module structure:
+
+```
+packages/<writer>/
+  src/
+    corpus/types.ts         CorpusChunk, ChunkMetadata types
+    corpus/chunks.json      Chunked source material (large — 26–64 MB)
+    taxonomy/types.ts       DecisionCategory, DecisionEntry types
+    taxonomy/decisions.json Creative decision taxonomy (large — 21–80 MB)
+    retrieval/vectorStore.ts In-memory vector store for cosine similarity search
+    retrieval/embeddings.ts  Embedding via /api/ai-embed (gemini-embedding-001)
+    retrieval/retrieve.ts    Context retrieval: corpus chunks + taxonomy decisions
+    voice/localModel.ts      Voice refinement and local Ollama generation
+    <writer>Context.ts       High-level context builder for the agent engine
+    useSerlingLoader.ts      React hook for lazy corpus/taxonomy loading
+  scripts/                   .mjs scripts for corpus generation, embedding, taxonomy
+  training/
+    train_<writer>.py        Unsloth LoRA fine-tuning (Mistral-Nemo-Base-2407-bnb-4bit)
+    convert_to_gguf.py       LoRA adapter → GGUF conversion
+    export_to_ollama.py      GGUF → Ollama model registration (<writer>-mind, <writer>-voice)
+```
+
+The agent engine (`tools/walter/src/agentEngine.ts`) detects which persona is
+speaking and routes to the appropriate package: `getSerlingContext()`,
+`getFielderContext()`, or `getPeraContext()` for corpus-augmented prompts.
+For LoRA-trained personas, voice refinement passes the Gemini output through
+the local Ollama model via `/api/ai-local` for stylistic post-processing.
 
 ## Canvas Unification
 

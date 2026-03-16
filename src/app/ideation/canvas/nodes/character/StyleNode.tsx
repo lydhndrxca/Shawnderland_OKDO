@@ -2,10 +2,14 @@
 
 import { memo, useCallback, useRef, useState, useEffect } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
-import type { GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import type { GeneratedImage, TextModelId } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import { generateText } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import TextModelSelector from '@/components/TextModelSelector';
 import { saveStyle, listStyles, deleteStyle, type SavedStyle } from '@/lib/styleStore';
 import { NODE_TOOLTIPS } from './nodeTooltips';
 import './CharacterNodes.css';
+
+type StyleMode = 'images' | 'text' | 'both';
 
 interface Props {
   id: string;
@@ -17,23 +21,26 @@ function StyleNodeInner({ id, data, selected }: Props) {
   const { setNodes } = useReactFlow();
   const [styleName, setStyleName] = useState((data?.styleLabel as string) ?? '');
   const [styleText, setStyleText] = useState((data?.styleText as string) ?? '');
+  const [styleMode, setStyleMode] = useState<StyleMode>((data?.styleMode as StyleMode) ?? 'images');
   const [images, setImages] = useState<GeneratedImage[]>(
     (data?.styleImages as GeneratedImage[]) ?? [],
   );
   const [collapsed, setCollapsed] = useState(false);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const [processError, setProcessError] = useState<string | null>(null);
+  const [textModel, setTextModel] = useState<TextModelId>((data?.textModel as TextModelId) ?? 'fast');
 
-  // Saved-style ID that this node is currently tracking (for "Save" overwrite)
   const [activeStyleId, setActiveStyleId] = useState<string | null>(
     (data?.activeStyleId as string) ?? null,
   );
 
-  // Sync state when node data changes externally (e.g. session restore)
   useEffect(() => {
     const restoredImages = (data?.styleImages as GeneratedImage[]) ?? [];
     const restoredName = (data?.styleLabel as string) ?? '';
     const restoredText = (data?.styleText as string) ?? '';
     const restoredActiveId = (data?.activeStyleId as string) ?? null;
+    const restoredMode = (data?.styleMode as StyleMode) ?? 'images';
     if (restoredImages.length !== images.length ||
         (restoredImages.length > 0 && restoredImages[0]?.base64?.slice(0, 40) !== images[0]?.base64?.slice(0, 40))) {
       setImages(restoredImages);
@@ -41,7 +48,8 @@ function StyleNodeInner({ id, data, selected }: Props) {
     if (restoredName !== styleName) setStyleName(restoredName);
     if (restoredText !== styleText) setStyleText(restoredText);
     if (restoredActiveId !== activeStyleId) setActiveStyleId(restoredActiveId);
-  }, [data?.styleImages, data?.styleLabel, data?.styleText, data?.activeStyleId]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (restoredMode !== styleMode) setStyleMode(restoredMode);
+  }, [data?.styleImages, data?.styleLabel, data?.styleText, data?.activeStyleId, data?.styleMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load dropdown state
   const [showLoadMenu, setShowLoadMenu] = useState(false);
@@ -214,13 +222,82 @@ function StyleNodeInner({ id, data, selected }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [images]);
 
+  const handleProcessStyle = useCallback(async () => {
+    if (images.length === 0 || processing) return;
+    setProcessing(true);
+    setProcessError(null);
+
+    try {
+      const prompt = `You are a visual style analyst. Study the provided reference image(s) and produce a detailed style description that an AI image generator can follow to replicate this exact visual style.
+
+Analyze and describe ALL of the following:
+1. MEDIUM & TECHNIQUE: What art medium is this? (digital painting, 3D render, watercolor, pixel art, cel-shading, photorealistic, etc.) Be very specific about the rendering technique.
+2. LINE QUALITY: How are outlines/edges handled? (clean vector lines, sketchy, no outlines, soft edges, hard edges)
+3. COLOR PALETTE: Describe the overall color approach (muted, vibrant, monochromatic, warm/cool dominance, specific color choices)
+4. LIGHTING: How is light rendered? (flat, volumetric, rim lighting, ambient occlusion, cel-shaded shadows)
+5. TEXTURE & DETAIL: Surface quality (smooth, painterly, noisy, hand-painted, photographic detail level)
+6. PROPORTIONS: Character proportions if visible (realistic, stylized, chibi, exaggerated features)
+7. COMPOSITION STYLE: How are subjects framed and composed?
+8. MOOD & ATMOSPHERE: Overall feeling the style conveys
+
+Write a single cohesive paragraph (150-250 words) that could serve as a style directive for generating new images in this exact same visual style. Be precise and technical — avoid vague terms like "nice" or "good". Focus on what makes this style UNIQUE and DISTINCTIVE.
+
+Start directly with the description, no preamble.`;
+
+      const result = await generateText(prompt, images, textModel);
+      const trimmed = result.trim();
+
+      setStyleText(trimmed);
+      persist({ styleText: trimmed });
+    } catch (e) {
+      setProcessError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setProcessing(false);
+    }
+  }, [images, processing, persist, textModel]);
+
+  const handleEnhanceDescription = useCallback(async () => {
+    if (!styleText.trim() || processing) return;
+    setProcessing(true);
+    setProcessError(null);
+
+    try {
+      const prompt = `You are a visual style description enhancer for AI image generation. The user has written a style description. Your job is to enhance it — make it more specific, technical, and useful as a directive for an AI image generator.
+
+Original style description:
+"${styleText.trim()}"
+
+Rewrite this into a single cohesive paragraph (150-250 words) that could serve as a style directive for generating new images in this exact visual style. Be precise and technical — avoid vague terms like "nice" or "good". Add specific details about rendering technique, color palette, line quality, shading method, texture, and medium. Preserve the user's core intent while making it more actionable.
+
+Start directly with the enhanced description, no preamble.`;
+
+      const result = await generateText(prompt, images.length > 0 ? images : undefined, textModel);
+      const trimmed = result.trim();
+
+      setStyleText(trimmed);
+      persist({ styleText: trimmed });
+    } catch (e) {
+      setProcessError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setProcessing(false);
+    }
+  }, [styleText, images, processing, persist, textModel]);
+
+  const handleModeChange = useCallback((mode: StyleMode) => {
+    setStyleMode(mode);
+    persist({ styleMode: mode });
+  }, [persist]);
+
   return (
     <div className={`style-glass-node ${selected ? 'selected' : ''}`} title={NODE_TOOLTIPS.charStyle}>
       {/* Header */}
       <div className="style-glass-header" style={{ cursor: 'pointer' }} onClick={() => setCollapsed((c) => !c)}>
         <span className="style-glass-title">Style</span>
         <span className="style-glass-count">{images.length} img{images.length !== 1 ? 's' : ''}</span>
-        <span style={{ marginLeft: 'auto', fontSize: 10, opacity: 0.7 }}>
+        <span onClick={(e) => e.stopPropagation()} style={{ marginLeft: 'auto' }}>
+          <TextModelSelector value={textModel} onChange={(m) => { setTextModel(m); persist({ textModel: m }); }} disabled={processing} />
+        </span>
+        <span style={{ fontSize: 10, opacity: 0.7, marginLeft: 4 }}>
           {collapsed ? '\u25BC' : '\u25B2'}
         </span>
       </div>
@@ -298,7 +375,63 @@ function StyleNodeInner({ id, data, selected }: Props) {
                 Paste Image
               </button>
             </div>
-            <div className="style-glass-actions">
+
+            {/* Mode selector */}
+            <div className="style-glass-mode-row nodrag" style={{ display: 'flex', gap: 2, marginTop: 4 }}>
+              {(['images', 'text', 'both'] as StyleMode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className={`style-glass-mode-btn nodrag${styleMode === m ? ' active' : ''}`}
+                  onClick={() => handleModeChange(m)}
+                  title={
+                    m === 'images' ? 'Use only reference images for style'
+                    : m === 'text' ? 'Use only the text prompt for style'
+                    : 'Use both images and text prompt for style'
+                  }
+                >
+                  {m === 'images' ? 'Images Only' : m === 'text' ? 'Text Only' : 'Images + Text'}
+                </button>
+              ))}
+            </div>
+
+            {/* Style description text — always visible */}
+            <textarea
+              className="style-glass-textarea nodrag nowheel"
+              value={styleText}
+              onChange={(e) => {
+                setStyleText(e.target.value);
+                persist({ styleText: e.target.value });
+              }}
+              placeholder="Style description — type your own, or use the buttons below to generate from images..."
+              rows={4}
+              style={{ minHeight: 60, resize: 'vertical', marginTop: 4 }}
+            />
+
+            {/* Enhance / Process buttons */}
+            <button
+              type="button"
+              className="style-glass-btn style-glass-btn-process nodrag"
+              onClick={handleEnhanceDescription}
+              disabled={!styleText.trim() || processing}
+              title="Enhance your style description with AI — rewrites it to be more specific and technical"
+              style={{ width: '100%', marginTop: 4 }}
+            >
+              {processing ? 'Enhancing…' : 'Enhance Style Description'}
+            </button>
+            <button
+              type="button"
+              className="style-glass-btn style-glass-btn-process nodrag"
+              onClick={handleProcessStyle}
+              disabled={images.length === 0 || processing}
+              title="Analyze style images with AI and generate a text description — replaces current text"
+              style={{ width: '100%', marginTop: 2 }}
+            >
+              {processing ? 'Processing…' : 'Process Images to Text'}
+            </button>
+            {processError && <div className="char-error" style={{ fontSize: 10, margin: '4px 0' }}>{processError}</div>}
+
+            <div className="style-glass-actions" style={{ marginTop: 4 }}>
               <button type="button" className="style-glass-btn nodrag" onClick={handleSave}>
                 Save
               </button>
@@ -329,17 +462,6 @@ function StyleNodeInner({ id, data, selected }: Props) {
                 </button>
               </div>
             )}
-
-            <textarea
-              className="style-glass-textarea nodrag nowheel"
-              value={styleText}
-              onChange={(e) => {
-                setStyleText(e.target.value);
-                persist({ styleText: e.target.value });
-              }}
-              placeholder="Describe style... (optional)"
-              rows={1}
-            />
 
             {/* Load dropdown — only saved styles */}
             {showLoadMenu && (

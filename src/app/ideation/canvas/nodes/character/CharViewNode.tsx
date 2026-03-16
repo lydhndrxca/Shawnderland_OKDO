@@ -183,9 +183,14 @@ function gatherUpstreamContext(
       }
 
       if (node.type === 'charStyle') {
-        if (node.data.styleText) styleText = node.data.styleText as string;
-        const imgs = node.data.styleImages as GeneratedImage[] | undefined;
-        if (imgs?.length) styleImages.push(...imgs);
+        const mode = (node.data.styleMode as string) || 'images';
+        if (mode === 'text' || mode === 'both') {
+          if (node.data.styleText) styleText = node.data.styleText as string;
+        }
+        if (mode === 'images' || mode === 'both') {
+          const imgs = node.data.styleImages as GeneratedImage[] | undefined;
+          if (imgs?.length) styleImages.push(...imgs);
+        }
       }
 
       queue.push(neighbor);
@@ -199,8 +204,8 @@ function gatherUpstreamContext(
   if (envBrief) blocks.push(`## ENVIRONMENT\n${envBrief}`);
   if (lockConstraints) blocks.push(`## PRESERVATION CONSTRAINTS (MANDATORY — VIOLATING THESE IS FAILURE)\n${lockConstraints}`);
   const effectiveStyleText = styleText.trim()
-    || (styleImages.length > 0 ? 'Match the visual style shown in the style reference image(s). Replicate the exact rendering technique, color palette, and artistic approach.' : '');
-  if (effectiveStyleText) blocks.push(`## ART STYLE\nRender in this style: ${effectiveStyleText}`);
+    || (styleImages.length > 0 ? 'EXACTLY match the visual style shown in the style reference image(s). Replicate the precise rendering technique, color palette, line quality, shading method, and artistic medium. The output must look like it was created by the same artist using the same tools.' : '');
+  if (effectiveStyleText) blocks.push(`## ART STYLE — CRITICAL (overrides default rendering)\nYou MUST render in this style: ${effectiveStyleText}\nStyle adherence takes priority over photorealism. If the style is non-photorealistic, the output MUST be non-photorealistic.`);
   return {
     text: blocks.join('\n\n'),
     styleText: effectiveStyleText,
@@ -344,7 +349,7 @@ function getMultimodalModelFromGraph(
 ): GeminiImageModel | null {
   const nodes = getNodes();
   for (const n of nodes) {
-    if (n.type !== 'charModelSettings' && n.type !== 'charGenerate') continue;
+    if (n.type !== 'charGenerate') continue;
     const apiId = n.data?.multimodalApiId as string | undefined;
     if (apiId) return apiId as GeminiImageModel;
   }
@@ -356,7 +361,7 @@ function getAspectRatioFromGraph(
 ): string {
   const nodes = getNodes();
   for (const n of nodes) {
-    if (n.type !== 'charModelSettings' && n.type !== 'charGenerate') continue;
+    if (n.type !== 'charGenerate') continue;
     const ar = n.data?.aspectRatio as string | undefined;
     if (ar) return ar;
   }
@@ -603,6 +608,38 @@ function CharViewNodeInner({ id, data, selected }: Props) {
     );
   }, [currentImage, data?.generatedImage, id, setNodes]);
 
+  // ── Multi-image gallery ──
+  const initialGallery = (data?.imageGallery as GeneratedImage[]) ?? [];
+  const [imageGallery, setImageGallery] = useState<GeneratedImage[]>(initialGallery);
+  const [galleryIdx, setGalleryIdx] = useState(0);
+  const [genCount, setGenCount] = useState<number>((data?.genCount as number) ?? 1);
+
+  useEffect(() => {
+    if (data?.genCount === undefined) {
+      setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, genCount: 1 } } : n));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync gallery when pushed externally (e.g. from GenerateCharImageNode)
+  const externalGallery = data?.imageGallery as GeneratedImage[] | undefined;
+  const externalGallerySig = externalGallery?.length ? externalGallery.map((g) => g.base64.slice(0, 40)).join('|') : '';
+  const localGallerySig = imageGallery.length ? imageGallery.map((g) => g.base64.slice(0, 40)).join('|') : '';
+  useEffect(() => {
+    if (externalGallerySig && externalGallerySig !== localGallerySig) {
+      setImageGallery(externalGallery!);
+      setGalleryIdx(0);
+    }
+  }, [externalGallerySig]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const persistGallery = useCallback((gallery: GeneratedImage[], idx: number) => {
+    const img = gallery[idx] ?? gallery[0] ?? null;
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === id ? { ...n, data: { ...n.data, imageGallery: gallery, generatedImage: img } } : n,
+      ),
+    );
+  }, [id, setNodes]);
+
   // ── Embedded History (all views) ──
   const initialEntries = (data?.historyEntries as HistorySnapshot[]) ?? [];
   const [historyEntries, setHistoryEntries] = useState<HistorySnapshot[]>(initialEntries);
@@ -659,8 +696,9 @@ function CharViewNodeInner({ id, data, selected }: Props) {
     pushHistory(pending.image, pending.label);
   }, [id, data, setNodes, pushHistory]);
 
+  const galleryImage = imageGallery.length > 1 ? (imageGallery[galleryIdx] ?? null) : null;
   const historyViewImage = activeHistIdx >= 0 ? historyEntries[activeHistIdx]?.image ?? null : null;
-  const viewImage = historyViewImage ?? currentImage;
+  const viewImage = historyViewImage ?? galleryImage ?? currentImage;
 
   // ── Auto-generate perspective when Main Stage image arrives (non-main views) ──
   // Only triggers on _orthoTrigger from a fresh generation, NOT from Gemini Editor edits.
@@ -716,7 +754,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
       getEdges as () => Array<{ source: string; target: string }>,
     );
     if (orthoCtx.styleText || orthoCtx.styleImages.length > 0) {
-      prompt = prompt.replace(RENDER_STYLE_BLOCK, `\nRENDERING STYLE: Match the art style from the style reference(s). Preserve character design accuracy while using the referenced visual technique.\n`);
+      prompt = prompt.replace(RENDER_STYLE_BLOCK, `\nRENDERING STYLE — CRITICAL: You MUST render in the EXACT art style from the style reference(s). Replicate the precise rendering technique, line quality, color palette, shading method, and medium. Style adherence takes priority over photorealism. Preserve character design accuracy.\n`);
     }
     if (orthoCtx.text) {
       prompt = orthoCtx.text + '\n\n' + prompt;
@@ -755,21 +793,37 @@ function CharViewNodeInner({ id, data, selected }: Props) {
       try {
         const mmModel = getMultimodalModelFromGraph(getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>) ?? 'gemini-flash-image';
         const arFromGraph = getAspectRatioFromGraph(getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>);
-        console.log(`%c[CharView:${viewKey}] Auto-gen: ${allRefImages.length} ref imgs (${orthoCtx.styleImages.length} style), aspect=${arFromGraph}`, 'color: #00bcd4; font-weight: bold');
-        const results = await generateWithGeminiRef(prompt, allRefImages, mmModel, arFromGraph);
-        if (!autoGenMountedRef.current || session.signal.aborted) return;
+        const count = Math.max(1, genCount);
+        console.log(`%c[CharView:${viewKey}] Auto-gen: ${count}x, ${allRefImages.length} ref imgs (${orthoCtx.styleImages.length} style), aspect=${arFromGraph}`, 'color: #00bcd4; font-weight: bold');
 
-        const img = results[0];
-        if (!img) return;
+        let gallery: GeneratedImage[];
+        if (count > 1) {
+          const settled = await Promise.allSettled(
+            Array.from({ length: count }, () => generateWithGeminiRef(prompt, allRefImages, mmModel, arFromGraph)),
+          );
+          if (!autoGenMountedRef.current || session.signal.aborted) return;
+          gallery = settled
+            .filter((r): r is PromiseFulfilledResult<GeneratedImage[]> => r.status === 'fulfilled')
+            .map((r) => r.value[0])
+            .filter(Boolean);
+        } else {
+          const results = await generateWithGeminiRef(prompt, allRefImages, mmModel, arFromGraph);
+          if (!autoGenMountedRef.current || session.signal.aborted) return;
+          gallery = results[0] ? [results[0]] : [];
+        }
 
-        devLog(`[CharView:${viewKey}] ✓ Auto-generated ${cfg.label} (${(img.base64.length / 1024).toFixed(0)}KB)`);
-        setEditedImage(img);
+        if (gallery.length === 0) return;
+
+        devLog(`[CharView:${viewKey}] ✓ Auto-generated ${gallery.length} ${cfg.label} image(s)`);
+        setEditedImage(gallery[0]);
+        setImageGallery(gallery);
+        setGalleryIdx(0);
         setNodes((nds) =>
           nds.map((n) =>
-            n.id === id ? { ...n, data: { ...n.data, generatedImage: img } } : n,
+            n.id === id ? { ...n, data: { ...n.data, generatedImage: gallery[0], imageGallery: gallery } } : n,
           ),
         );
-        pushHistory(img, `Auto: ${cfg.label}`);
+        for (const img of gallery) pushHistory(img, `Auto: ${cfg.label}`);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (!msg.toLowerCase().includes('cancel') && !msg.toLowerCase().includes('abort')) {
@@ -781,7 +835,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         setAutoGenBusy(false);
       }
     })();
-  }, [isMain, isCustom, referenceImage, orthoTrigger, viewKey, cfg, id, setNodes, pushHistory, data, useImage, effectiveAngleRef, viewHubToggles, getNode, getEdges, getNodes]);
+  }, [isMain, isCustom, referenceImage, orthoTrigger, viewKey, cfg, id, setNodes, pushHistory, data, useImage, effectiveAngleRef, viewHubToggles, getNode, getEdges, getNodes, genCount]);
 
   // ── Inline Edit ──
   const [editText, setEditText] = useState('');
@@ -1129,18 +1183,18 @@ function CharViewNodeInner({ id, data, selected }: Props) {
     }
   }, [activeHistIdx, historyEntries.length]);
 
-  // ── Manual "Generate View" button for non-main views ──
+  // ── Manual "Generate View" button (all views including main) ──
   const [genBusy, setGenBusy] = useState(false);
   const handleGenerateView = useCallback(async () => {
-    if (isMain || genBusy) return;
-    const mainImg = getMainStageImage(id, getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>);
-    if (!mainImg) {
+    if (genBusy) return;
+    const mainImg = isMain ? null : getMainStageImage(id, getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>);
+    if (!isMain && !mainImg) {
       setEditError('No Main Stage image found — generate a character first');
       return;
     }
 
     const basePrompt = buildViewPrompt(viewKey, data);
-    if (!basePrompt) {
+    if (!isMain && !basePrompt) {
       setEditError(isCustom ? 'Enable "Use Text" and enter a view description, or enable "Use Image" and provide/connect a reference.' : 'No prompt available');
       return;
     }
@@ -1163,65 +1217,134 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         getEdges as () => Array<{ source: string; target: string }>,
       );
 
-      const baseRefs: GeneratedImage[] = (() => {
-        if (isCustom && useImage && effectiveAngleRef) {
-          return [mainImg, effectiveAngleRef];
-        }
-        return [mainImg];
-      })();
-      const refImages: GeneratedImage | GeneratedImage[] = genCtx.styleImages.length > 0
-        ? [...baseRefs, ...genCtx.styleImages]
-        : baseRefs.length === 1 ? baseRefs[0] : baseRefs;
-
       const userEdit = editText.trim();
-      const renderBlock = (genCtx.styleText || genCtx.styleImages.length > 0)
-        ? `\nRENDERING STYLE: Match the art style from the style reference(s). Preserve character design accuracy while using the referenced visual technique.\n`
-        : RENDER_STYLE_BLOCK;
-      let fullPrompt = isCustom && useImage && effectiveAngleRef && !useText
-        ? `${NO_TEXT_RULE}\n\nCreate a custom view of this character matching the camera angle and pose shown in the second reference image. Preserve the character's identity from the first reference image exactly.\n${renderBlock}\n${FULL_BODY_RULE}\nBackground: solid flat neutral grey. No floor, no shadows, no environment.`
-        : (isCustom && useImage && effectiveAngleRef
-          ? basePrompt + '\nUse the second reference image as a guide for the desired camera angle, pose, and framing.'
-          : basePrompt);
 
-      if (genCtx.styleText || genCtx.styleImages.length > 0) {
-        fullPrompt = fullPrompt.replace(RENDER_STYLE_BLOCK, renderBlock);
-      }
-      if (genCtx.styleImages.length > 0) {
-        const charCount = baseRefs.length;
-        const styleStart = charCount + 1;
-        fullPrompt += `\n\nIMAGE LAYOUT: Images 1–${charCount} are CHARACTER REFERENCES. Images ${styleStart}–${charCount + genCtx.styleImages.length} are STYLE REFERENCES — replicate their visual style. Do NOT copy characters/scenes from style refs.`;
+      let refImages: GeneratedImage | GeneratedImage[];
+      let fullPrompt: string;
+
+      if (isMain) {
+        const srcImage = viewImage;
+        const freshPass = count > 1;
+        const hasStyleOverride = !!(genCtx.styleText || genCtx.styleImages.length > 0);
+        const stylePrefix = genCtx.styleImages.length > 0
+          ? `⚠️ STYLE REPLICATION — #1 PRIORITY: Your output MUST look like a screenshot from the SAME game/artwork as the style reference image(s). Replicate the EXACT geometry fidelity, texture resolution, shading method, polygon count, and abstraction level. Do NOT "clean up" or "modernize" — if the style is low-poly, your output MUST be low-poly. If textures are low-res, your output MUST have low-res textures.${genCtx.styleText ? ` Style description: ${genCtx.styleText}` : ''}\n`
+          : '';
+        const renderBlock = hasStyleOverride
+          ? `\n${stylePrefix}RENDERING STYLE — CRITICAL: Render in the EXACT art style described/shown in the style reference(s). Replicate the precise rendering technique, line quality, color palette, shading method, and medium. Style adherence takes priority over photorealism.${genCtx.styleText && !genCtx.styleImages.length ? ` Style directive: ${genCtx.styleText}` : ''}\n`
+          : RENDER_STYLE_BLOCK;
+
+        if (srcImage && !freshPass) {
+          const editInstr = userEdit || 'Regenerate this character with the same design, same outfit, same pose. Produce a clean, high-quality result.';
+          fullPrompt = EDIT_PREFIX + editInstr + (hasStyleOverride ? `\n${renderBlock}` : '') + EDIT_SUFFIX;
+          refImages = genCtx.styleImages.length > 0 ? [srcImage, ...genCtx.styleImages] : srcImage;
+
+          if (genCtx.styleImages.length > 0) {
+            fullPrompt += `\n\nIMAGE LAYOUT: Image 1 is the CHARACTER REFERENCE. Images 2–${1 + genCtx.styleImages.length} are STYLE REFERENCES — replicate their visual style. Do NOT copy characters/scenes from style refs.`;
+          }
+        } else {
+          if (!freshPass && !userEdit) {
+            setEditError('Enter a description in the edit field to generate a new image');
+            setGenBusy(false);
+            clearInterval(editTimerRef.current);
+            unregisterRequest(session);
+            return;
+          }
+
+          const charDesc = genCtx.text || userEdit || '';
+          fullPrompt = `${NO_TEXT_RULE}\n\n${charDesc}\n${renderBlock}\n${FULL_BODY_RULE}\nBackground: solid flat neutral grey. No floor, no shadows, no environment.`;
+          if (userEdit && genCtx.text) {
+            fullPrompt += `\n\nAdditional instructions: ${userEdit}`;
+          }
+          refImages = genCtx.styleImages.length > 0 ? genCtx.styleImages : [];
+
+          if (genCtx.styleImages.length > 0) {
+            fullPrompt += `\n\nIMAGE LAYOUT: All ${genCtx.styleImages.length} image(s) are STYLE REFERENCES — replicate their visual style. Do NOT copy characters/scenes from style refs.`;
+          }
+        }
+      } else {
+        const baseRefs: GeneratedImage[] = (() => {
+          if (isCustom && useImage && effectiveAngleRef) {
+            return [mainImg!, effectiveAngleRef];
+          }
+          return [mainImg!];
+        })();
+        refImages = genCtx.styleImages.length > 0
+          ? [...baseRefs, ...genCtx.styleImages]
+          : baseRefs.length === 1 ? baseRefs[0] : baseRefs;
+
+        const orthoStylePrefix = genCtx.styleImages.length > 0
+          ? `⚠️ STYLE REPLICATION — #1 PRIORITY: Match the EXACT rendering style, polygon fidelity, texture resolution, and abstraction level from the style reference image(s). Do NOT modernize or clean up the style.${genCtx.styleText ? ` Style: ${genCtx.styleText}` : ''}\n`
+          : '';
+        const renderBlock = (genCtx.styleText || genCtx.styleImages.length > 0)
+          ? `\n${orthoStylePrefix}RENDERING STYLE — CRITICAL: Render in the EXACT art style from the style reference(s). Replicate the precise rendering technique, line quality, color palette, shading method, and medium. Style adherence takes priority over photorealism. Preserve character design accuracy.\n`
+          : RENDER_STYLE_BLOCK;
+        fullPrompt = isCustom && useImage && effectiveAngleRef && !useText
+          ? `${NO_TEXT_RULE}\n\nCreate a custom view of this character matching the camera angle and pose shown in the second reference image. Preserve the character's identity from the first reference image exactly.\n${renderBlock}\n${FULL_BODY_RULE}\nBackground: solid flat neutral grey. No floor, no shadows, no environment.`
+          : (isCustom && useImage && effectiveAngleRef
+            ? basePrompt! + '\nUse the second reference image as a guide for the desired camera angle, pose, and framing.'
+            : basePrompt!);
+
+        if (genCtx.styleText || genCtx.styleImages.length > 0) {
+          fullPrompt = fullPrompt.replace(RENDER_STYLE_BLOCK, renderBlock);
+        }
+        if (genCtx.styleImages.length > 0) {
+          const charCount = Array.isArray(refImages) ? refImages.length - genCtx.styleImages.length : 1;
+          const styleStart = charCount + 1;
+          fullPrompt += `\n\nIMAGE LAYOUT: Images 1–${charCount} are CHARACTER REFERENCES. Images ${styleStart}–${charCount + genCtx.styleImages.length} are STYLE REFERENCES — replicate their visual style. Do NOT copy characters/scenes from style refs.`;
+        }
+
+        if (userEdit) {
+          fullPrompt += `\n\nAdditional instructions: ${userEdit}`;
+        }
       }
 
       if (genCtx.text) {
         fullPrompt = genCtx.text + '\n\n' + fullPrompt;
       }
-      if (userEdit) {
-        fullPrompt += `\n\nAdditional instructions: ${userEdit}`;
-      }
 
       const modelLabel = GEMINI_IMAGE_MODELS[editModel]?.label ?? editModel;
       const genAspect = getAspectRatioFromGraph(getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>);
-      setEditStatus(`Generating (${modelLabel})…`);
-      console.log(`%c[CharView:${viewKey}] Generate: ${Array.isArray(refImages) ? refImages.length : 1} ref imgs (${genCtx.styleImages.length} style), aspect=${genAspect}`, 'color: #00bcd4; font-weight: bold');
+      const count = Math.max(1, genCount);
+      console.log(`%c[CharView:${viewKey}] Generate: ${count}x, ${Array.isArray(refImages) ? refImages.length : 1} ref imgs (${genCtx.styleImages.length} style), aspect=${genAspect}`, 'color: #00bcd4; font-weight: bold');
 
-      const results = await generateWithGeminiRef(fullPrompt, refImages, editModel, genAspect);
+      setEditStatus(`Generating ${count > 1 ? `${count} images` : ''} (${modelLabel})…`);
 
-      if (!mountedRef.current || session.signal.aborted) return;
-      if (!results[0]) throw new Error('No image returned');
+      const promises = Array.from({ length: count }, (_, i) => {
+        const variationTag = count > 1
+          ? `\n\n[VARIATION #${i + 1}] — This is one of ${count} independent generations. Produce a UNIQUE interpretation: vary the pose, body language, camera angle, expression, weight distribution, and composition. Do NOT replicate other variations. Make this version feel distinctly different while maintaining the same character identity and attributes.\n`
+          : '';
+        return generateWithGeminiRef(fullPrompt + variationTag, refImages, editModel, genAspect);
+      });
+      const settled = await Promise.allSettled(promises);
 
-      const img = results[0];
-      const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
-      setEditStatus(`Done in ${elapsed}s ✓`);
-      setEditedImage(img);
+      if (!mountedRef.current || session.signal.aborted) throw new Error('Cancelled');
+
+      const gallery: GeneratedImage[] = [];
+      for (const result of settled) {
+        if (result.status === 'fulfilled' && result.value[0]) {
+          gallery.push(result.value[0]);
+        }
+      }
+
+      if (gallery.length === 0) throw new Error('No images returned');
+
+      setEditedImage(gallery[0]);
       setNodes((nds) =>
         nds.map((n) =>
-          n.id === id ? { ...n, data: { ...n.data, generatedImage: img } } : n,
+          n.id === id ? { ...n, data: { ...n.data, generatedImage: gallery[0] } } : n,
         ),
       );
+
+      setImageGallery(gallery);
+      setGalleryIdx(0);
+      persistGallery(gallery, 0);
+
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+      setEditStatus(`Done — ${gallery.length} image${gallery.length > 1 ? 's' : ''} in ${elapsed}s ✓`);
       const histLabel = userEdit
         ? `${viewImage ? 'Regen' : 'Gen'}: ${userEdit.slice(0, 40)}`
         : `${viewImage ? 'Regenerated' : 'Generated'} ${(isCustom ? (customLabel || cfg.label) : cfg.label).toLowerCase()}`;
-      pushHistory(img, histLabel);
+      for (const img of gallery) pushHistory(img, histLabel);
       if (userEdit) setEditText('');
       setTimeout(() => { if (mountedRef.current) setEditStatus(null); }, 3000);
     } catch (e) {
@@ -1238,10 +1361,22 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         setEditElapsed(0);
       }
     }
-  }, [isMain, isCustom, genBusy, id, cfg, customLabel, data, viewKey, viewImage, editText, getNode, getNodes, getEdges, setNodes, pushHistory, editModel, useText, useImage, effectiveAngleRef]);
+  }, [isMain, isCustom, genBusy, genCount, id, cfg, customLabel, data, viewKey, viewImage, editText, getNode, getNodes, getEdges, setNodes, pushHistory, persistGallery, editModel, useText, useImage, effectiveAngleRef]);
 
   const externalGenerating = (data?.generating as boolean) ?? false;
-  const anyBusy = editBusy || genBusy || autoGenBusy || restoreBusy || externalGenerating;
+  const internalBusy = editBusy || genBusy || autoGenBusy || restoreBusy;
+  const anyBusy = internalBusy || externalGenerating;
+
+  const selfSetGeneratingRef = useRef(false);
+  useEffect(() => {
+    if (internalBusy && !selfSetGeneratingRef.current) {
+      selfSetGeneratingRef.current = true;
+      setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, generating: true } } : n));
+    } else if (!internalBusy && selfSetGeneratingRef.current) {
+      selfSetGeneratingRef.current = false;
+      setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, generating: false } } : n));
+    }
+  }, [internalBusy, id, setNodes]);
 
   const tooltipKey = viewKey === 'front' ? 'charFrontViewer'
     : viewKey === 'back' ? 'charBackViewer'
@@ -1520,37 +1655,120 @@ function CharViewNodeInner({ id, data, selected }: Props) {
             <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
             <span className="char-viewer-zoom-info">{Math.round(zoom * 100)}%</span>
           </div>
-          {(!isMain || viewImage) && (
-            <div className="char-viewer-toolbar" style={{ justifyContent: 'center' }}>
-              {!isMain && (
-                <button
-                  className="char-btn nodrag"
-                  onClick={handleGenerateView}
-                  disabled={anyBusy || !mainStageImage}
-                  title={mainStageImage ? `Generate ${displayLabel.toLowerCase()} from Main Stage` : 'No Main Stage image yet'}
-                  style={{ background: anyBusy ? undefined : cfg.color, color: '#000', fontWeight: 600, flex: 1 }}
-                >
-                  {genBusy ? `${editElapsed}s…` : viewImage ? 'Regenerate' : 'Generate View'}
-                </button>
+          {/* ── Generate / Restore row ── */}
+          <div className="char-viewer-toolbar" style={{ justifyContent: 'center' }}>
+            <button
+              className="char-btn nodrag"
+              onClick={handleGenerateView}
+              disabled={anyBusy || (!isMain && !mainStageImage)}
+              title={isMain ? `Generate ${displayLabel.toLowerCase()}` : (mainStageImage ? `Generate ${displayLabel.toLowerCase()} from Main Stage` : 'No Main Stage image yet')}
+              style={{ background: anyBusy ? undefined : cfg.color, color: '#000', fontWeight: 600, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}
+            >
+              {genBusy ? `${editElapsed}s…` : (
+                <>
+                  {viewImage ? 'Regenerate' : 'Generate'}{' '}
+                  <input
+                    type="number"
+                    min={1}
+                    value={genCount}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      const v = Math.max(1, parseInt(e.target.value) || 1);
+                      setGenCount(v);
+                      setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, genCount: v } } : n));
+                    }}
+                    className="nodrag"
+                    disabled={anyBusy}
+                    style={{
+                      width: 28, textAlign: 'center', padding: '0 2px', fontSize: 11, fontWeight: 700,
+                      background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(0,0,0,0.3)',
+                      borderRadius: 3, color: '#000', outline: 'none', lineHeight: '16px',
+                    }}
+                  />
+                  {' '}Image{genCount !== 1 ? 's' : ''}
+                </>
               )}
-              {viewImage && (
-                <button
-                  className="char-btn nodrag"
-                  onClick={handleRestore}
-                  disabled={anyBusy}
-                  title="Restore quality — AI redraws the image from scratch to remove accumulated artifacts and degradation"
-                  style={{
-                    background: anyBusy ? undefined : 'linear-gradient(135deg, #00c853, #00e5ff)',
-                    color: anyBusy ? undefined : '#000',
-                    fontWeight: 600,
-                    fontSize: 10,
-                    flex: 1,
-                  }}
-                >
-                  {restoreBusy ? `${editElapsed}s\u2026` : 'Restore'}
-                </button>
-              )}
-            </div>
+            </button>
+            {viewImage && (
+              <button
+                className="char-btn nodrag"
+                onClick={handleRestore}
+                disabled={anyBusy}
+                title="Restore quality — AI redraws the image from scratch to remove accumulated artifacts and degradation"
+                style={{
+                  background: anyBusy ? undefined : 'linear-gradient(135deg, #00c853, #00e5ff)',
+                  color: anyBusy ? undefined : '#000',
+                  fontWeight: 600,
+                  fontSize: 10,
+                  flex: 1,
+                }}
+              >
+                {restoreBusy ? `${editElapsed}s\u2026` : 'Restore'}
+              </button>
+            )}
+          </div>
+
+          {/* ── Gallery nav: [←] [N/M] [✕] [→] ── */}
+          {imageGallery.length > 1 && (
+          <div className="char-viewer-toolbar nodrag" style={{ justifyContent: 'space-between', gap: 4 }}>
+            <button
+              className="char-btn"
+              disabled={galleryIdx <= 0}
+              onClick={() => {
+                const newIdx = galleryIdx - 1;
+                setGalleryIdx(newIdx);
+                const img = imageGallery[newIdx];
+                if (img) {
+                  setEditedImage(img);
+                  setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, generatedImage: img } } : n));
+                }
+              }}
+              style={{ padding: '3px 8px', fontSize: 12 }}
+              title="Previous image"
+            >
+              ◀
+            </button>
+            <span style={{ fontSize: 10, color: '#aaa', whiteSpace: 'nowrap' }}>
+              {galleryIdx + 1} / {imageGallery.length}
+            </span>
+            <button
+              className="char-btn"
+              onClick={() => {
+                if (imageGallery.length <= 1) return;
+                const updated = imageGallery.filter((_, i) => i !== galleryIdx);
+                const newIdx = Math.min(galleryIdx, updated.length - 1);
+                setImageGallery(updated);
+                setGalleryIdx(newIdx);
+                const img = updated[newIdx];
+                if (img) {
+                  setEditedImage(img);
+                  persistGallery(updated, newIdx);
+                }
+              }}
+              style={{ padding: '3px 8px', fontSize: 10, color: '#f44336' }}
+              title="Delete current image from gallery"
+            >
+              ✕
+            </button>
+            <button
+              className="char-btn"
+              disabled={galleryIdx >= imageGallery.length - 1}
+              onClick={() => {
+                const newIdx = galleryIdx + 1;
+                setGalleryIdx(newIdx);
+                const img = imageGallery[newIdx];
+                if (img) {
+                  setEditedImage(img);
+                  setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, generatedImage: img } } : n));
+                }
+              }}
+              style={{ padding: '3px 8px', fontSize: 12 }}
+              title="Next image"
+            >
+              ▶
+            </button>
+          </div>
           )}
         </>
       )}

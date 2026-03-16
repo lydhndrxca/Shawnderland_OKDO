@@ -2,7 +2,8 @@
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Handle, Position, useReactFlow, useStore } from '@xyflow/react';
-import { generateText } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import { generateText, type TextModelId } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import TextModelSelector from '@/components/TextModelSelector';
 import './AudioNodes.css';
 
 interface Props {
@@ -87,6 +88,7 @@ function VoiceScriptNodeInner({ id, data, selected }: Props) {
   const [generatedText, setGeneratedText] = useState<string>((data.text as string) ?? '');
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
+  const [textModel, setTextModel] = useState<TextModelId>((data?.textModel as TextModelId) ?? 'fast');
 
   /* ── Collect character info from upstream (identity, description, attributes) ── */
   const characterInfo = useStore(
@@ -132,16 +134,16 @@ function VoiceScriptNodeInner({ id, data, selected }: Props) {
 
   useEffect(() => {
     if (!didMountRef.current) { didMountRef.current = true; return; }
-    persistData({ mode, tone, context, customPrompt, count });
+    persistData({ mode, tone, context, customPrompt, count, textModel });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, tone, context, customPrompt, count]);
+  }, [mode, tone, context, customPrompt, count, textModel]);
 
   const handleGenerate = useCallback(async () => {
     setProcessing(true);
     setError('');
     try {
       const prompt = buildPrompt(mode, tone, context, characterInfo, customPrompt, count);
-      const result = await generateText(prompt);
+      const result = await generateText(prompt, undefined, textModel);
       if (mountedRef.current) {
         const cleaned = result.trim();
         setGeneratedText(cleaned);
@@ -152,7 +154,7 @@ function VoiceScriptNodeInner({ id, data, selected }: Props) {
     } finally {
       if (mountedRef.current) setProcessing(false);
     }
-  }, [mode, tone, context, characterInfo, customPrompt, count, persistData]);
+  }, [mode, tone, context, characterInfo, customPrompt, count, textModel, persistData]);
 
   const handleClear = useCallback(() => {
     setGeneratedText('');
@@ -167,7 +169,14 @@ function VoiceScriptNodeInner({ id, data, selected }: Props) {
       <Handle type="source" position={Position.Right} style={{ background: '#ff6f00' }} />
 
       <div className="audio-node-header" style={{ background: 'linear-gradient(135deg, #1565c0, #42a5f5)' }}>
-        <span>Voice Script Writer</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span>Voice Script Writer</span>
+          <TextModelSelector
+            value={textModel}
+            onChange={(m) => { setTextModel(m); setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, textModel: m } } : n)); }}
+            disabled={processing}
+          />
+        </span>
         <span style={{ fontSize: 9, opacity: 0.7 }}>Gemini AI</span>
       </div>
 

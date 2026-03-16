@@ -173,8 +173,8 @@ function ContextHubNodeInner({ id, data, selected }: Props) {
   return (
     <div className={`char-node ${selected ? 'selected' : ''}`} style={{
       minWidth: 260, maxWidth: 300,
-      opacity: hubActive ? 1 : 0.5,
-      transition: 'opacity 0.2s',
+      filter: hubActive ? 'none' : 'grayscale(0.6) brightness(0.35)',
+      transition: 'filter 0.2s',
     }}>
       <Handle type="target" position={Position.Left} id="hub-in" className="char-handle" style={{ top: '50%' }} />
       <Handle type="source" position={Position.Right} id="hub-out" className="char-handle" style={{ top: '50%' }} />

@@ -21,8 +21,8 @@ import {
 import { resolveNodeInfluences } from '@/lib/ideation/engine/conceptlab/resolveInfluences';
 import { getGlobalSettings } from '@/lib/globalSettings';
 import { createProcessingAnimator } from '@/lib/processingAnimation';
-import { IMAGE_GEN_MODELS, MULTIMODAL_MODELS, PRESET_KEY, loadPreset } from './ModelSettingsNode';
-import type { PresetData } from './ModelSettingsNode';
+import { IMAGE_GEN_MODELS, MULTIMODAL_MODELS, PRESET_KEY, loadPreset, IMG_TO_MULTIMODAL_API } from './modelData';
+import type { PresetData } from './modelData';
 import type { ViewHubToggles } from './ImageViewHubNode';
 import { DEFAULT_VIEW_HUB_TOGGLES } from './ImageViewHubNode';
 import { NODE_TOOLTIPS } from './nodeTooltips';
@@ -172,9 +172,18 @@ function gatherInputs(
     } else if (src.type === 'charPose') {
       if (d.pose) pose = d.pose as string;
     } else if (src.type === 'charStyle') {
-      if (d.styleText) styleText = d.styleText as string;
+      const mode = (d.styleMode as string) || 'images';
+      const hasText = !!(d.styleText as string)?.trim();
       const imgs = d.styleImages as GeneratedImage[] | undefined;
-      if (imgs && imgs.length > 0) styleImages.push(...imgs);
+      const hasImgs = !!(imgs && imgs.length > 0);
+
+      const useText = mode === 'text' || mode === 'both'
+        || (mode === 'images' && !hasImgs && hasText);
+      const useImgs = mode === 'images' || mode === 'both'
+        || (mode === 'text' && !hasText && hasImgs);
+
+      if (useText && hasText) styleText = (d.styleText as string).trim();
+      if (useImgs && hasImgs) styleImages.push(...imgs!);
     } else if (src.type === 'charRefCallout') {
       const callout = (d.calloutText as string) || 'incorporate this item';
       const refEdges = edges.filter((re) => re.target === src.id);
@@ -184,10 +193,13 @@ function gatherInputs(
         const refSrc = getNode(re.source);
         if (!refSrc?.data) continue;
         const rd = refSrc.data as Record<string, unknown>;
-        devLog(`[gatherInputs]   → RefCallout source type="${refSrc.type}", hasGeneratedImage=${!!(rd.generatedImage as { base64?: string })?.base64}, hasImageBase64=${!!rd.imageBase64}`);
-        const rImg = rd.generatedImage as GeneratedImage | undefined;
-        if (rImg?.base64) { foundImage = rImg; break; }
-        if (rd.imageBase64) { foundImage = { base64: rd.imageBase64 as string, mimeType: (rd.mimeType as string) || 'image/png' }; break; }
+        const hasEdited = !!(rd.editedImage as GeneratedImage | undefined)?.base64;
+        const hasGenerated = !!(rd.generatedImage as GeneratedImage | undefined)?.base64;
+        const hasBase64 = !!rd.imageBase64;
+        devLog(`[gatherInputs]   → RefCallout source type="${refSrc.type}", editedImage=${hasEdited}, generatedImage=${hasGenerated}, imageBase64=${hasBase64}`);
+        if (hasEdited) { foundImage = rd.editedImage as GeneratedImage; break; }
+        if (hasGenerated) { foundImage = rd.generatedImage as GeneratedImage; break; }
+        if (hasBase64) { foundImage = { base64: rd.imageBase64 as string, mimeType: (rd.mimeType as string) || 'image/png' }; break; }
       }
       if (foundImage) {
         devLog(`[gatherInputs]   ✓ RefCallout image found (${(foundImage.base64.length / 1024).toFixed(0)}KB), callout="${callout}"`);
@@ -234,8 +246,6 @@ function gatherInputs(
     } else if (src.type === 'charProject') {
       if (d.projectName) projectName = d.projectName as string;
       if (d.outputDir) outputDir = d.outputDir as string;
-    } else if (src.type === 'charModelSettings') {
-      // Model settings are handled separately now — ignore
     } else {
       const img = d.generatedImage as GeneratedImage | undefined;
       const callout = (d.calloutText as string) || '';
@@ -393,6 +403,12 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
   const imgDef = IMAGE_GEN_MODELS.find((m) => m.id === imageGenModel) ?? IMAGE_GEN_MODELS[0];
   const mmDef = MULTIMODAL_MODELS.find((m) => m.id === multimodalModel) ?? MULTIMODAL_MODELS[0];
 
+  const [orthoToggles, setOrthoToggles] = useState<{ front: boolean; back: boolean; side: boolean }>({
+    front: (data?.orthoFront as boolean) ?? true,
+    back: (data?.orthoBack as boolean) ?? true,
+    side: (data?.orthoSide as boolean) ?? true,
+  });
+
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
@@ -482,7 +498,7 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
 
       const hasStyleOverride = styleText.trim().length > 0 || styleImages.length > 0;
       const effectiveStyleText = styleText.trim()
-        || (styleImages.length > 0 ? 'Match the visual style shown in the style reference image(s). Replicate the exact rendering technique, color palette, and artistic approach.' : undefined);
+        || (styleImages.length > 0 ? 'EXACTLY match the visual style shown in the style reference image(s). Replicate the precise rendering technique, color palette, line quality, shading method, and artistic medium. The output must look like it was created by the same artist using the same tools.' : undefined);
       const desc = buildCharacterDescription(synthIdentity, synthAttributes, synthDescription, hasStyleOverride ? effectiveStyleText : undefined);
 
       const influenceBlock = resolveNodeInfluences(
@@ -493,11 +509,17 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
 
       let fullPrompt = buildCharacterViewPrompt('main', desc, hasStyleOverride ? effectiveStyleText : undefined) + influenceBlock;
 
+      const mainStageMMApiId = (IMG_TO_MULTIMODAL_API[imgDef.apiId] ?? 'gemini-flash-image') as GeminiImageModel;
+      const mainStageMMLabel = MULTIMODAL_MODELS.find((m) => m.apiId === mainStageMMApiId)?.label ?? mainStageMMApiId;
+      const hasTextOnlyStyle = hasStyleOverride && styleImages.length === 0 && contentRefs.length === 0;
+
       const genMode = styleImages.length > 0
-        ? `${mmDef.label} + ${styleImages.length} style ref${contentRefs.length > 0 ? ` + ${contentRefs.length} content ref` : ''}`
+        ? `${mainStageMMLabel} + ${styleImages.length} style ref${contentRefs.length > 0 ? ` + ${contentRefs.length} content ref` : ''}`
         : contentRefs.length > 0
-          ? `${mmDef.label} + ${contentRefs.length} content ref`
-          : `${imgDef.label}, ${aspectRatio}`;
+          ? `${mainStageMMLabel} + ${contentRefs.length} content ref`
+          : hasTextOnlyStyle
+            ? `${mainStageMMLabel} + style text`
+            : `${imgDef.label}, ${aspectRatio}`;
       setProgress(`Generating (${genMode})...`);
       const earlyIds = findDownstreamViewersAndHub(id, getNode, getEdges).mainViewerIds;
       setNodes((nds) =>
@@ -519,6 +541,24 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
         return 'have';
       }
 
+      const viewerIds = findDownstreamViewersAndHub(id, getNode, getEdges).mainViewerIds;
+      let viewerGenCount = 1;
+      console.log(`%c[Generate] Looking for genCount in ${viewerIds.length} main viewer(s): ${viewerIds.join(', ')}`, 'color: #ff9800');
+      for (const vid of viewerIds) {
+        const vn = getNode(vid);
+        if (vn?.data) {
+          const raw = (vn.data as Record<string, unknown>).genCount;
+          const gc = typeof raw === 'number' ? raw : parseInt(String(raw), 10);
+          console.log(`%c[Generate]   viewer ${vid} (${vn.type}): raw genCount=${JSON.stringify(raw)}, parsed=${gc}`, 'color: #ff9800');
+          if (!isNaN(gc) && gc >= 1) { viewerGenCount = gc; break; }
+        }
+      }
+      console.log(`%c[Generate] Final viewerGenCount = ${viewerGenCount}`, 'color: #ff9800; font-weight: bold');
+
+      const doGenerate = async (variationIdx?: number): Promise<GeneratedImage[]> => {
+      const variationTag = variationIdx != null
+        ? `\n\n[VARIATION #${variationIdx + 1}] — This is one of several independent generations. Produce a UNIQUE interpretation: vary the pose, body language, camera angle, expression, weight distribution, and composition. Do NOT replicate other variations. Make this version feel distinctly different while maintaining the same character identity and attributes.\n`
+        : '';
       let result: GeneratedImage[];
       if (styleImages.length > 0 || contentRefs.length > 0) {
         const allRefImages = [...styleImages, ...refImages];
@@ -542,42 +582,70 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
           : '';
 
         const hasStyleRefs = styleImages.length > 0;
-        const styleAnalysis = hasStyleRefs ? `
-STYLE ANALYSIS INSTRUCTIONS — study the STYLE REFERENCE image(s) and identify ALL of these:
-1. GEOMETRY: How are shapes constructed? (smooth vs hard edges vs blocky/voxel vs polygonal)
-2. PROPORTIONS: Character body proportions (realistic vs chibi vs exaggerated)
-3. RENDERING: How are surfaces shaded? (flat color vs gradient vs cel-shaded vs painted)
-4. EDGES: Outlines and edges? (thick outlines vs none vs pixelated vs anti-aliased)
-5. COLOR PALETTE: Color range and saturation (limited vs full spectrum, muted vs vibrant)
-6. TEXTURE: Surface detail? (smooth vs noisy vs hand-painted vs pixel-grid)
-7. RESOLUTION/FIDELITY: Abstraction level? (hyper-detailed vs minimalist vs low-fi)` : '';
 
-        const styleRules = hasStyleRefs ? `
-CRITICAL STYLE RULES:
-- The output MUST be visually indistinguishable in style from the style reference(s).
-- Do NOT default to a generic version of the style category. Replicate the SPECIFIC rendering technique shown.
-- Do NOT include any characters or scenes from the style reference images — ONLY replicate their visual style.` : '';
+        const styleBlock = hasStyleRefs ? `⚠️ STYLE REPLICATION — THIS IS YOUR #1 PRIORITY ⚠️
+You are given style reference image(s). Your output MUST look like a screenshot from the SAME game/artwork/medium as those references.
 
-        const prompt = `${imageIndexing}
-${styleAnalysis}${calloutSection}
+MANDATORY ANALYSIS — study the style reference(s) and replicate ALL of these EXACTLY:
+• GEOMETRY: polygon count, edge hardness (low-poly angular faces vs smooth vs voxel)
+• TEXTURE FIDELITY: resolution level, visible pixels, hand-painted quality, UV mapping style
+• SHADING: flat vs cel-shaded vs gradient vs PBR-stylized — match the EXACT method
+• COLOR PALETTE: saturation level, hue range, tonal values — match precisely
+• EDGE TREATMENT: outlines, anti-aliasing level, faceted edges
+• LEVEL OF DETAIL: if the reference is deliberately low-detail/low-poly, your output MUST be equally low-detail/low-poly — do NOT "improve" or "upscale" the fidelity
+• OVERALL FIDELITY: match the abstraction level exactly — if it looks like a PS2/PS3 era game, the output should too
 
-${styleDesc}${hasStyleRefs ? 'Now generate a NEW image depicting the following character, rendered in the EXACT same visual style as the style reference(s):' : 'Generate the following character, incorporating all content reference items:'}
+HARD RULES:
+- The output must be VISUALLY INDISTINGUISHABLE in rendering style from the style reference(s)
+- Do NOT "clean up", "enhance", or "modernize" the style — replicate it EXACTLY as-is
+- If the style is low-poly with visible polygons, YOUR OUTPUT MUST HAVE VISIBLE POLYGONS
+- If the style has low-res textures, YOUR OUTPUT MUST HAVE LOW-RES TEXTURES
+- Do NOT produce photorealistic or hyper-detailed output when the style reference is stylized
+- Extract ONLY the visual technique — do NOT copy characters, objects, or scenes from the style reference
+${styleDesc ? `- User's style description: "${styleDesc.trim()}"` : ''}` : '';
+
+        const prompt = `${hasStyleRefs ? styleBlock + '\n\n' : ''}${imageIndexing}${calloutSection}${variationTag}
+
+${styleDesc && !hasStyleRefs ? styleDesc : ''}${hasStyleRefs ? 'Generate a NEW image of the following character. CRITICAL: render in the EXACT same visual style, fidelity level, and rendering technique as the style reference image(s):' : 'Generate the following character, incorporating all content reference items:'}
 
 ${fullPrompt}
-${styleRules}
-${contentRefs.length > 0 ? `- Every content reference item MUST appear on the character. This is MANDATORY — do not skip any.` : ''}`;
+${contentRefs.length > 0 ? `- Every content reference item MUST appear on the character. This is MANDATORY — do not skip any.` : ''}
+${hasStyleRefs ? '\nFINAL REMINDER: Style match is your #1 priority. The output must look like it came from the same game/artwork as the style reference. Do NOT default to realistic rendering.' : ''}`;
 
-        console.log(`%c[Generate] PATH: Multimodal (${mmDef.label}) — ${styleImages.length} style imgs + ${contentRefs.length} content refs, aspect=${aspectRatio}`, 'color: #ff9800; font-weight: bold');
-        devLog(`[GenerateCharImage] Multimodal prompt length: ${prompt.length}`);
-        result = await generateWithGeminiRef(prompt, allRefImages, mmDef.apiId as GeminiImageModel, aspectRatio);
+        console.log(`%c[Generate] PATH: Main stage multimodal (${mainStageMMLabel}) — ${styleImages.length} style imgs + ${contentRefs.length} content refs, aspect=${aspectRatio}`, 'color: #ff9800; font-weight: bold');
+        devLog(`[GenerateCharImage] Multimodal prompt length: ${prompt.length}, model: ${mainStageMMApiId} (mapped from ${imgDef.label})`);
+        result = await generateWithGeminiRef(prompt, allRefImages, mainStageMMApiId, aspectRatio);
+      } else if (hasTextOnlyStyle) {
+        console.log(`%c[Generate] PATH: Main stage multimodal for text-only style (${mainStageMMLabel}) — style: "${effectiveStyleText?.slice(0, 60)}…"`, 'color: #ff9800; font-weight: bold');
+        result = await generateWithGeminiRef(fullPrompt + variationTag, [], mainStageMMApiId, aspectRatio);
       } else if (imgDef.apiId.startsWith('imagen-')) {
         console.log(`%c[Generate] PATH: Imagen 4 text-only (${imgDef.label}) — prompt length: ${fullPrompt.length}`, 'color: #2196f3; font-weight: bold');
-        result = await generateWithImagen4(fullPrompt, aspectRatio, 1, imgDef.apiId);
+        result = await generateWithImagen4(fullPrompt + variationTag, aspectRatio, 1, imgDef.apiId);
       } else {
         console.log(`%c[Generate] PATH: Nano Banana text-only (${imgDef.label}) — prompt length: ${fullPrompt.length}`, 'color: #9c27b0; font-weight: bold');
-        result = await generateWithNanoBanana(fullPrompt, aspectRatio, 1, imgDef.apiId);
+        result = await generateWithNanoBanana(fullPrompt + variationTag, aspectRatio, 1, imgDef.apiId);
       }
-      const mainImage = result[0];
+      return result;
+      }; // end doGenerate
+
+      const count = Math.max(1, viewerGenCount);
+      let gallery: GeneratedImage[];
+      if (count > 1) {
+        setProgress(`Generating ${count} images concurrently…`);
+        const settled = await Promise.allSettled(
+          Array.from({ length: count }, (_, i) => doGenerate(i)),
+        );
+        gallery = settled
+          .filter((r): r is PromiseFulfilledResult<GeneratedImage[]> => r.status === 'fulfilled')
+          .map((r) => r.value[0])
+          .filter(Boolean);
+        if (gallery.length === 0) throw new Error('All generation attempts failed');
+      } else {
+        const result = await doGenerate();
+        gallery = result.slice(0, 1);
+      }
+
+      const mainImage = gallery[0];
       setHasImage(true);
 
       setNodes((nds) =>
@@ -600,7 +668,14 @@ ${contentRefs.length > 0 ? `- Every content reference item MUST appear on the ch
       autoSaveImage(mainImage, 'main_stage', projectName, outputDir || undefined)
         .then((r) => { if (!r.ok) devWarn('[auto-save]', r.error); });
 
-      const { mainViewerIds, viewHubToggles } = findDownstreamViewersAndHub(id, getNode, getEdges);
+      const { mainViewerIds, viewHubToggles: hubToggles } = findDownstreamViewersAndHub(id, getNode, getEdges);
+      const mergedToggles: ViewHubToggles = {
+        ...hubToggles,
+        main: true,
+        front: orthoToggles.front,
+        back: orthoToggles.back,
+        side: orthoToggles.side,
+      };
       const triggerTimestamp = Date.now();
 
       if (mainViewerIds.length > 0) {
@@ -609,13 +684,22 @@ ${contentRefs.length > 0 ? `- Every content reference item MUST appear on the ch
         setNodes((nds) =>
           nds.map((n) =>
             mainViewerIds.includes(n.id)
-              ? { ...n, data: { ...n.data, generatedImage: mainImage, _orthoTrigger: triggerTimestamp, _viewHubToggles: viewHubToggles } }
+              ? {
+                  ...n,
+                  data: {
+                    ...n.data,
+                    generatedImage: mainImage,
+                    imageGallery: gallery,
+                    _orthoTrigger: triggerTimestamp,
+                    _viewHubToggles: mergedToggles,
+                  },
+                }
               : n,
           ),
         );
       }
 
-      const enabledOrthos = (['front', 'back', 'side', 'custom'] as const).filter((k) => viewHubToggles[k]);
+      const enabledOrthos = (['front', 'back', 'side', 'custom'] as const).filter((k) => mergedToggles[k]);
       if (enabledOrthos.length > 0) {
         setProgress(`Done! Auto-generating ${enabledOrthos.join(', ')} views...`);
       } else {
@@ -637,7 +721,7 @@ ${contentRefs.length > 0 ? `- Every content reference item MUST appear on the ch
       );
       anim.clearAll();
     }
-  }, [id, getNode, getEdges, setNodes, setEdges, imgDef, mmDef, aspectRatio]);
+  }, [id, getNode, getEdges, setNodes, setEdges, imgDef, mmDef, aspectRatio, orthoToggles]);
 
   return (
     <div className={`char-node ${selected ? 'selected' : ''} ${generating ? 'char-node-processing' : ''}`}
@@ -713,12 +797,49 @@ ${contentRefs.length > 0 ? `- Every content reference item MUST appear on the ch
         <button type="button" className="nodrag" onClick={handleGenerate} disabled={generating}
           style={{
             width: '100%', height: 34, padding: 0, fontSize: 12, fontWeight: 700,
-            background: 'var(--accent)', border: '1px solid var(--accent)',
-            borderRadius: 4, color: '#fff', cursor: generating ? 'default' : 'pointer',
+            background: '#00bfa5', border: '1px solid #00bfa5',
+            borderRadius: 4, color: '#000', cursor: generating ? 'default' : 'pointer',
             opacity: generating ? 0.5 : 1, transition: 'all 0.15s',
           }}>
-          {generating ? 'Generating...' : 'Generate Character Image'}
+          {generating ? 'Generating...' : 'Generate Main Stage Image'}
         </button>
+
+        {/* Auto-generate ortho toggles */}
+        <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+          {([
+            { key: 'front' as const, label: 'Front', color: '#42a5f5' },
+            { key: 'back' as const, label: 'Back', color: '#ab47bc' },
+            { key: 'side' as const, label: 'Side', color: '#ff7043' },
+          ]).map(({ key, label, color }) => {
+            const active = orthoToggles[key];
+            return (
+              <button
+                key={key}
+                type="button"
+                className="nodrag"
+                disabled={generating}
+                onClick={() => {
+                  const next = { ...orthoToggles, [key]: !active };
+                  setOrthoToggles(next);
+                  persist({ orthoFront: next.front, orthoBack: next.back, orthoSide: next.side });
+                }}
+                style={{
+                  flex: 1, height: 24, padding: 0, fontSize: 9, fontWeight: 600,
+                  background: active ? color : 'transparent',
+                  border: `1px solid ${active ? color : '#555'}`,
+                  borderRadius: 3,
+                  color: active ? '#000' : '#777',
+                  cursor: generating ? 'default' : 'pointer',
+                  opacity: generating ? 0.5 : 1,
+                  transition: 'all 0.15s',
+                }}
+              >
+                {label} View
+              </button>
+            );
+          })}
+        </div>
+
         {generating && <div className="char-progress">{progress || 'Creating character...'}</div>}
         {error && <div className="char-error">{error}</div>}
         {hasImage && !generating && (

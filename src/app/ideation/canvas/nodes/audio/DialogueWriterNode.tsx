@@ -2,7 +2,8 @@
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Handle, Position, useReactFlow, useStore } from '@xyflow/react';
-import { generateText } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import { generateText, type TextModelId } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import TextModelSelector from '@/components/TextModelSelector';
 import './AudioNodes.css';
 
 interface Props {
@@ -83,6 +84,7 @@ function DialogueWriterNodeInner({ id, data, selected }: Props) {
   const [generatedText, setGeneratedText] = useState<string>((data.text as string) ?? '');
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
+  const [textModel, setTextModel] = useState<TextModelId>((data?.textModel as TextModelId) ?? 'fast');
 
   /* ── Collect character context + voice description from upstream ── */
   const upstream = useStore(
@@ -136,9 +138,9 @@ function DialogueWriterNodeInner({ id, data, selected }: Props) {
 
   useEffect(() => {
     if (!didMountRef.current) { didMountRef.current = true; return; }
-    persistData({ topic, lineStyle: style, tone, count });
+    persistData({ topic, lineStyle: style, tone, count, textModel });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topic, style, tone, count]);
+  }, [topic, style, tone, count, textModel]);
 
   const handleGenerate = useCallback(async () => {
     if (!topic.trim()) { setError('Describe what the character is talking about'); return; }
@@ -146,7 +148,7 @@ function DialogueWriterNodeInner({ id, data, selected }: Props) {
     setError('');
     try {
       const prompt = buildPrompt(topic, style, tone, upstream.charContext, upstream.voiceDesc, count);
-      const result = await generateText(prompt);
+      const result = await generateText(prompt, undefined, textModel);
       if (mountedRef.current) {
         const cleaned = result.trim();
         setGeneratedText(cleaned);
@@ -157,7 +159,7 @@ function DialogueWriterNodeInner({ id, data, selected }: Props) {
     } finally {
       if (mountedRef.current) setProcessing(false);
     }
-  }, [topic, style, tone, count, upstream, persistData]);
+  }, [topic, style, tone, count, upstream, textModel, persistData]);
 
   return (
     <div className={`audio-node${selected ? ' selected' : ''}${processing ? ' audio-node-processing' : ''}`}>
@@ -165,7 +167,14 @@ function DialogueWriterNodeInner({ id, data, selected }: Props) {
       <Handle type="source" position={Position.Right} style={{ background: '#42a5f5' }} />
 
       <div className="audio-node-header" style={{ background: 'linear-gradient(135deg, #1b5e20, #388e3c)' }}>
-        <span>Dialogue Writer</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span>Dialogue Writer</span>
+          <TextModelSelector
+            value={textModel}
+            onChange={(m) => { setTextModel(m); setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, textModel: m } } : n)); }}
+            disabled={processing}
+          />
+        </span>
         <span style={{ fontSize: 9, opacity: 0.7 }}>Gemini AI</span>
       </div>
 

@@ -2,7 +2,8 @@
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Handle, Position, useReactFlow, useStore } from '@xyflow/react';
-import { generateText, type GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import { generateText, type GeneratedImage, type TextModelId } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import TextModelSelector from '@/components/TextModelSelector';
 import './AudioNodes.css';
 
 interface Props {
@@ -54,6 +55,7 @@ function VoiceDesignerNodeInner({ id, data, selected }: Props) {
   const [voiceDesc, setVoiceDesc] = useState<string>((data.text as string) ?? '');
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
+  const [textModel, setTextModel] = useState<TextModelId>((data?.textModel as TextModelId) ?? 'fast');
 
   /* ── Detect upstream image changes for status display ── */
   const hasImage = useStore(
@@ -81,9 +83,9 @@ function VoiceDesignerNodeInner({ id, data, selected }: Props) {
 
   useEffect(() => {
     if (!didMountRef.current) { didMountRef.current = true; return; }
-    persistData({ text: voiceDesc });
+    persistData({ text: voiceDesc, textModel });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [voiceDesc]);
+  }, [voiceDesc, textModel]);
 
   const gatherContext = useCallback(() => {
     const edges = getEdges();
@@ -135,7 +137,7 @@ function VoiceDesignerNodeInner({ id, data, selected }: Props) {
 
     try {
       const prompt = context ? VOICE_PROMPT_WITH_CONTEXT(context) : VOICE_PROMPT;
-      const result = await generateText(prompt, image);
+      const result = await generateText(prompt, image, textModel);
       if (mountedRef.current) {
         const cleaned = result.trim();
         setVoiceDesc(cleaned);
@@ -146,7 +148,7 @@ function VoiceDesignerNodeInner({ id, data, selected }: Props) {
     } finally {
       if (mountedRef.current) setProcessing(false);
     }
-  }, [gatherContext, persistData]);
+  }, [gatherContext, persistData, textModel]);
 
   return (
     <div className={`audio-node${selected ? ' selected' : ''}${processing ? ' audio-node-processing' : ''}`}>
@@ -154,7 +156,14 @@ function VoiceDesignerNodeInner({ id, data, selected }: Props) {
       <Handle type="source" position={Position.Right} style={{ background: '#42a5f5' }} />
 
       <div className="audio-node-header" style={{ background: 'linear-gradient(135deg, #0d47a1, #1976d2)' }}>
-        <span>Voice Designer</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span>Voice Designer</span>
+          <TextModelSelector
+            value={textModel}
+            onChange={(m) => { setTextModel(m); setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, textModel: m } } : n)); }}
+            disabled={processing}
+          />
+        </span>
         <span style={{ fontSize: 9, opacity: 0.7 }}>Gemini AI</span>
       </div>
 

@@ -2,13 +2,19 @@
 
 .node-sleep-wrapper {
   position: relative;
-  transition: opacity 0.25s, filter 0.25s;
+  transition: filter 0.25s;
 }
 
 .node-sleep-wrapper.node-sleeping {
-  opacity: 0.25;
-  filter: grayscale(80%) brightness(0.6);
+  opacity: 1;
+  filter: grayscale(80%) brightness(0.35);
   pointer-events: auto;
+}
+
+.node-sleep-wrapper.node-sleeping .char-node-body,
+.node-sleep-wrapper.node-sleeping .char-node-header,
+.node-sleep-wrapper.node-sleeping .base-node {
+  background-color: #0c0c18 !important;
 }
 
 .node-sleep-wrapper.node-sleeping .char-node-body,

@@ -11,7 +11,6 @@ import {
   GENDER_OPTIONS,
   CHARACTER_STYLE_NOTES,
   VIEW_REQUESTS,
-  LOCK_OUTFIT_BLOCK,
   hasContextData,
   buildContextExtractionPrefix,
   buildContextAttrExtractionPrefix,
@@ -21,9 +20,13 @@ import {
   generateText,
   generateWithGeminiRef,
   type GeneratedImage,
+  type TextModelId,
 } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import TextModelSelector from '@/components/TextModelSelector';
+import type { ViewHubToggles } from './ImageViewHubNode';
+import { DEFAULT_VIEW_HUB_TOGGLES } from './ImageViewHubNode';
 import { NODE_TOOLTIPS } from './nodeTooltips';
-import { devLog, devWarn } from '@/lib/devLog';
+import { devLog } from '@/lib/devLog';
 import './CharacterNodes.css';
 
 interface Props {
@@ -105,16 +108,31 @@ function buildCostumeBriefFromData(d: Record<string, unknown>): string {
   return lines.join('\n');
 }
 
+interface ContentRef {
+  image: GeneratedImage;
+  callout: string;
+}
+
+interface ExtractContext {
+  lens: ContextLensInput;
+  styleText: string;
+  styleImages: GeneratedImage[];
+  contentRefs: ContentRef[];
+}
+
 function gatherExtractContext(
   startId: string,
   getNode: ReturnType<typeof useReactFlow>['getNode'],
   getEdges: ReturnType<typeof useReactFlow>['getEdges'],
-): ContextLensInput {
+): ExtractContext {
   const edges = getEdges();
   const visited = new Set<string>();
   const hubDisabled = new Set<string>();
   const queue = [startId];
-  const result: ContextLensInput = {};
+  const lens: ContextLensInput = {};
+  let styleText = '';
+  const styleImages: GeneratedImage[] = [];
+  const contentRefs: ContentRef[] = [];
 
   while (queue.length > 0) {
     const current = queue.shift()!;
@@ -162,7 +180,7 @@ function gatherExtractContext(
         if (d.customDirector) parts.push(`Production note: ${d.customDirector}`);
         const tones = d.toneTags as string[] | undefined;
         if (tones?.length) parts.push(`Tone: ${tones.join(', ')}`);
-        if (parts.length > 0) result.bibleContext = parts.join('\n');
+        if (parts.length > 0) lens.bibleContext = parts.join('\n');
       }
 
       if (node.type === 'charPreservationLock') {
@@ -180,24 +198,49 @@ function gatherExtractContext(
           if (toggles.keepLighting) constraints.push('Do NOT change the lighting');
           if (toggles.keepBackground) constraints.push('Do NOT change the background');
         }
-        if (constraints.length > 0) result.lockConstraints = constraints.join('\n');
+        if (constraints.length > 0) lens.lockConstraints = constraints.join('\n');
       }
 
       if (node.type === 'costumeDirector') {
         const brief = buildCostumeBriefFromData(d);
-        if (brief) result.costumeBrief = brief;
+        if (brief) lens.costumeBrief = brief;
       }
       if (node.type === 'charStyleFusion') {
-        if (d.fusionBrief) result.fusionBrief = d.fusionBrief as string;
+        if (d.fusionBrief) lens.fusionBrief = d.fusionBrief as string;
       }
       if (node.type === 'envPlacement') {
-        if (d.envBrief) result.envBrief = d.envBrief as string;
+        if (d.envBrief) lens.envBrief = d.envBrief as string;
+      }
+
+      if (node.type === 'charStyle') {
+        const mode = (d.styleMode as string) || 'images';
+        if (mode === 'text' || mode === 'both') {
+          if (d.styleText) styleText = d.styleText as string;
+        }
+        if (mode === 'images' || mode === 'both') {
+          const imgs = d.styleImages as GeneratedImage[] | undefined;
+          if (imgs?.length) styleImages.push(...imgs);
+        }
+      }
+
+      if (node.type === 'charRefCallout') {
+        const callout = (d.calloutText as string) || 'incorporate this item';
+        let foundImage: GeneratedImage | null = null;
+        for (const re of edges.filter((re) => re.target === neighbor)) {
+          const refSrc = getNode(re.source);
+          if (!refSrc) continue;
+          const rd = refSrc.data as Record<string, unknown>;
+          if (rd.editedImage) { foundImage = rd.editedImage as GeneratedImage; break; }
+          if (rd.generatedImage) { foundImage = rd.generatedImage as GeneratedImage; break; }
+          if (rd.imageBase64) { foundImage = { base64: rd.imageBase64 as string, mimeType: (rd.mimeType as string) || 'image/png' }; break; }
+        }
+        if (foundImage) contentRefs.push({ image: foundImage, callout });
       }
 
       queue.push(neighbor);
     }
   }
-  return result;
+  return { lens, styleText, styleImages, contentRefs };
 }
 
 function findUpstreamImage(
@@ -220,11 +263,6 @@ function findUpstreamImage(
 }
 
 const MAIN_VIEWER_TYPES = new Set(['charMainViewer', 'charViewer', 'charImageViewer']);
-const VIEW_TYPE_MAP: Record<string, string> = {
-  charFrontViewer: 'front',
-  charBackViewer: 'back',
-  charSideViewer: 'side',
-};
 
 function ExtractAttributesNodeInner({ id, data, selected }: Props) {
   const { setNodes, getNode, getEdges } = useReactFlow();
@@ -233,6 +271,7 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [resultText, setResultText] = useState((data?.resultText as string) ?? '');
   const [userHint, setUserHint] = useState((data?.userHint as string) ?? '');
+  const [textModel, setTextModel] = useState<TextModelId>((data?.textModel as TextModelId) ?? 'fast');
 
   const pushToDownstream = useCallback(
     (description: string, json: Record<string, string>) => {
@@ -277,7 +316,7 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
     const visited = new Set<string>();
     const queue = [id];
     const mainIds: string[] = [];
-    const viewIds: { nodeId: string; viewKey: string }[] = [];
+    let viewHubToggles: ViewHubToggles = { ...DEFAULT_VIEW_HUB_TOGGLES };
 
     while (queue.length > 0) {
       const current = queue.shift()!;
@@ -289,15 +328,24 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
         const node = getNode(target);
         if (!node) continue;
         const t = node.type ?? '';
+
+        if (t === 'charGate') {
+          const gateData = node.data as Record<string, unknown>;
+          if (!(gateData.enabled as boolean ?? true)) continue;
+        }
+
+        if (t === 'imageViewHub') {
+          const d = node.data as Record<string, unknown>;
+          viewHubToggles = { ...DEFAULT_VIEW_HUB_TOGGLES, ...((d.viewHubToggles as Partial<ViewHubToggles>) ?? {}) };
+        }
+
         if (MAIN_VIEWER_TYPES.has(t) || t === 'charGenerate') {
           mainIds.push(target);
-        } else if (VIEW_TYPE_MAP[t]) {
-          viewIds.push({ nodeId: target, viewKey: VIEW_TYPE_MAP[t] });
         }
         queue.push(target);
       }
     }
-    return { mainIds, viewIds };
+    return { mainIds, viewHubToggles };
   }, [id, getNode, getEdges]);
 
   const handleExtract = useCallback(async () => {
@@ -340,18 +388,18 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
         ? `\n\n⚠️ MANDATORY USER OVERRIDE — HIGHEST PRIORITY (overrides "no none values" rule):\n${excludeList}${hint}\nIf the user says "no [item]", "ignore [item]", "remove [item]", "without [item]", or "exclude [item]", you MUST set ANY field that would describe that item to "none". For example: "no tool belt" → "waist": "none", "handprop": "none". "no hat" → "headwear": "none". This overrides everything else.`
         : '';
 
-      // Gather context BEFORE extraction so it can be injected into the prompts
-      const ctxLens = gatherExtractContext(id, getNode, getEdges);
+      const ctx = gatherExtractContext(id, getNode, getEdges);
+      const ctxLens = ctx.lens;
       const hasCtx = hasContextData(ctxLens);
       const ctxDescPrefix = hasCtx ? buildContextExtractionPrefix(ctxLens) : '';
       const ctxAttrSuffix = hasCtx ? buildContextAttrExtractionPrefix(ctxLens) : '';
 
-      console.log(`%c[ExtractAttributes] Context hub: ${hasCtx ? 'ON' : 'OFF'}, bible: ${!!ctxLens.bibleContext}, costume: ${!!ctxLens.costumeBrief}, fusion: ${!!ctxLens.fusionBrief}, env: ${!!ctxLens.envBrief}, lock: ${!!ctxLens.lockConstraints}`, 'color: #4caf50; font-weight: bold');
+      console.log(`%c[ExtractAttributes] Context hub: ${hasCtx ? 'ON' : 'OFF'}, bible: ${!!ctxLens.bibleContext}, costume: ${!!ctxLens.costumeBrief}, fusion: ${!!ctxLens.fusionBrief}, env: ${!!ctxLens.envBrief}, lock: ${!!ctxLens.lockConstraints}, styleText: ${!!ctx.styleText}, styleImgs: ${ctx.styleImages.length}`, 'color: #4caf50; font-weight: bold');
       if (hasCtx) setStatus('Describing character through context lens...');
 
       // Step 1: image → prose description
       // If context hub is ON, the AI sees the image AND the creative direction together
-      const description = await generateText(descHintBlock + ctxDescPrefix + DESCRIBE_IMAGE_PROMPT, img);
+      const description = await generateText(descHintBlock + ctxDescPrefix + DESCRIBE_IMAGE_PROMPT, img, textModel);
 
       let cleanDescription = description;
       if (excludeTerms.length > 0) {
@@ -366,9 +414,8 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
 
       setStatus('Extracting identity and attributes...');
 
-      // Step 2: description → structured JSON attributes (with context reinforcement)
       const attrPrompt = `${EXTRACT_ATTRIBUTES_PROMPT}${attrHintBlock}${ctxAttrSuffix}\n\nCHARACTER DESCRIPTION:\n${cleanDescription}`;
-      const attrText = await generateText(attrPrompt, img);
+      const attrText = await generateText(attrPrompt, img, textModel);
 
       const combined = `Description:\n${cleanDescription}\n\nAttributes:\n${attrText}`;
       setResultText(combined);
@@ -402,7 +449,7 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
     } finally {
       setGenerating(false);
     }
-  }, [id, getNode, getEdges, setNodes, pushToDownstream, userHint]);
+  }, [id, getNode, getEdges, setNodes, pushToDownstream, userHint, textModel]);
 
   const handleRecreate = useCallback(async () => {
     const img = findUpstreamImage(id, getNode, getEdges);
@@ -437,15 +484,18 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
         ? `\n\n⚠️ MANDATORY USER OVERRIDE — HIGHEST PRIORITY (overrides "no none values" rule):\n${excludeList}${hint}\nIf the user says "no [item]", "ignore [item]", "remove [item]", "without [item]", or "exclude [item]", you MUST set ANY field that would describe that item to "none".`
         : '';
 
-      const ctxLens = gatherExtractContext(id, getNode, getEdges);
+      const ctx = gatherExtractContext(id, getNode, getEdges);
+      const ctxLens = ctx.lens;
       const hasCtx = hasContextData(ctxLens);
       const ctxDescPrefix = hasCtx ? buildContextExtractionPrefix(ctxLens) : '';
       const ctxAttrSuffix = hasCtx ? buildContextAttrExtractionPrefix(ctxLens) : '';
 
+      console.log(`%c[ExtractAttributes:Recreate] style: text=${!!ctx.styleText}, imgs=${ctx.styleImages.length}, contentRefs=${ctx.contentRefs.length}`, 'color: #ff9800; font-weight: bold');
       if (hasCtx) setStatus('Describing character through context lens…');
 
-      // Step 1: describe the image (text) — same as normal extraction
-      const description = await generateText(descHintBlock + ctxDescPrefix + DESCRIBE_IMAGE_PROMPT, img);
+      const contentRefOverrides = ctx.contentRefs.map((r) => r.callout).filter(Boolean);
+
+      const description = await generateText(descHintBlock + ctxDescPrefix + DESCRIBE_IMAGE_PROMPT, img, textModel);
 
       let cleanDescription = description;
       if (excludeTerms.length > 0) {
@@ -455,11 +505,14 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
           .join(' ');
       }
 
+      if (contentRefOverrides.length > 0) {
+        cleanDescription += `\n\n⚠️ REFERENCE CALLOUT OVERRIDES (these take priority over extracted description above):\n${contentRefOverrides.map((c) => `- ${c}`).join('\n')}`;
+      }
+
       setStatus('Extracting identity and attributes…');
 
-      // Step 2: extract structured attributes
       const attrPrompt = `${EXTRACT_ATTRIBUTES_PROMPT}${attrHintBlock}${ctxAttrSuffix}\n\nCHARACTER DESCRIPTION:\n${cleanDescription}`;
-      const attrText = await generateText(attrPrompt, img);
+      const attrText = await generateText(attrPrompt, img, textModel);
 
       const combined = `Description:\n${cleanDescription}\n\nAttributes:\n${attrText}`;
       setResultText(combined);
@@ -480,13 +533,32 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
 
       pushToDownstream(cleanDescription, json);
 
-      const { mainIds, viewIds } = findDownstreamViewers();
+      const { mainIds, viewHubToggles } = findDownstreamViewers();
 
-      // Step 3: recreate main view — Gemini SEES the original image while generating
+      if (mainIds.length > 0) {
+        setNodes((nds) =>
+          nds.map((n) => mainIds.includes(n.id)
+            ? { ...n, data: { ...n.data, generating: true } }
+            : n),
+        );
+      }
+
       setStatus('Recreating main view…');
       devLog('[ExtractAttributes] Recreate: sending original image + description to Gemini for visual recreation');
 
-      const recreatePrompt = `You are looking at a character reference image. Your task is to RECREATE this EXACT character as a clean, full-body character reference sheet.
+      const hasStyleOverride = !!(ctx.styleText || ctx.styleImages.length > 0);
+      const styleBlock = hasStyleOverride
+        ? `\nRENDERING STYLE — CRITICAL:\nYou MUST render this character in the following art style. This overrides the default photorealistic rendering.\n${ctx.styleText ? `Style description: ${ctx.styleText}\n` : ''}${ctx.styleImages.length > 0 ? 'Study the STYLE REFERENCE image(s) provided and replicate their EXACT visual technique, color palette, line quality, shading approach, and artistic medium. The output must be visually indistinguishable in style from the reference(s).\n' : ''}`
+        : CHARACTER_STYLE_NOTES;
+
+      const contentRefBlock = ctx.contentRefs.length > 0
+        ? `\n\n⚠️ CONTENT REFERENCE INSTRUCTIONS — MANDATORY, DO NOT SKIP:\n${ctx.contentRefs.map((ref, i) => {
+          const imgIdx = 1 + ctx.styleImages.length + 1 + i;
+          return `• Image ${imgIdx} — "${ref.callout}": The character MUST incorporate the specific item/object shown in this image. Preserve its design, shape, and colors.`;
+        }).join('\n')}\nALL content reference item(s) MUST appear in the final image. These OVERRIDE any contradicting attributes from the extraction (e.g., if extraction says "clean-shaven" but a reference callout shows a beard, the character MUST have the beard).`
+        : '';
+
+      let recreatePrompt = `You are looking at a character reference image. Your task is to RECREATE this EXACT character as a clean, full-body character reference sheet.
 
 WHAT TO PRESERVE (copy from the source image):
 - The EXACT same person: face, age, skin tone, build, hair, expression, scars, tattoos, facial hair
@@ -499,76 +571,81 @@ WHAT TO CHANGE (standardize for the reference sheet):
 - FRAMING: Full body head to shoe soles, character fills ~65% of frame height with grey padding above and below
 - LIGHTING: Soft, even studio photography lighting, neutral color temperature
 
-${CHARACTER_STYLE_NOTES}
+${styleBlock}
 
 ${VIEW_REQUESTS.main}
 
 CHARACTER DESCRIPTION (extracted from the source — follow this precisely):
 ${cleanDescription}
+${contentRefBlock}
 
 ZERO TEXT — do NOT render any text, letters, numbers, logos, labels, or watermarks anywhere in the image.
 
 FINAL CHECK: The output character must be IMMEDIATELY recognizable as the same person wearing the same outfit from the source image. If a viewer couldn't tell it's the same character, you have failed.`;
 
-      const mainResults = await generateWithGeminiRef(recreatePrompt, img);
+      const allRefImages: GeneratedImage[] = [img];
+      if (ctx.styleImages.length > 0) allRefImages.push(...ctx.styleImages);
+      const contentRefImages = ctx.contentRefs.map((r) => r.image);
+      if (contentRefImages.length > 0) allRefImages.push(...contentRefImages);
+
+      const imageLabelParts: string[] = ['Image 1 is the CHARACTER REFERENCE (recreate this character).'];
+      if (ctx.styleImages.length > 0) {
+        const sStart = 2;
+        const sEnd = 1 + ctx.styleImages.length;
+        imageLabelParts.push(`Images ${sStart}–${sEnd} are STYLE REFERENCES — replicate their visual style EXACTLY. Do NOT copy characters or scenes from style refs.`);
+      }
+      if (contentRefImages.length > 0) {
+        const cStart = 1 + ctx.styleImages.length + 1;
+        ctx.contentRefs.forEach((ref, i) => {
+          imageLabelParts.push(`Image ${cStart + i} is a CONTENT REFERENCE — "${ref.callout}".`);
+        });
+      }
+      if (allRefImages.length > 1) {
+        recreatePrompt += `\n\nIMAGE LAYOUT: ${imageLabelParts.join(' ')}`;
+      }
+
+      const mainResults = await generateWithGeminiRef(recreatePrompt, allRefImages);
       const recreatedMain = mainResults[0];
       if (!recreatedMain) throw new Error('No image returned from recreation');
 
+      const triggerTimestamp = Date.now();
       if (mainIds.length > 0) {
         setNodes((nds) =>
-          nds.map((n) => mainIds.includes(n.id) ? { ...n, data: { ...n.data, generatedImage: recreatedMain } } : n),
+          nds.map((n) => mainIds.includes(n.id)
+            ? { ...n, data: { ...n.data, generatedImage: recreatedMain, _orthoTrigger: triggerTimestamp, _viewHubToggles: viewHubToggles } }
+            : n),
         );
-        devLog(`[ExtractAttributes] Main view pushed to ${mainIds.length} node(s)`);
+        devLog(`[ExtractAttributes] Main view pushed to ${mainIds.length} node(s) with ortho trigger`);
       }
 
-      // Step 4: generate front/back/side views from the recreated main
-      for (const { nodeId, viewKey } of viewIds) {
-        const viewLabel = viewKey.charAt(0).toUpperCase() + viewKey.slice(1);
-        setStatus(`Generating ${viewLabel} view…`);
-
-        const viewPrompt = `IMAGE 1 is the ORIGINAL source character. IMAGE 2 is the MAIN STAGE recreation (3/4 front view) — this is the canonical reference.
-
-Recreate this EXACT same character from a ${viewKey} angle.
-
-${LOCK_OUTFIT_BLOCK}
-
-${VIEW_REQUESTS[viewKey] ?? VIEW_REQUESTS.front}
-
-CHARACTER DESCRIPTION:
-${cleanDescription}
-
-${CHARACTER_STYLE_NOTES}
-
-ZERO TEXT — do NOT render any text, letters, numbers, logos, labels, or watermarks anywhere in the image.`;
-
-        try {
-          const viewResults = await generateWithGeminiRef(viewPrompt, [img, recreatedMain]);
-          const viewImg = viewResults[0];
-          if (viewImg) {
-            setNodes((nds) =>
-              nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, generatedImage: viewImg } } : n),
-            );
-            devLog(`[ExtractAttributes] ${viewLabel} view pushed to ${nodeId}`);
-          }
-        } catch (viewErr) {
-          devWarn(`[ExtractAttributes] ${viewLabel} view generation failed:`, viewErr);
-        }
+      const enabledOrthos = (['front', 'back', 'side', 'custom'] as const).filter((k) => viewHubToggles[k]);
+      if (enabledOrthos.length > 0) {
+        setStatus(`Done! Auto-generating ${enabledOrthos.join(', ')} views…`);
       }
 
-      devLog('[ExtractAttributes] Recreate complete — all views generated');
+      devLog('[ExtractAttributes] Recreate complete — ortho views will auto-generate via CharViewNode');
       setStatus('');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setStatus('');
     } finally {
       setGenerating(false);
+      const cleanupIds = findDownstreamViewers().mainIds;
+      if (cleanupIds.length > 0) {
+        setNodes((nds) =>
+          nds.map((n) => cleanupIds.includes(n.id)
+            ? { ...n, data: { ...n.data, generating: false } }
+            : n),
+        );
+      }
     }
-  }, [id, getNode, getEdges, setNodes, pushToDownstream, findDownstreamViewers, userHint]);
+  }, [id, getNode, getEdges, setNodes, pushToDownstream, findDownstreamViewers, userHint, textModel]);
 
   return (
     <div className={`char-node ${selected ? 'selected' : ''}`} title={NODE_TOOLTIPS.charExtractAttrs}>
-      <div className="char-node-header" style={{ background: '#ffab40' }}>
-        Extract Attributes
+      <div className="char-node-header" style={{ background: '#ffab40', gap: 6 }}>
+        <span>Extract Attributes</span>
+        <TextModelSelector value={textModel} onChange={(m) => { setTextModel(m); setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, textModel: m } } : n)); }} disabled={generating} />
       </div>
       <div className="char-node-body">
         <textarea

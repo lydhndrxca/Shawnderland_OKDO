@@ -180,6 +180,12 @@ export default function GlobalToolbar({
       <div className="global-toolbar-right">
         {activeRequestCount > 0 && (
           <>
+            <div className="global-toolbar-processing-bar" title={`${activeRequestCount} active API request${activeRequestCount > 1 ? 's' : ''}`}>
+              <div className="global-toolbar-processing-glow" />
+              <span className="global-toolbar-processing-text">
+                Processing{activeRequestCount > 1 ? ` (${activeRequestCount})` : ''}…
+              </span>
+            </div>
             <button
               className="global-toolbar-btn global-toolbar-cancel-all"
               onClick={cancelAll}

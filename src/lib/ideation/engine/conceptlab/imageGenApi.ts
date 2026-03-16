@@ -443,29 +443,53 @@ export async function upscaleWithImagen(
 
 /* ── Gemini text generation (attribute extraction, enhance) ── */
 
-const GEMINI_FLASH_MODEL = 'gemini-2.0-flash';
+export type TextModelId = 'fast' | 'thinking';
 
-export async function generateText(prompt: string, image?: GeneratedImage): Promise<string> {
+export const TEXT_MODELS: Record<TextModelId, { apiId: string; label: string; description: string }> = {
+  fast: {
+    apiId: 'gemini-2.0-flash',
+    label: 'Fast',
+    description: 'Quick analysis — lower latency, less reasoning depth',
+  },
+  thinking: {
+    apiId: 'gemini-2.5-flash',
+    label: 'Thinking',
+    description: 'Deep reasoning — slower but more thorough analysis',
+  },
+};
+
+const DEFAULT_TEXT_MODEL: TextModelId = 'fast';
+
+export async function generateText(prompt: string, image?: GeneratedImage | GeneratedImage[], modelId?: TextModelId): Promise<string> {
+  const model = TEXT_MODELS[modelId ?? DEFAULT_TEXT_MODEL];
   const parts: Array<Record<string, unknown>> = [];
   if (image) {
-    parts.push({ inlineData: { mimeType: image.mimeType, data: image.base64 } });
+    const imgs = Array.isArray(image) ? image : [image];
+    for (const img of imgs) {
+      parts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } });
+    }
   }
   parts.push({ text: prompt });
 
+  const genConfig: Record<string, unknown> = { temperature: 0.4 };
+  if (modelId === 'thinking') {
+    genConfig.thinkingConfig = { thinkingBudget: 8192 };
+  }
+
   const json = await callApi(
-    GEMINI_FLASH_MODEL,
+    model.apiId,
     'generateContent',
     {
       contents: [{ parts }],
-      generationConfig: { temperature: 0.4 },
+      generationConfig: genConfig,
     },
-    'Gemini Flash',
+    model.label,
   );
 
   if ((json as { usageMetadata?: object }).usageMetadata) {
     recordUsage(
       (json as { usageMetadata: { promptTokenCount?: number; candidatesTokenCount?: number } }).usageMetadata,
-      GEMINI_FLASH_MODEL,
+      model.apiId,
     );
   }
 
@@ -476,7 +500,7 @@ export async function generateText(prompt: string, image?: GeneratedImage): Prom
       ?.map((p) => p.text)
       ?.join('\n')) ?? '';
 
-  if (!text) throw new Error('No text returned from Gemini Flash');
+  if (!text) throw new Error(`No text returned from ${model.label}`);
   return text;
 }
 

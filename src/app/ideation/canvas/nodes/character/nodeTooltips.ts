@@ -50,13 +50,11 @@ export const NODE_TOOLTIPS: Record<string, string> = {
   imageStudio:
     'Full-screen image editor with text editing, brush masking, and inpainting. Connect inputs ← any image viewer nodes. Click "Open Editor" to expand.',
   charSaveGroup:
-    'Save connected images as a named group to Files. Connect image viewer nodes and click Save.',
+    'Export — Save images, download files, and generate/export XML character data. Connect image viewer and attribute nodes.',
   charUpscale:
     'AI-powered image upscaler using Imagen 4. Connect input ← any image viewer node. Choose x2, x3, or x4 and click Upscale.',
   charRestore:
     'Restore Quality — fixes accumulated artifacts from iterative editing. Sends the image through Gemini for a clean AI redraw, preserving all content while removing compression artifacts, noise, blur, and degradation. Optional Imagen upscale afterward.',
-  charModelSettings:
-    'Model Settings — Choose which AI models to use for image generation and multimodal tasks. Image Gen model handles main stage creation (text-to-image). Multimodal model handles ortho views, edits, and reference-based generation. Save as preset to persist across sessions.',
   charCreativeDirector:
     'Art Direction Output — Displays results from the Art Director gauntlet. Select one or more directions and click Apply to regenerate the character with those art direction changes.',
   // ── Costume & Production Design ──

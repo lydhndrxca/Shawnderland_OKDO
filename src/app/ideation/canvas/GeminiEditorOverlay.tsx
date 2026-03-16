@@ -607,7 +607,7 @@ ABSOLUTE CONSTRAINTS:
 
         {/* ── Top Bar ── */}
         <div className="ge-topbar">
-          <span className="ge-topbar-title">Gemini Editor</span>
+          <span className="ge-topbar-title">Image Studio</span>
           {activeSource && (
             <span style={{ fontSize: 11, color: '#888' }}>
               Editing: <strong style={{ color: '#00bcd4' }}>{activeSource.label}</strong>
@@ -839,7 +839,7 @@ ABSOLUTE CONSTRAINTS:
               <div className="ge-sidebar-list">
                 {sources.length === 0 && (
                   <div style={{ padding: '12px 8px', fontSize: 11, color: '#555', textAlign: 'center' }}>
-                    No images connected.<br />Wire image nodes into the Gemini Editor node.
+                    No images connected.<br />Wire image nodes into the Image Studio node.
                   </div>
                 )}
                 {sources.map((src, i) => (

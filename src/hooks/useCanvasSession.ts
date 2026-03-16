@@ -301,14 +301,22 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
   const duplicateSelected = useCallback(() => {
     const selected = nodes.filter((n) => n.selected);
     if (!selected.length) return;
-    const newNodes = selected.map((n) => ({
-      ...n,
-      id: `${idPrefix}-${nextId.current++}`,
-      position: { x: n.position.x + 40, y: n.position.y + 40 },
-      selected: false,
-    }));
+    const isFrame = (t?: string) => FRAME_NODE_TYPES.has(t ?? '');
+    const newNodes = selected.map((n) => {
+      const defaults = nodeDefaults[n.type ?? ''];
+      const defaultData = defaults?.data ?? {};
+      return {
+        id: `${idPrefix}-${nextId.current++}`,
+        type: n.type,
+        position: { x: n.position.x + 40, y: n.position.y + 40 },
+        data: { stageId: n.type, ...defaultData },
+        ...(defaults?.style ? { style: { width: defaults.style.width, height: defaults.style.height } } : n.style ? { style: n.style } : {}),
+        ...(isFrame(n.type) ? { zIndex: -1 } : {}),
+        selected: false,
+      };
+    });
     setNodes((prev) => [...prev, ...newNodes]);
-  }, [nodes, setNodes, idPrefix]);
+  }, [nodes, setNodes, idPrefix, nodeDefaults]);
 
   // ── Edge-cutting (right-click drag) ─────────────────────────────
   const cutStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -450,14 +458,20 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     const { nodes: clipNodes, edges: clipEdges } = clipboardRef.current;
     const idMap = new Map<string, string>();
     const offset = position ? { x: position.x - clipNodes[0].position.x, y: position.y - clipNodes[0].position.y } : { x: 40, y: 40 };
+    const isFrame = (t?: string) => FRAME_NODE_TYPES.has(t ?? '');
 
     const newNodes = clipNodes.map((n) => {
       const newId = `${idPrefix}-${nextId.current++}`;
       idMap.set(n.id, newId);
+      const defaults = nodeDefaults[n.type ?? ''];
+      const defaultData = defaults?.data ?? {};
       return {
-        ...n,
         id: newId,
+        type: n.type,
         position: { x: n.position.x + offset.x, y: n.position.y + offset.y },
+        data: { stageId: n.type, ...defaultData },
+        ...(defaults?.style ? { style: { width: defaults.style.width, height: defaults.style.height } } : n.style ? { style: n.style } : {}),
+        ...(isFrame(n.type) ? { zIndex: -1 } : {}),
         selected: false,
       };
     });
@@ -471,7 +485,7 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
 
     setNodes((prev) => [...prev, ...newNodes]);
     setEdges((prev) => [...prev, ...newEdges]);
-  }, [setNodes, setEdges, idPrefix]);
+  }, [setNodes, setEdges, idPrefix, nodeDefaults]);
 
   // ── Pin / freeze ────────────────────────────────────────────────
   const togglePinNode = useCallback((nodeId: string) => {

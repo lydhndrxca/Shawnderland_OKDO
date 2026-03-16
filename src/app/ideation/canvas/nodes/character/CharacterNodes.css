@@ -619,8 +619,15 @@
 /* ── Gate Disabled (downstream of OFF gate) ── */
 
 .gate-disabled {
-  filter: brightness(0.25) grayscale(0.5) !important;
+  opacity: 1 !important;
+  filter: grayscale(0.6) brightness(0.35) !important;
   transition: filter 0.3s;
+}
+
+.gate-disabled .char-node-body,
+.gate-disabled .char-node-header,
+.gate-disabled .base-node {
+  background-color: #0c0c18 !important;
 }
 
 /* ── Processing Animation (bright rotating gradient border + pulse) ── */
@@ -995,6 +1002,43 @@
 .style-glass-btn:hover {
   background: rgba(160,100,240,0.25);
   border-color: rgba(160,100,240,0.4);
+}
+
+.style-glass-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.style-glass-btn-process {
+  background: rgba(100,180,255,0.15);
+  border-color: rgba(100,180,255,0.3);
+}
+.style-glass-btn-process:hover:not(:disabled) {
+  background: rgba(100,180,255,0.3);
+  border-color: rgba(100,180,255,0.5);
+}
+
+.style-glass-mode-btn {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
+  color: #999;
+  font-size: 9px;
+  padding: 3px 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+.style-glass-mode-btn:hover {
+  background: rgba(160,100,240,0.15);
+  color: #ccc;
+}
+.style-glass-mode-btn.active {
+  background: rgba(160,100,240,0.25);
+  border-color: rgba(160,100,240,0.5);
+  color: #e0e0e0;
+  font-weight: 600;
 }
 
 /* Preset list */

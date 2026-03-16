@@ -12,11 +12,12 @@ import {
   type CharacterAttributes,
   type ContextLensInput,
 } from '@/lib/ideation/engine/conceptlab/characterPrompts';
-import { generateText, generateWithNanoBanana, generateWithImagen4, generateWithGeminiRef } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import { generateText, generateWithNanoBanana, generateWithImagen4, generateWithGeminiRef, type TextModelId } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import type { GeneratedImage, GeminiImageModel } from '@/lib/ideation/engine/conceptlab/imageGenApi';
+import TextModelSelector from '@/components/TextModelSelector';
 import { getGlobalSettings } from '@/lib/globalSettings';
 import { createProcessingAnimator } from '@/lib/processingAnimation';
-import { IMAGE_GEN_MODELS } from './ModelSettingsNode';
+import { IMAGE_GEN_MODELS } from './modelData';
 import { NODE_TOOLTIPS } from './nodeTooltips';
 import { devLog, devWarn } from '@/lib/devLog';
 import './CharacterNodes.css';
@@ -253,6 +254,7 @@ function QuickGenerateNodeInner({ id, data, selected }: Props) {
   const [generating, setGenerating] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [textModel, setTextModel] = useState<TextModelId>((data?.textModel as TextModelId) ?? 'fast');
   const [lastResult, setLastResult] = useState<string | null>(null);
   const cancelledRef = useRef(false);
   const mountedRef = useRef(true);
@@ -331,7 +333,7 @@ function QuickGenerateNodeInner({ id, data, selected }: Props) {
 
   const generateCharacter = useCallback(async () => {
     setStatus('AI is inventing a character…');
-    const raw = await generateText(CREATIVE_PROMPT);
+    const raw = await generateText(CREATIVE_PROMPT, undefined, textModel);
     if (!mountedRef.current || cancelledRef.current) return null;
 
     let parsed: Record<string, string>;
@@ -547,8 +549,9 @@ ${fullPrompt}`;
   return (
     <div className={`char-node ${selected ? 'selected' : ''} ${generating ? 'char-node-processing' : ''}`}
       title={NODE_TOOLTIPS.charQuickGen}>
-      <div className="char-node-header" style={{ background: '#ffa726' }}>
-        Quick Generate
+      <div className="char-node-header" style={{ background: '#ffa726', gap: 6 }}>
+        <span>Quick Generate</span>
+        <TextModelSelector value={textModel} onChange={(m) => { setTextModel(m); setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, textModel: m } } : n)); }} disabled={generating} />
       </div>
       <div className="char-node-body">
         <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>

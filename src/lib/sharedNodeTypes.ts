@@ -99,7 +99,6 @@ import CharHistoryNode from '@/app/ideation/canvas/nodes/character/CharHistoryNo
 import ResetCharacterNode from '@/app/ideation/canvas/nodes/character/ResetCharacterNode';
 import SendToPhotoshopNode from '@/app/ideation/canvas/nodes/character/SendToPhotoshopNode';
 import ProjectSettingsNode from '@/app/ideation/canvas/nodes/character/ProjectSettingsNode';
-import ModelSettingsNode from '@/app/ideation/canvas/nodes/character/ModelSettingsNode';
 import DetachedViewerNode from '@/app/ideation/canvas/nodes/character/DetachedViewerNode';
 
 // ── Costume & Production Design nodes ────────────────────────────
@@ -258,7 +257,6 @@ export const ALL_RAW_NODE_TYPES: NodeTypes = applySleep({
   charReset: ResetCharacterNode,
   charSendPS: SendToPhotoshopNode,
   charProject: ProjectSettingsNode,
-  charModelSettings: ModelSettingsNode,
   detachedViewer: DetachedViewerNode,
 
   // Costume & Production Design
@@ -315,17 +313,16 @@ export const NODE_DEFAULTS: Record<string, { style?: { width: number; height: nu
   charIdentity: { style: { width: 360, height: 500 } },
   charAttributes: { style: { width: 400, height: 1600 } },
   charGate: { style: { width: 160, height: 80 }, data: { enabled: true } },
-  charStyle: { style: { width: 360, height: 400 } },
+  charStyle: { style: { width: 360, height: 500 } },
   charImageBucket: { style: { width: 240, height: 180 } },
   charRandomize: { style: { width: 180, height: 100 } },
   charCustomView: { style: { width: 400, height: 720 }, data: { viewKey: 'custom' } },
   imageStudio: { style: { width: 240, height: 220 } },
-  charSaveGroup: { style: { width: 280, height: 240 } },
+  charSaveGroup: { style: { width: 300, height: 340 } },
   charUpscale: { style: { width: 240, height: 260 } },
   charRestore: { style: { width: 260, height: 320 } },
   charCreativeDirector: { style: { width: 820, height: 500 } },
   charGenerate: { style: { width: 320, height: 420 } },
-  charModelSettings: { style: { width: 320, height: 560 } },
   charBible: {
     style: { width: 400, height: 740 },
     data: {
@@ -394,7 +391,7 @@ export const NODE_DEFAULTS: Record<string, { style?: { width: number; height: nu
     },
   },
   meshyImageTo3D: { style: { width: 340, height: 620 } },
-  meshyModelViewer: { style: { width: 480, height: 640 } },
+  meshyModelViewer: { style: { width: 780, height: 720 } },
   hitem3dImageTo3D: { style: { width: 340, height: 640 } },
   elTTS: { style: { width: 340, height: 560 } },
   elSFX: { style: { width: 320, height: 420 } },
@@ -501,7 +498,6 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
     label: 'Character \u2014 Generate',
     icon: '\u{1F3A8}',
     items: [
-      { type: 'charModelSettings', label: 'Model Settings', desc: 'Choose image gen & multimodal models, save as preset', color: '#7c4dff' },
       { type: 'charGenerate', label: 'Generate Character', desc: 'Generate all enabled views', color: '#e91e63' },
       { type: 'charExtractAttrs', label: 'Extract Attributes', desc: 'AI reads image \u2192 fills Identity/Desc/Attrs', color: '#ffab40' },
       { type: 'charEnhanceDesc', label: 'Enhance Description', desc: 'AI enriches description text', color: '#66bb6a' },
@@ -529,8 +525,7 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
       { type: 'imageStudio', label: 'Image Studio', desc: 'Full-screen editor with inpainting', color: '#00bcd4' },
       { type: 'charUpscale', label: 'Upscale Image', desc: 'AI upscale (x2/x3/x4)', color: '#e040fb' },
       { type: 'charRestore', label: 'Restore Quality', desc: 'AI redraw to remove artifacts', color: '#00c853' },
-      { type: 'charSaveGroup', label: 'Save Group', desc: 'Save images as named group', color: '#009688' },
-      { type: 'charShowXML', label: 'Show XML', desc: 'View character config', color: '#8d6e63' },
+      { type: 'charSaveGroup', label: 'Export', desc: 'Save images, download, and export XML', color: '#009688' },
     ],
   },
   /* ━━ Costume & Production Design ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */

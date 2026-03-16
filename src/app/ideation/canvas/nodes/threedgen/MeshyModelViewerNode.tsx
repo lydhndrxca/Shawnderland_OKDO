@@ -331,7 +331,7 @@ function MeshyModelViewerNodeInner({ id, data, selected }: Props) {
 
   return (
     <div
-      className={`threed-node ${selected ? 'selected' : ''}`}
+      className={`threed-node threed-viewer-node ${selected ? 'selected' : ''}`}
       style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}
     >
       <Handle type="target" position={Position.Left} />
@@ -346,11 +346,11 @@ function MeshyModelViewerNodeInner({ id, data, selected }: Props) {
         )}
       </div>
 
-      <div className="threed-node-body" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div className="threed-node-body" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0, padding: 0, overflow: 'hidden' }}>
         {loadingModel && (
           <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            minHeight: 200, background: '#1a1a2e', borderRadius: 6, color: '#00e5ff', fontSize: 11,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1,
+            background: '#0d0d1a', color: '#00e5ff', fontSize: 13,
           }}>
             Loading 3D model...
           </div>
@@ -358,11 +358,11 @@ function MeshyModelViewerNodeInner({ id, data, selected }: Props) {
 
         {loadError && (
           <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
-            minHeight: 200, background: '#1a1a2e', borderRadius: 6, color: '#f44336', fontSize: 11, gap: 6, padding: 12,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', flex: 1,
+            background: '#0d0d1a', color: '#f44336', fontSize: 12, gap: 8, padding: 20,
           }}>
             <span>Failed to load model</span>
-            <span style={{ fontSize: 9, color: '#888', textAlign: 'center' }}>{loadError}</span>
+            <span style={{ fontSize: 10, color: '#888', textAlign: 'center' }}>{loadError}</span>
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -404,8 +404,8 @@ function MeshyModelViewerNodeInner({ id, data, selected }: Props) {
         ) : (
           !loadingModel && !loadError && (
             <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              minHeight: 200, background: '#1a1a2e', borderRadius: 6, color: '#555', fontSize: 11,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1,
+              background: '#0d0d1a', color: '#555', fontSize: 13,
             }}>
               {hasModels ? 'No GLB URL available' : 'Connect an Image\u21923D node'}
             </div>
@@ -413,28 +413,11 @@ function MeshyModelViewerNodeInner({ id, data, selected }: Props) {
         )}
 
         {current?.thumbnailUrl && !localGlbUrl && !loadingModel && (
-          <img src={current.thumbnailUrl} alt="Preview" className="threed-thumbnail" />
+          <img src={current.thumbnailUrl} alt="Preview" className="threed-thumbnail" style={{ position: 'absolute', bottom: 48, left: 14, width: 80, height: 80, objectFit: 'cover', borderRadius: 6, border: '1px solid #333' }} />
         )}
 
-        {allResults.length > 1 && (
-          <div className="threed-viewer-nav">
-            <button
-              onClick={(e) => { e.stopPropagation(); setCurrentIdx((i) => Math.max(0, i - 1)); }}
-              disabled={currentIdx === 0}
-            >
-              &#9664;
-            </button>
-            <span>{currentIdx + 1} / {allResults.length}</span>
-            <button
-              onClick={(e) => { e.stopPropagation(); setCurrentIdx((i) => Math.min(allResults.length - 1, i + 1)); }}
-              disabled={currentIdx >= allResults.length - 1}
-            >
-              &#9654;
-            </button>
-          </div>
-        )}
-
-        <div className="threed-viewer-controls">
+        {/* ── Bottom toolbar ── */}
+        <div className="threed-viewer-toolbar" style={{ padding: '6px 10px', borderTop: '1px solid var(--border)', background: 'var(--bg-surface)' }}>
           <button className={`threed-btn nodrag ${wireframe ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); setWireframe(!wireframe); setShowNormals(false); }}>
             Wireframe
           </button>
@@ -447,14 +430,19 @@ function MeshyModelViewerNodeInner({ id, data, selected }: Props) {
           <button className={`threed-btn nodrag ${autoRotate ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); setAutoRotate(!autoRotate); }}>
             Rotate
           </button>
-        </div>
 
-        {hasModels && (
-          <>
-            <div style={{ fontSize: 9, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: 0.3 }}>
-              Export
-            </div>
-            <div className="threed-export-row">
+          {allResults.length > 1 && (
+            <>
+              <div className="threed-separator" />
+              <button className="threed-btn nodrag" onClick={(e) => { e.stopPropagation(); setCurrentIdx((i) => Math.max(0, i - 1)); }} disabled={currentIdx === 0}>&#9664;</button>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{currentIdx + 1}/{allResults.length}</span>
+              <button className="threed-btn nodrag" onClick={(e) => { e.stopPropagation(); setCurrentIdx((i) => Math.min(allResults.length - 1, i + 1)); }} disabled={currentIdx >= allResults.length - 1}>&#9654;</button>
+            </>
+          )}
+
+          {hasModels && (
+            <>
+              <div className="threed-separator" />
               <select className="threed-select nodrag" value={exportFormat} onChange={(e) => setExportFormat(e.target.value as ExportFormat)}>
                 {EXPORT_FORMATS.map((f) => {
                   const urlMap = (current?.modelUrls ?? {}) as Record<string, string | undefined>;
@@ -466,11 +454,11 @@ function MeshyModelViewerNodeInner({ id, data, selected }: Props) {
               <button className="threed-btn primary nodrag" onClick={(e) => { e.stopPropagation(); handleExport(); }} disabled={exporting || !current}>
                 {exporting ? '...' : 'Save'}
               </button>
-            </div>
-            {exportStatus && <div className="threed-success">{exportStatus}</div>}
-            {exportError && <div className="threed-error">{exportError}</div>}
-          </>
-        )}
+            </>
+          )}
+        </div>
+        {exportStatus && <div className="threed-success" style={{ padding: '2px 10px', fontSize: 9 }}>{exportStatus}</div>}
+        {exportError && <div className="threed-error" style={{ margin: '0 10px 4px', fontSize: 10 }}>{exportError}</div>}
       </div>
     </div>
   );

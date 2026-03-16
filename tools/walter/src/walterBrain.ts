@@ -149,7 +149,7 @@ function loadBrain(): WalterBrain {
     const raw = localStorage.getItem(LS_BRAIN_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as WalterBrain;
-      if (parsed.archivedEpisodes?.length >= 28) return parsed;
+      if (parsed.archivedEpisodes?.length >= EPISODES.length) return parsed;
     }
   } catch { /* fallthrough */ }
   const fresh = createDefaultBrain();
@@ -174,13 +174,6 @@ export function updateBrain(partial: Partial<WalterBrain>) {
   saveBrain(brain);
 }
 
-export function addArchivedEpisode(episode: ArchivedEpisode) {
-  brain = {
-    ...brain,
-    archivedEpisodes: [...brain.archivedEpisodes, episode],
-  };
-  saveBrain(brain);
-}
 
 export function resetBrain() {
   brain = createDefaultBrain();
@@ -188,9 +181,72 @@ export function resetBrain() {
 }
 
 /**
+ * Light context for per-turn prompts: characters, locations, lore rules only.
+ * ~3K chars — no episode history, audio signatures, or production notes.
+ */
+export function buildBrainContextLight(): string {
+  const chars = brain.characters
+    .map((c) => `- ${c.name}: ${c.description} | ${c.behavior}`)
+    .join("\n");
+
+  const locs = brain.locations
+    .map((l) => `- ${l.name}: ${l.description}`)
+    .join("\n");
+
+  const lore = brain.loreRules
+    .map((r) => `- [${r.category}] ${r.rule}`)
+    .join("\n");
+
+  return `=== WALTER CANON (${brain.archivedEpisodes.length} episodes produced) ===
+CHARACTERS: ${chars}
+LOCATIONS: ${locs}
+WORLD RULES: ${lore}
+=== END CANON ===`;
+}
+
+/**
+ * Relevant context: light base + 3-5 episodes matched by tone/characters/locations.
+ */
+export function buildBrainContextRelevant(opts?: {
+  tone?: string;
+  characters?: string[];
+  locations?: string[];
+}): string {
+  const base = buildBrainContextLight();
+  if (!opts) return base;
+
+  const scored = brain.archivedEpisodes.map((ep) => {
+    let score = 0;
+    if (opts.tone && ep.tone.toLowerCase().includes(opts.tone.toLowerCase())) score += 2;
+    for (const c of opts.characters ?? []) {
+      if (ep.characters.some((ec) => ec.toLowerCase().includes(c.toLowerCase()))) score += 1;
+    }
+    for (const l of opts.locations ?? []) {
+      if (ep.locations.some((el) => el.toLowerCase().includes(l.toLowerCase()))) score += 1;
+    }
+    return { ep, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  const top = scored.filter((s) => s.score > 0).slice(0, 5);
+
+  if (top.length === 0) return base;
+
+  const epLines = top
+    .map((s) => `  Ep${s.ep.episodeNumber}: "${s.ep.title}" — ${s.ep.premise} (tone: ${s.ep.tone})`)
+    .join("\n");
+
+  return `${base}
+
+RELEVANT PAST EPISODES:
+${epLines}`;
+}
+
+/**
  * Build the full canonical context string for AI prompts.
  * This is the LIVING HISTORY — everything that's canon for Walter's world.
- * All 28 episodes, all characters, all locations, all rules.
+ * All 28+ episodes, all characters, all locations, all rules.
+ * Use for briefing, parseStoryStructure, and initial round entry only.
  */
 export function buildBrainContext(): string {
   const chars = brain.characters
@@ -229,7 +285,7 @@ export function buildBrainContext(): string {
   return `
 === WALTER BRAIN — CANONICAL LIVING HISTORY ===
 Series: "Weeping Willows Walter"
-Episodes analyzed: 28 (from real Gemini video analysis of existing episodes)
+Episodes analyzed: ${brain.archivedEpisodes.length} (from real Gemini video analysis of existing episodes)
 This document is the single source of truth for Walter's world.
 
 CHARACTERS (canon):
@@ -241,7 +297,7 @@ ${locs}
 WORLD RULES & LORE:
 ${lore}
 
-COMPLETE EPISODE HISTORY (all 28 episodes — this is what has actually been made):
+COMPLETE EPISODE HISTORY (all ${brain.archivedEpisodes.length} episodes — this is what has actually been made):
 ${allEps}
 
 AUDIO/MUSIC SIGNATURES (from real episodes — new episodes should match these patterns):
@@ -269,6 +325,37 @@ export function buildExtendedBrainContext(): string {
 
 DETAILED EPISODE REFERENCE (for shot-level continuity):
 ${detailedEps}`;
+}
+
+/**
+ * Archive a new episode into the brain. Persists to localStorage.
+ */
+export function addArchivedEpisode(meta: {
+  title: string;
+  premise: string;
+  tone: string;
+  characters: string[];
+  locations: string[];
+  keyMoments: string;
+}): ArchivedEpisode {
+  const nextNum = brain.archivedEpisodes.length > 0
+    ? Math.max(...brain.archivedEpisodes.map((e) => e.episodeNumber)) + 1
+    : EPISODES.length + 1;
+
+  const ep: ArchivedEpisode = {
+    id: `ep-${nextNum}-${Date.now()}`,
+    episodeNumber: nextNum,
+    title: meta.title,
+    premise: meta.premise,
+    tone: meta.tone,
+    characters: meta.characters,
+    locations: meta.locations,
+    keyMoments: meta.keyMoments,
+    createdAt: Date.now(),
+  };
+  brain.archivedEpisodes.push(ep);
+  saveBrain(brain);
+  return ep;
 }
 
 /**

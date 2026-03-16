@@ -1,0 +1,32 @@
+feat: writing room quality overhaul — Cloud+LORA pipeline, detail rounds, richer assembly
+
+Writing Room Round Fixes:
+- Fix turn counts crushed by format tiers (micro was min:2/max:4, now min:3/max:6)
+- Add CRITICAL_ROUND_FLOORS so Simple Story (4-8), Shot Planning (5-10), Voice (3-6) always get enough turns
+- Remove triple-enforced 5-sentence cap on detail rounds (was killing shot lists and story summaries)
+- Add isDetailRound() detection with separate SHARED_RULES_DETAIL for structured output rounds
+- Rewrite Simple Story round with explicit numbered 5-sentence template (OPENING IMAGE → FINAL IMAGE)
+- Rewrite Shot Planning round with per-shot format template (CAMERA, FRAME, LENS, DURATION, SOUND, VO, NOTES)
+- Make checkPhysicalViolation() accept configurable maxSentences (60 for detail rounds vs 7 for brainstorm)
+- Make Serling BREVITY CHECK conditional — suppressed during detail rounds so he can write full shot lists
+
+Cloud+LORA Pipeline (Gemini Hybrid):
+- Wire up Gemini 2.5 Flash for room turns, Gemini 2.5 Pro for final assembly
+- Export GEMINI_25_FLASH and GEMINI_25_PRO model constants from @shawnderland/ai
+- Remove all Ollama/local model imports and UI toggles from production app
+- Add agent state tracking (proposals, endorsements, objections, stance, conviction)
+- Add convergence detection, intelligent speaker selection, turn-type system
+- Add creative tension profiles, canon callbacks, tone guard, escalation directives
+
+Assembly Prompt (Gemini 2.5 Pro):
+- Demand ultra-specific production instructions with GOOD/BAD examples
+- Require verbatim dialogue/narration extraction from writing room
+- Enforce locked decisions as inviolable ("LOCKED DECISIONS ARE LAW")
+- Require specific audioNotes (instrument, timbre) not vague "music plays"
+
+Supporting Changes:
+- Add LORA A/B test results (TRAINER_LORA_1-3.md, TRAINER_NO_LORA_1-3.md, analysis)
+- Add simulation scripts (sim-writing-room-custom.mjs, story-arcs.mjs, persona-profiles.mjs)
+- Update walterBrain with buildBrainContextLight/Relevant variants
+- Add episode presets, season options, planning page, staging room
+- Update types with AgentTurnState, RoundState, convergence types

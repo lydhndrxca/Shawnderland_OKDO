@@ -143,6 +143,9 @@ INSTAGRAM REEL CONVENTIONS:
 - Music/sound design is critical — note audio cues for every scene
 `.trim();
 
+export const WALTER_CONTEXT_SHORT = `You are writing for "Weeping Willows Walter" — a miniature diorama Instagram Reels series.
+CRITICAL CONSTRAINTS: Characters are STATIC POSED FIGURES. They cannot walk, hold, gesture, or move. Movement = repositioning between shots by the creator's hand. Props are PLACED BESIDE figures, never held. Describe frames as compositions, not actions. Camera movement IS available (zoom, pan, dolly, rack focus). All effects practical (fog, lighting, glow props). Set is ~3ft × 2ft miniature diorama.`.trim();
+
 export const NARRATIVE_ARC_TEMPLATES = [
   {
     id: "quiet-reveal",

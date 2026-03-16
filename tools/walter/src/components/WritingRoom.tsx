@@ -7,13 +7,14 @@ import {
   generateAgentTurn, generateRoundTurn, selectNextSpeaker,
   selectRoundSpeaker, createUserMessage,
   createSystemMessage, createAgentMessage, isApprovalMessage,
-  parseStoryStructure,
+  parseStoryStructure, detectConvergence,
 } from "../agentEngine";
-import type { AgentTurnResult } from "../agentEngine";
-import { getAllPersonas, getPersona, roleIcon } from "../agents";
-import { getSerlingStats, isSerlingDataLoaded } from "@shawnderland/serling";
+import type { AgentTurnResult, ConvergenceResult } from "../agentEngine";
+import { getPersona } from "../agents";
+import { getSerlingStats } from "@shawnderland/serling";
 import { PersonaBuilder } from "./PersonaBuilder";
 import { getRoundsForFormat, getRoundByIndex, isLastRound } from "../creativeRounds";
+import { addArchivedEpisode } from "../walterBrain";
 
 const PHASE_LABELS: Record<RoomPhase, string> = {
   idle: "Not started",
@@ -30,10 +31,11 @@ export function WritingRoom() {
   const [userInput, setUserInput] = useState("");
   const [lockInput, setLockInput] = useState("");
   const [showPersonaBuilder, setShowPersonaBuilder] = useState(false);
-  const [voiceRefinement, setVoiceRefinement] = useState(false);
   const [lastSerlingCtx, setLastSerlingCtx] = useState<AgentTurnResult["serlingContext"]>();
+  const [convergence, setConvergence] = useState<ConvergenceResult | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const autoRunRef = useRef(false);
+  const consecutiveErrors = useRef(0);
   autoRunRef.current = autoRun;
 
   const scrollToBottom = useCallback(() => {
@@ -71,7 +73,7 @@ export function WritingRoom() {
         return;
       }
 
-      const speakerId = selectRoundSpeaker(roomAgents, chatHistory, currentRound);
+      const speakerId = selectRoundSpeaker(roomAgents, chatHistory, currentRound, session.agentStates);
       if (!speakerId) return;
 
       actions.setGenerating(true);
@@ -79,14 +81,34 @@ export function WritingRoom() {
         const result = await generateRoundTurn(
           speakerId, chatHistory, producerBrief ?? "",
           currentRound, runRs.lockedDecisions,
-          { voiceRefinement, episodeState: session.episodeState },
+          { episodeState: session.episodeState, agentStates: session.agentStates, roomAgents, planningMood: session.planning.mood, planningCharacters: session.planning.characterFocus, planningLocations: session.planning.locations },
         );
         if (result.serlingContext) setLastSerlingCtx(result.serlingContext);
         if (result.episodeStatePatch) actions.updateEpisodeState(result.episodeStatePatch);
+        if (result.agentStatePatch) actions.updateAgentState(speakerId, result.agentStatePatch);
+        actions.bumpTurnsSinceSpoke(speakerId);
 
         const msg = createAgentMessage(speakerId, result.text);
         actions.addChatMessage(msg);
         actions.incrementRoundTurns();
+        consecutiveErrors.current = 0;
+
+        if (runRs.turnsInRound + 1 >= currentRound.minTurns) {
+          try {
+            const freshStates = result.agentStatePatch
+              ? { ...session.agentStates, [speakerId]: { ...session.agentStates[speakerId], ...result.agentStatePatch } }
+              : session.agentStates;
+            const conv = await detectConvergence(freshStates, roomAgents, currentRound);
+            if (conv.converged) {
+              setConvergence(conv);
+              actions.setAutoRun(false);
+            } else {
+              setConvergence(null);
+            }
+          } catch {
+            setConvergence(null);
+          }
+        }
 
         if (runRs.turnsInRound + 1 >= currentRound.maxTurns) {
           actions.setAutoRun(false);
@@ -95,6 +117,8 @@ export function WritingRoom() {
           );
         }
       } catch (e) {
+        consecutiveErrors.current++;
+        if (consecutiveErrors.current >= 2) actions.setAutoRun(false);
         actions.addChatMessage(
           createSystemMessage(`Error: ${e instanceof Error ? e.message : "Unknown error"}`),
         );
@@ -105,17 +129,19 @@ export function WritingRoom() {
     }
 
     // Legacy phases: briefing, approval, pitch, revision
-    const speakerId = selectNextSpeaker(roomAgents, chatHistory, roomPhase);
+    const speakerId = selectNextSpeaker(roomAgents, chatHistory, roomPhase, session.agentStates);
     if (!speakerId) return;
 
     actions.setGenerating(true);
     try {
       const result = await generateAgentTurn(
         speakerId, chatHistory, roomPhase, producerBrief ?? "",
-        { voiceRefinement, episodeState: session.episodeState },
+        { episodeState: session.episodeState, agentStates: session.agentStates },
       );
       if (result.serlingContext) setLastSerlingCtx(result.serlingContext);
       if (result.episodeStatePatch) actions.updateEpisodeState(result.episodeStatePatch);
+      if (result.agentStatePatch) actions.updateAgentState(speakerId, result.agentStatePatch);
+      actions.bumpTurnsSinceSpoke(speakerId);
 
       const approval = isApprovalMessage(result.text);
       const msg = createAgentMessage(speakerId, result.text, { isApproval: approval });
@@ -123,14 +149,17 @@ export function WritingRoom() {
 
       if (approval) actions.setAgentApproval(speakerId, true);
       advancePhaseIfNeeded(roomAgents, [...chatHistory, msg], roomPhase, approval);
+      consecutiveErrors.current = 0;
     } catch (e) {
+      consecutiveErrors.current++;
+      if (consecutiveErrors.current >= 2) actions.setAutoRun(false);
       actions.addChatMessage(
         createSystemMessage(`Error: ${e instanceof Error ? e.message : "Unknown error"}`),
       );
     } finally {
       actions.setGenerating(false);
     }
-  }, [session, generating, actions, voiceRefinement, currentRound]);
+  }, [session, generating, actions, currentRound]);
 
   /* ─── Auto-run loop ──────────────────────────────── */
   useEffect(() => {
@@ -175,18 +204,14 @@ export function WritingRoom() {
   );
 
   /* ─── Lock a decision ─────────────────────────────── */
-  const handleLockDecision = useCallback(() => {
-    if (!session || !currentRound || !lockInput.trim()) return;
+  const doLock = useCallback((value: string) => {
+    if (!session || !currentRound || !value.trim()) return;
 
-    actions.lockDecision(
-      currentRound.id,
-      currentRound.locksField,
-      lockInput.trim(),
-      "user",
-    );
+    actions.lockDecision(currentRound.id, currentRound.locksField, value.trim(), "user");
     actions.addChatMessage(
-      createSystemMessage(`✓ LOCKED — ${currentRound.locksField}: ${lockInput.trim()}`),
+      createSystemMessage(`✓ LOCKED — ${currentRound.locksField}: ${value.trim()}`),
     );
+    actions.resetAgentStates();
 
     const lockRs = session.roundState ?? { currentRoundIndex: 0, turnsInRound: 0, lockedDecisions: [] };
     const nextIndex = lockRs.currentRoundIndex + 1;
@@ -205,8 +230,12 @@ export function WritingRoom() {
         );
       }
     }
+  }, [session, currentRound, actions, activeRounds]);
+
+  const handleLockDecision = useCallback(() => {
+    doLock(lockInput);
     setLockInput("");
-  }, [session, currentRound, lockInput, actions, activeRounds]);
+  }, [doLock, lockInput]);
 
   /* ─── Skip to next round ──────────────────────────── */
   const handleSkipRound = useCallback(() => {
@@ -252,6 +281,26 @@ export function WritingRoom() {
         (session.roundState ?? { lockedDecisions: [] }).lockedDecisions,
       );
       actions.setStoryStructure(result.arc, result.elements, result.shots);
+
+      try {
+        const locked = (session.roundState ?? { lockedDecisions: [] }).lockedDecisions;
+        const premiseDecision = locked.find((d) => d.label === "Core Premise");
+        const turnDecision = locked.find((d) => d.label === "The Inversion");
+        const allCharacters = [...new Set(result.shots.flatMap((s) => s.characters))];
+        const allLocations = [...new Set(result.shots.map((s) => s.location).filter(Boolean))];
+
+        addArchivedEpisode({
+          title: session.name || "Untitled Episode",
+          premise: premiseDecision?.value ?? session.episodeState.episodePremise ?? "",
+          tone: session.planning.mood || session.episodeState.themeOrFeeling || "",
+          characters: allCharacters,
+          locations: allLocations,
+          keyMoments: turnDecision?.value ?? session.episodeState.keyVisualMoment ?? "",
+        });
+      } catch {
+        /* non-critical: brain update failure shouldn't block staging */
+      }
+
       actions.setScreen("staging");
       actions.addToast("Episode approved — staging room populated", "success");
     } catch (e) {
@@ -303,6 +352,48 @@ export function WritingRoom() {
           )}
           <div ref={chatEndRef} />
         </div>
+
+        {/* Convergence suggestion */}
+        {convergence?.converged && isRoundsPhase && currentRound && (
+          <div className="ws-convergence-bar">
+            <div className="ws-convergence-header">
+              <span className="ws-convergence-label">Room is converging</span>
+              <span className="ws-convergence-score">
+                {Math.round(convergence.score * 100)}% agreement
+              </span>
+            </div>
+            <div className="ws-convergence-proposal">
+              {convergence.proposedDecision}
+            </div>
+            <div className="ws-convergence-supporters">
+              {convergence.supportingAgents.map((id) => {
+                const p = getPersona(id);
+                return p ? (
+                  <span key={id} className="ws-convergence-agent">
+                    {p.avatar} {p.name}
+                  </span>
+                ) : null;
+              })}
+            </div>
+            <div className="ws-convergence-actions">
+              <button
+                className="ws-btn ws-btn-accent ws-btn-sm"
+                onClick={() => {
+                  doLock(convergence.proposedDecision);
+                  setConvergence(null);
+                }}
+              >
+                Lock This
+              </button>
+              <button
+                className="ws-btn ws-btn-ghost ws-btn-sm"
+                onClick={() => setConvergence(null)}
+              >
+                Keep Discussing
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Lock decision bar */}
         {canLock && (
@@ -494,11 +585,7 @@ export function WritingRoom() {
           </div>
         </div>
 
-        <SerlingPanel
-          lastCtx={lastSerlingCtx}
-          voiceRefinement={voiceRefinement}
-          onToggleVoice={setVoiceRefinement}
-        />
+        <SerlingPanel lastCtx={lastSerlingCtx} />
       </aside>
 
       {showPersonaBuilder && (
@@ -523,21 +610,13 @@ export function WritingRoom() {
 
 /* ─── Serling Retrieval Panel ─────────────────────────── */
 
-function SerlingPanel({
-  lastCtx,
-  voiceRefinement,
-  onToggleVoice,
-}: {
-  lastCtx?: AgentTurnResult["serlingContext"];
-  voiceRefinement: boolean;
-  onToggleVoice: (v: boolean) => void;
-}) {
+function SerlingPanel({ lastCtx }: { lastCtx?: AgentTurnResult["serlingContext"] }) {
   const stats = getSerlingStats();
 
   return (
     <>
       <div className="ws-sidebar-section">
-        <h4>Serling Engine</h4>
+        <h4>Training Data</h4>
         <div className="ws-serling-stats">
           <span className={`ws-serling-badge ${stats.loaded ? "ws-serling-loaded" : "ws-serling-empty"}`}>
             {stats.loaded ? "Active" : "No corpus loaded"}
@@ -565,21 +644,6 @@ function SerlingPanel({
           </div>
         </div>
       )}
-
-      <div className="ws-sidebar-section">
-        <h4>Voice Model</h4>
-        <label className="ws-checkbox-label">
-          <input
-            type="checkbox"
-            checked={voiceRefinement}
-            onChange={(e) => onToggleVoice(e.target.checked)}
-          />
-          Local voice refinement
-        </label>
-        <span className="ws-serling-hint">
-          Requires Ollama running locally
-        </span>
-      </div>
     </>
   );
 }
@@ -587,6 +651,7 @@ function SerlingPanel({
 /* ─── Message Bubble ─────────────────────────────────── */
 
 function EpisodeStatePanel({ episodeState }: { episodeState: ProducerEpisodeState }) {
+  if (!episodeState) return null;
   const hasData = episodeState.episodePremise || episodeState.openingHook || episodeState.strangeEvent;
   if (!hasData) return null;
 
@@ -619,13 +684,13 @@ function EpisodeStatePanel({ episodeState }: { episodeState: ProducerEpisodeStat
             <span className="ws-episode-state-value">{f.value}</span>
           </div>
         ))}
-        {episodeState.practicalConcerns.length > 0 && (
+        {episodeState.practicalConcerns?.length > 0 && (
           <div className="ws-episode-state-item">
             <span className="ws-episode-state-label">Practical Concerns</span>
             <span className="ws-episode-state-value">{episodeState.practicalConcerns.join("; ")}</span>
           </div>
         )}
-        {episodeState.unresolvedQuestions.length > 0 && (
+        {episodeState.unresolvedQuestions?.length > 0 && (
           <div className="ws-episode-state-item ws-episode-state-item--warn">
             <span className="ws-episode-state-label">Unresolved</span>
             <span className="ws-episode-state-value">{episodeState.unresolvedQuestions.join("; ")}</span>

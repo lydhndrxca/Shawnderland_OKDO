@@ -190,7 +190,11 @@ export type CreativeRoundId =
   | "the-response"
   | "the-turn"
   | "final-frame"
+  | "the-simple-story"
+  | "the-voice"
   | "shot-planning";
+
+export type PersonaMode = "serling" | "fielder" | "pera" | "mixed";
 
 export interface CreativeRound {
   id: CreativeRoundId;
@@ -201,7 +205,7 @@ export interface CreativeRound {
   minTurns: number;
   maxTurns: number;
   corpusHint: string;
-  serlingMemory: string;
+  personaMemory: Record<string, string>;
 }
 
 export interface LockedDecision {
@@ -252,6 +256,29 @@ export const DEFAULT_EPISODE_STATE: ProducerEpisodeState = {
   selectedDirection: "",
   rejectedAlternatives: [],
   checkpoint: "none",
+};
+
+/* ─── Agent Deliberation State ────────────────────────── */
+
+export interface AgentTurnState {
+  personaId: string;
+  proposals: string[];
+  objections: string[];
+  endorsements: string[];
+  currentStance: string;
+  conviction: number;
+  turnsSinceLastSpoke: number;
+  totalTurnsSpoken: number;
+}
+
+export const DEFAULT_AGENT_TURN_STATE: Omit<AgentTurnState, "personaId"> = {
+  proposals: [],
+  objections: [],
+  endorsements: [],
+  currentStance: "",
+  conviction: 0,
+  turnsSinceLastSpoke: 0,
+  totalTurnsSpoken: 0,
 };
 
 /* ─── Staging Room ───────────────────────────────────── */
@@ -307,6 +334,7 @@ export interface WalterSession {
   chatHistory: ChatMessage[];
   roomPhase: RoomPhase;
   roundState: RoundState;
+  agentStates: Record<string, AgentTurnState>;
 
   episodeState: ProducerEpisodeState;
 

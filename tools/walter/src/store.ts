@@ -2,9 +2,9 @@ import { useSyncExternalStore } from "react";
 import type {
   WalterSession, PlanningData, ChatMessage, RoomAgent, RoomPhase,
   StoryArcPhase, StoryElement, StagingShot, ScreenId, ToastItem,
-  LockedDecision, CreativeRoundId, ProducerEpisodeState,
+  LockedDecision, CreativeRoundId, ProducerEpisodeState, AgentTurnState,
 } from "./types";
-import { DEFAULT_PLANNING, DEFAULT_EPISODE_STATE } from "./types";
+import { DEFAULT_PLANNING, DEFAULT_EPISODE_STATE, DEFAULT_AGENT_TURN_STATE } from "./types";
 
 function uid() {
   return `w-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -18,7 +18,18 @@ const LS_ACTIVE = "walter-active-session";
 function loadSessions(): WalterSession[] {
   try {
     const raw = localStorage.getItem(LS_SESSIONS);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const sessions: WalterSession[] = JSON.parse(raw);
+    for (const s of sessions) {
+      if (!s.episodeState) s.episodeState = { ...DEFAULT_EPISODE_STATE };
+      const es = s.episodeState;
+      if (!Array.isArray(es.practicalConcerns)) es.practicalConcerns = [];
+      if (!Array.isArray(es.unresolvedQuestions)) es.unresolvedQuestions = [];
+      if (!Array.isArray(es.rejectedAlternatives)) es.rejectedAlternatives = [];
+      if (!s.roundState) s.roundState = { currentRoundIndex: 0, turnsInRound: 0, lockedDecisions: [] };
+      if (!s.agentStates) s.agentStates = {};
+    }
+    return sessions;
   } catch {
     return [];
   }
@@ -42,6 +53,7 @@ function createBlankSession(name = "Untitled Episode"): WalterSession {
     chatHistory: [],
     roomPhase: "idle",
     roundState: { currentRoundIndex: 0, turnsInRound: 0, lockedDecisions: [] },
+    agentStates: {},
     episodeState: { ...DEFAULT_EPISODE_STATE },
     storyArc: [],
     storyElements: [],
@@ -283,9 +295,67 @@ export const walterActions = {
   updateEpisodeState(patch: Partial<ProducerEpisodeState>) {
     const s = getActiveSession();
     if (!s) return;
+    const safe: Partial<ProducerEpisodeState> = { ...patch };
+    if (safe.practicalConcerns != null && !Array.isArray(safe.practicalConcerns)) safe.practicalConcerns = [];
+    if (safe.unresolvedQuestions != null && !Array.isArray(safe.unresolvedQuestions)) safe.unresolvedQuestions = [];
+    if (safe.rejectedAlternatives != null && !Array.isArray(safe.rejectedAlternatives)) safe.rejectedAlternatives = [];
+    if (safe.practicalConcerns === null) safe.practicalConcerns = [];
+    if (safe.unresolvedQuestions === null) safe.unresolvedQuestions = [];
+    if (safe.rejectedAlternatives === null) safe.rejectedAlternatives = [];
     updateSession(s.id, (sess) => ({
       ...sess,
-      episodeState: { ...sess.episodeState, ...patch },
+      episodeState: { ...sess.episodeState, ...safe },
+    }));
+  },
+
+  /* Agent Deliberation State */
+  updateAgentState(personaId: string, patch: Partial<AgentTurnState>) {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => {
+      const prev = sess.agentStates[personaId] ?? { ...DEFAULT_AGENT_TURN_STATE, personaId };
+      return {
+        ...sess,
+        agentStates: { ...sess.agentStates, [personaId]: { ...prev, ...patch } },
+      };
+    });
+  },
+
+  resetAgentStates() {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => {
+      const reset: Record<string, AgentTurnState> = {};
+      for (const id of Object.keys(sess.agentStates)) {
+        reset[id] = { ...DEFAULT_AGENT_TURN_STATE, personaId: id };
+      }
+      return { ...sess, agentStates: reset };
+    });
+  },
+
+  bumpTurnsSinceSpoke(excludePersonaId: string) {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => {
+      const next: Record<string, AgentTurnState> = {};
+      for (const [id, st] of Object.entries(sess.agentStates)) {
+        next[id] = id === excludePersonaId
+          ? { ...st, turnsSinceLastSpoke: 0, totalTurnsSpoken: st.totalTurnsSpoken + 1 }
+          : { ...st, turnsSinceLastSpoke: st.turnsSinceLastSpoke + 1 };
+      }
+      return { ...sess, agentStates: next };
+    });
+  },
+
+  ensureAgentState(personaId: string) {
+    const s = getActiveSession();
+    if (!s || s.agentStates[personaId]) return;
+    updateSession(s.id, (sess) => ({
+      ...sess,
+      agentStates: {
+        ...sess.agentStates,
+        [personaId]: { ...DEFAULT_AGENT_TURN_STATE, personaId },
+      },
     }));
   },
 

@@ -7,7 +7,7 @@ import { TONE_OPTIONS, SEASON_OPTIONS } from "../types";
 import type { SeasonalMode, PlanningData, Season } from "../types";
 import { getBrain } from "../walterBrain";
 import { compileBrief, randomizePlanning, createBriefMessage } from "../agentEngine";
-import { PRESET_PERSONAS } from "../agents";
+
 
 const SEASONAL_MODES: { id: SeasonalMode; label: string }[] = [
   { id: "none", label: "None" },
@@ -47,8 +47,14 @@ export function PlanningPage() {
     const brief = compileBrief(planning);
     actions.setProducerBrief(brief);
 
-    const defaultAgents = PRESET_PERSONAS.map((p) => ({
-      personaId: p.id,
+    const DEFAULT_AGENT_IDS = [
+      "preset-producer",
+      "preset-rod-serling",
+      "preset-rod-serling-director",
+      "preset-cinematographer",
+    ];
+    const defaultAgents = DEFAULT_AGENT_IDS.map((id) => ({
+      personaId: id,
       approved: false,
     }));
     actions.setRoomAgents(defaultAgents);
@@ -83,8 +89,14 @@ export function PlanningPage() {
       const brief = compileBrief(filled);
       actions.setProducerBrief(brief);
 
-      const defaultAgents = PRESET_PERSONAS.map((p) => ({
-        personaId: p.id,
+      const DEFAULT_AGENT_IDS = [
+        "preset-producer",
+        "preset-rod-serling",
+        "preset-rod-serling-director",
+        "preset-cinematographer",
+      ];
+      const defaultAgents = DEFAULT_AGENT_IDS.map((id) => ({
+        personaId: id,
         approved: false,
       }));
       actions.setRoomAgents(defaultAgents);

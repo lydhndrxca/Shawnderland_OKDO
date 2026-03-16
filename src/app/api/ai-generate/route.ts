@@ -13,6 +13,8 @@ const ALLOWED_MODELS = new Set([
   'gemini-2.0-flash-exp',
   'gemini-2.0-flash-lite',
   'gemini-2.0-flash-thinking-exp',
+  'gemini-2.5-flash',
+  'gemini-2.5-pro',
   'gemini-3-pro-image-preview',
   'gemini-2.0-flash-preview-image-generation',
   'gemini-2.0-flash-exp-image-generation',

@@ -1006,7 +1006,10 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
     // 1) Try the auto-save key (has ALL node data including text fields)
     try {
       const raw = localStorage.getItem(`shawnderland-layout-${appKey}`);
-      if (raw) snap = JSON.parse(raw) as LayoutSnapshot;
+      if (raw) {
+        const parsed = JSON.parse(raw) as LayoutSnapshot;
+        if (parsed?.nodes?.length) snap = parsed;
+      }
     } catch { /* corrupt data, skip */ }
 
     // 2) Fallback to named layouts / default

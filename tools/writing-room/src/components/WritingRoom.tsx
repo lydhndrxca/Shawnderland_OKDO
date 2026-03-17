@@ -293,7 +293,9 @@ export function WritingRoom() {
 
   /* ─── Nudge Producer ──────────────────────────────── */
   const handleNudgeProducer = useCallback(async () => {
-    if (!session || generating || !producerAgent) return;
+    if (!session || !producerAgent) return;
+    if (generating) actions.stopAll();
+    await new Promise((r) => setTimeout(r, 50));
     const abort = new AbortController();
     actions.setAbortController(abort);
     actions.setGenerating(true);
@@ -321,7 +323,9 @@ export function WritingRoom() {
 
   /* ─── Start Wrapping Up ───────────────────────────── */
   const handleStartWrapUp = useCallback(async () => {
-    if (!session || generating || !producerAgent) return;
+    if (!session || !producerAgent) return;
+    if (generating) actions.stopAll();
+    await new Promise((r) => setTimeout(r, 50));
     const abort = new AbortController();
     actions.setAbortController(abort);
     actions.setGenerating(true);
@@ -351,7 +355,9 @@ export function WritingRoom() {
 
   /* ─── Wrap Up Now ─────────────────────────────────── */
   const handleWrapUpNow = useCallback(async () => {
-    if (!session || generating || !producerAgent) return;
+    if (!session || !producerAgent) return;
+    if (generating) actions.stopAll();
+    await new Promise((r) => setTimeout(r, 50));
     const abort = new AbortController();
     actions.setAbortController(abort);
     actions.setGenerating(true);
@@ -776,7 +782,7 @@ export function WritingRoom() {
             <button
               className="wr-btn wr-btn-secondary wr-btn-sm"
               onClick={handleNudgeProducer}
-              disabled={generating || !producerAgent || phase === "idle"}
+              disabled={!producerAgent || phase === "idle"}
               title="Ask the producer for a status update"
             >
               Nudge Producer
@@ -784,7 +790,7 @@ export function WritingRoom() {
             <button
               className="wr-btn wr-btn-secondary wr-btn-sm"
               onClick={handleStartWrapUp}
-              disabled={generating || !producerAgent || phase === "idle" || phase === "approved"}
+              disabled={!producerAgent || phase === "idle" || phase === "approved"}
               title="Signal the room to start wrapping up"
             >
               Start Wrapping Up
@@ -792,7 +798,7 @@ export function WritingRoom() {
             <button
               className="wr-btn wr-btn-secondary wr-btn-sm"
               onClick={handleWrapUpNow}
-              disabled={generating || !producerAgent || phase === "idle" || phase === "approved"}
+              disabled={!producerAgent || phase === "idle" || phase === "approved"}
               title="Produce a final deliverable immediately"
             >
               Wrap Up Now

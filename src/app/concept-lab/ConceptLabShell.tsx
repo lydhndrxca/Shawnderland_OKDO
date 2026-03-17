@@ -27,6 +27,7 @@ import { registerEditorOpener, unregisterEditorOpener } from '@/app/ideation/can
 import { useCanvasSession, type CutLine } from '@/hooks/useCanvasSession';
 import { ALL_RAW_NODE_TYPES, ALL_DOCK_CATEGORIES, ALL_CTX_CATEGORIES, NODE_DEFAULTS, NO_SLEEP } from '@/lib/sharedNodeTypes';
 import { applyResizeToAll } from '@/components/nodes/withNodeResize';
+import { getHardcodedDefault } from '@/lib/defaultLayouts';
 import './ConceptLab.css';
 
 const NODE_TYPES = applyResizeToAll(ALL_RAW_NODE_TYPES);
@@ -323,7 +324,7 @@ function ConceptLabCanvas({ appKey = 'concept-lab' }: { appKey?: string }) {
         onSaveCurrentSession={async () => { const r = await cs.saveCurrentSession(); showToast(r.ok ? 'Session saved' : `Save failed: ${r.error}`, r.ok ? 'info' : 'error'); }}
         onLoadSession={async (name) => { await cs.loadSessionNamed(name); showToast(`Session "${name}" loaded`); }}
         onDeleteSession={async (name) => { await cs.deleteSessionNamed(name); showToast(`Session "${name}" deleted`); }}
-        onResetSession={() => { cs.resetToDefault({ nodes: [], edges: [] }); showToast('Session reset to defaults'); }}
+        onResetSession={() => { cs.resetToDefault(getHardcodedDefault(appKey) ?? { nodes: [], edges: [] }); showToast('Session reset to defaults'); }}
         activeSessionName={cs.activeSessionName}
         savedSessions={cs.savedSessionsList}
       />

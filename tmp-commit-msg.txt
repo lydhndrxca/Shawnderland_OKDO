@@ -1,0 +1,38 @@
+feat: Writing Room overhaul, concurrent image processing, app rebrand
+
+Writing Room — major feature additions:
+- Add Nudge Producer, Start Wrapping Up, and Wrap Up Immediately buttons
+- Add typing indicator, message reactions (+1/-1/star), and stop-all control
+- Dynamic persona management: add/remove agents mid-session with system messages
+- Per-persona model tier selection (quick/standard/deep) with live switching
+- Enhanced persona builder: quirks, AI-enhanced descriptions, infuse personality
+- Planning page: agent selection grid, inline scope descriptions, custom tones, save/load presets
+- New "Producer (Strict)" preset persona focused on deliverables only
+- Move Generate Summary to bottom bar; add export and approve buttons
+
+Image processing nodes — concurrent batch processing:
+- AI Upres, AI Restore, and Style Conversion now process all images in parallel via Promise.allSettled
+- Add elapsed timer and per-image completion counter to all three nodes
+- Partial failure handling: successful results are kept even if some images fail
+
+Style Conversion — improved prompt engineering:
+- Rewrite prompts to strictly separate content (IMAGE 1) from style references (IMAGES 2+)
+- Prevent model from blending style reference environments into the output
+- Dynamic prompt labeling for any number of style reference images
+
+AI Upscale — fix Imagen 404:
+- Replace unavailable Imagen upscale endpoint (Vertex AI only) with Gemini-based 4K upscale
+- Use gemini-3.1-flash-image-preview with imageSize: 4K for high-res output
+
+BulkImageInputNode — fix React render error:
+- Wrap setNodes in queueMicrotask to prevent setState during render cycle
+
+App rebrand and cleanup:
+- Default profile changed from "all" to "work"
+- Sidebar/homepage show "PUBG Madison AI Suite" in Work mode, "Shawnderland" otherwise
+- Rename ShawnderMind to "AI Ideation Pipeline - Experimentation" across all UI
+- Remove AI Sprite Lab entirely; hide Gemini Studio from sidebar
+- Rename Walter references to W_w_W across registry, cost widget, and shell
+- Remove profile switcher text labels (icons only)
+- Add Gemini Editor & Inpainting as ConceptLab sub-app placeholder
+- WIP placeholder for AI UI Lab

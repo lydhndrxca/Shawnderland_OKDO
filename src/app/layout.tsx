@@ -3,7 +3,7 @@ import { ClientShell } from "@/components/ClientShell";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Shawnderland",
+  title: "PUBG Madison AI Suite",
   description: "Unified hub for AI creative tools",
 };
 

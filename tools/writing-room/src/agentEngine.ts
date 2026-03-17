@@ -4,7 +4,7 @@ import type {
   ChatMessage, RoomAgent, RoomPhase, PlanningData, AgentRole,
   CreativeRound, LockedDecision, ProducerProjectState, AgentTurnState,
 } from "./types";
-import { DEFAULT_PROJECT_STATE } from "./types";
+import { DEFAULT_PROJECT_STATE, tierToModel } from "./types";
 import {
   buildRoundPrompt,
   buildDecisionsBoardContext,
@@ -217,7 +217,17 @@ If anything fails, flag it and demand fixes.`;
 function buildConversationContext(history: ChatMessage[], maxMessages = 10): string {
   const recent = history.slice(-maxMessages);
   return recent
-    .map((m) => `[${m.agentName} (${m.agentRole})]: ${m.content}`)
+    .map((m) => {
+      let line = `[${m.agentName} (${m.agentRole})]: ${m.content}`;
+      if (m.reactions) {
+        const tags: string[] = [];
+        if (m.reactions.thumbsUp) tags.push("[+1 from client]");
+        if (m.reactions.thumbsDown) tags.push("[-1 from client]");
+        if (m.reactions.star) tags.push("[STARRED by client — run with this]");
+        if (tags.length) line += " " + tags.join(" ");
+      }
+      return line;
+    })
     .join("\n\n");
 }
 
@@ -383,6 +393,13 @@ that collide in ways nobody predicted. The craziest idea in the room is the one
 worth discussing. But always come with the scrappy prototype plan — ambition
 without pragmatism is just dreaming.`,
 
+    "preset-producer-strict": `=== YOUR CREATIVE INSTINCT ===
+Your instinct is PROCESS MANAGEMENT. You do NOT contribute creative ideas. You
+track progress against the brief, enforce hard rules, timebox discussions, and
+drive toward a deliverable. When the room drifts, you redirect. When the room
+circles, you force a decision. Your only question is: "Does this address the
+brief?" You are the clock, the checklist, and the accountability mechanism.`,
+
     "preset-korean-exec": `=== YOUR CREATIVE INSTINCT ===
 Your instinct is GLOBAL CONTEXT. When the room gets excited about a concept, you
 evaluate where it fits in the worldwide competitive landscape. Bring cultural
@@ -500,6 +517,7 @@ export async function generateRoundTurn(
   brief: string | null,
   lockedDecisions: LockedDecision[],
   turnsInRound: number,
+  options?: { wrappingUp?: boolean; signal?: AbortSignal },
 ): Promise<AgentTurnResult> {
   const persona = getPersona(agent.personaId);
   if (!persona) return { text: "[Unknown persona]" };
@@ -523,6 +541,14 @@ export async function generateRoundTurn(
   const checkpointPrompt = isProducer ? buildCheckpointPrompt(checkpoint) : "";
   const projectStateStr = isProducer ? serializeProjectState(projectState) : "";
 
+  const hasStarred = history.some((m) => m.reactions?.star);
+  const starredDirective = hasStarred
+    ? "The client has starred a specific message, indicating strong support. Prioritize and build on that direction."
+    : "";
+  const wrappingDirective = options?.wrappingUp
+    ? "NOTE: The room is wrapping up. Focus on finalizing, not introducing new ideas."
+    : "";
+
   const prompt = [
     `You are ${persona.name} (${persona.role}).`,
     creativeTension,
@@ -534,6 +560,8 @@ export async function generateRoundTurn(
     roundPrompt,
     turnDirective,
     checkpointPrompt,
+    starredDirective,
+    wrappingDirective,
     `\nConversation so far:\n${convoCtx}`,
     `\nNow respond as ${persona.name}. Stay in character. Be specific and concrete.`,
     isProducer
@@ -544,7 +572,11 @@ export async function generateRoundTurn(
     .join("\n\n");
 
   const temp = getTemperatureForRole(persona.role);
-  const raw = await generateText(prompt, { temperature: temp });
+  const modelId = tierToModel(persona.modelTier);
+  const genOpts: Record<string, unknown> = { temperature: temp };
+  if (modelId) genOpts.model = modelId;
+  if (options?.signal) genOpts.signal = options.signal;
+  const raw = await generateText(prompt, genOpts);
 
   let text = raw;
   let projectStatePatch: Partial<ProducerProjectState> | undefined;
@@ -733,4 +765,106 @@ Write a clean, professional summary document that captures:
 Format it as a clean document with headers. Be concise but thorough.`;
 
   return generateText(prompt, { temperature: 0.3 });
+}
+
+/* ─── Producer Nudge ──────────────────────────────────── */
+
+export async function generateProducerNudge(
+  producerId: string,
+  history: ChatMessage[],
+  projectState: ProducerProjectState,
+  brief: string | null,
+  signal?: AbortSignal,
+): Promise<string> {
+  const persona = getPersona(producerId);
+  if (!persona) return "[No producer found]";
+
+  const convoCtx = buildConversationContext(history);
+  const stateStr = serializeProjectState(projectState);
+
+  const prompt = [
+    `You are ${persona.name} (${persona.role}).`,
+    `The client is requesting a status update. Gut-check the room.`,
+    `Where are we relative to the goal? What's working? What's unresolved?`,
+    `Give a concise, honest update.`,
+    brief ? `\nPROJECT BRIEF:\n${brief}` : "",
+    stateStr,
+    `\nConversation so far:\n${convoCtx}`,
+    `\nRespond as ${persona.name}. Be direct and specific.`,
+  ].filter(Boolean).join("\n\n");
+
+  const modelId = tierToModel(persona.modelTier);
+  const opts: Record<string, unknown> = { temperature: 0.4 };
+  if (modelId) opts.model = modelId;
+  if (signal) opts.signal = signal;
+  return generateText(prompt, opts);
+}
+
+/* ─── Wrap Up Signal ──────────────────────────────────── */
+
+export async function generateWrapUpSignal(
+  producerId: string,
+  history: ChatMessage[],
+  projectState: ProducerProjectState,
+  brief: string | null,
+  signal?: AbortSignal,
+): Promise<string> {
+  const persona = getPersona(producerId);
+  if (!persona) return "[No producer found]";
+
+  const convoCtx = buildConversationContext(history);
+  const stateStr = serializeProjectState(projectState);
+
+  const prompt = [
+    `You are ${persona.name} (${persona.role}).`,
+    `It's time to land the plane. The client wants the room to start wrapping up.`,
+    `Summarize where we are, identify what's still unresolved, and drive the room toward a conclusion.`,
+    `Keep discussions focused on finalizing.`,
+    brief ? `\nPROJECT BRIEF:\n${brief}` : "",
+    stateStr,
+    `\nConversation so far:\n${convoCtx}`,
+    `\nRespond as ${persona.name}. Be directive — the room needs to converge.`,
+  ].filter(Boolean).join("\n\n");
+
+  const modelId = tierToModel(persona.modelTier);
+  const opts: Record<string, unknown> = { temperature: 0.3 };
+  if (modelId) opts.model = modelId;
+  if (signal) opts.signal = signal;
+  return generateText(prompt, opts);
+}
+
+/* ─── Immediate Wrap Up ───────────────────────────────── */
+
+export async function generateImmediateWrapUp(
+  producerId: string,
+  history: ChatMessage[],
+  projectState: ProducerProjectState,
+  lockedDecisions: LockedDecision[],
+  brief: string | null,
+  signal?: AbortSignal,
+): Promise<string> {
+  const persona = getPersona(producerId);
+  if (!persona) return "[No producer found]";
+
+  const convoCtx = buildConversationContext(history, 20);
+  const stateStr = serializeProjectState(projectState);
+  const decisions = lockedDecisions.map((d) => `${d.label}: ${d.value}`).join("\n");
+
+  const prompt = [
+    `You are ${persona.name} (${persona.role}).`,
+    `The client needs an immediate wrap-up. Based on everything discussed, synthesize the best version of the final deliverable.`,
+    `Structure it clearly — this is the final output.`,
+    `Include: core concept, key decisions, characters/voices, structure, and any outstanding notes.`,
+    brief ? `\nPROJECT BRIEF:\n${brief}` : "",
+    stateStr,
+    decisions ? `\nLocked Decisions:\n${decisions}` : "",
+    `\nConversation:\n${convoCtx}`,
+    `\nDeliver the final product as ${persona.name}. Make it polished and comprehensive.`,
+  ].filter(Boolean).join("\n\n");
+
+  const modelId = tierToModel(persona.modelTier);
+  const opts: Record<string, unknown> = { temperature: 0.2 };
+  if (modelId) opts.model = modelId;
+  if (signal) opts.signal = signal;
+  return generateText(prompt, opts);
 }

@@ -28,11 +28,13 @@ function BulkImageInputNodeInner({ id, data, selected }: Props) {
 
   const persist = useCallback(
     (imgs: GeneratedImage[]) => {
-      setNodes((nds) =>
-        nds.map((n) =>
-          n.id === id ? { ...n, data: { ...n.data, _bulkImages: imgs } } : n,
-        ),
-      );
+      queueMicrotask(() => {
+        setNodes((nds) =>
+          nds.map((n) =>
+            n.id === id ? { ...n, data: { ...n.data, _bulkImages: imgs } } : n,
+          ),
+        );
+      });
     },
     [id, setNodes],
   );

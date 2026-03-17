@@ -151,7 +151,7 @@ export default function GlobalSettingsPage() {
       <div className="gsp-container">
         <h1 className="gsp-title">Global Settings</h1>
         <p className="gsp-subtitle">
-          Settings that apply across all Shawnderland applications.
+          Settings that apply across all applications.
         </p>
 
         <section className="gsp-section">

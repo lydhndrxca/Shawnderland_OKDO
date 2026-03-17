@@ -6,7 +6,7 @@ import './FilesPage.css';
 
 const APP_LABELS: Record<string, string> = {
   'concept-lab': 'AI Concept Lab',
-  shawndermind: 'ShawnderMind',
+  shawndermind: 'AI Ideation Pipeline',
   'gemini-studio': 'Gemini Studio',
   'ui-lab': 'UI Lab',
   'tool-editor': 'Tool Editor',

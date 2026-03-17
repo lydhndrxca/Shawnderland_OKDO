@@ -101,24 +101,43 @@ function RestoreStandaloneNodeInner({ id, data, selected }: Props) {
     }, 500);
 
     const controller = registerRequest();
-    const results: GeneratedImage[] = [];
 
     try {
-      for (let i = 0; i < inputImages.length; i++) {
-        if (!mountedRef.current || controller.signal.aborted) return;
-        setStatus(`Restoring ${i + 1}/${inputImages.length}...`);
-        const { image: restored } = await restoreImageQuality(inputImages[i], {
-          onStatus: (msg) => {
-            if (mountedRef.current) setStatus(`[${i + 1}/${inputImages.length}] ${msg}`);
-          },
-        });
-        results.push(restored);
-      }
+      let done = 0;
+      setStatus(`Restoring 0/${inputImages.length}…`);
+
+      const settled = await Promise.allSettled(
+        inputImages.map((img, i) =>
+          restoreImageQuality(img, {
+            onStatus: (msg) => {
+              if (mountedRef.current) setStatus(`[${i + 1}] ${msg} (${done}/${inputImages.length} done)`);
+            },
+          }).then(({ image: restored }) => {
+            done++;
+            if (mountedRef.current) setStatus(`Restored ${done}/${inputImages.length}…`);
+            return restored;
+          }),
+        ),
+      );
 
       if (!mountedRef.current || controller.signal.aborted) return;
 
+      const results: GeneratedImage[] = [];
+      const errors: string[] = [];
+      for (const r of settled) {
+        if (r.status === 'fulfilled') results.push(r.value);
+        else errors.push(r.reason instanceof Error ? r.reason.message : String(r.reason));
+      }
+
       const secs = ((Date.now() - t0) / 1000).toFixed(1);
-      setStatus(`Done — ${results.length} image${results.length !== 1 ? 's' : ''} restored in ${secs}s`);
+      if (results.length === 0) {
+        setError(`All ${inputImages.length} restores failed: ${errors[0]}`);
+        setStatus(null);
+        return;
+      }
+
+      const partial = errors.length > 0 ? ` (${errors.length} failed)` : '';
+      setStatus(`Done — ${results.length} image${results.length !== 1 ? 's' : ''} restored in ${secs}s${partial}`);
 
       setNodes((nds) =>
         nds.map((n) => {

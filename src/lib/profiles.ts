@@ -11,8 +11,8 @@ function notify() {
 }
 
 export function getActiveProfile(): ProfileMode {
-  if (typeof window === "undefined") return "all";
-  return (localStorage.getItem(LS_KEY) as ProfileMode) || "all";
+  if (typeof window === "undefined") return "work";
+  return (localStorage.getItem(LS_KEY) as ProfileMode) || "work";
 }
 
 export function setActiveProfile(mode: ProfileMode) {

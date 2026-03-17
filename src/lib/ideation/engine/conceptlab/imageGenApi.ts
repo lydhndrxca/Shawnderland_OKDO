@@ -402,43 +402,68 @@ export async function generateWithGeminiRefDetailed(
 /** Backward-compatible alias. */
 export const generateWithGemini3Ref = generateWithGeminiRef;
 
-/* ── Imagen 4 Upscale ── */
+/* ── AI Upscale (Gemini-based, 4K output) ── */
 
 export type UpscaleFactor = 'x2' | 'x3' | 'x4';
+
+const UPSCALE_MODEL_ID = 'gemini-3.1-flash-image-preview';
 
 export async function upscaleWithImagen(
   image: GeneratedImage,
   upscaleFactor: UpscaleFactor = 'x2',
   prompt: string = '',
 ): Promise<GeneratedImage> {
-  const modelId = 'imagen-4.0-upscale-preview';
+  const factorHint = upscaleFactor === 'x4' ? 'maximum' : upscaleFactor === 'x3' ? 'high' : 'moderate';
+  const upscalePrompt = prompt
+    || `Reproduce this exact image at ${factorHint} resolution. `
+     + 'Preserve every detail, color, texture, and composition exactly as-is. '
+     + 'Do not alter the content, style, or framing in any way. '
+     + 'Only increase clarity, sharpness, and detail fidelity.';
+
+  const parts: Array<Record<string, unknown>> = [
+    { inlineData: { mimeType: image.mimeType, data: image.base64 } },
+    { text: upscalePrompt },
+  ];
 
   const json = await callApi(
-    modelId,
-    'predict',
+    UPSCALE_MODEL_ID,
+    'generateContent',
     {
-      instances: [{
-        prompt: prompt || 'Upscale this image with maximum detail preservation',
-        image: { bytesBase64Encoded: image.base64 },
-      }],
-      parameters: {
-        mode: 'upscale',
-        upscaleConfig: { upscaleFactor },
+      contents: [{ parts }],
+      generationConfig: {
+        responseModalities: ['TEXT', 'IMAGE'],
+        imageConfig: { imageSize: '4K' },
       },
     },
-    'Imagen Upscale',
+    `AI Upscale (${upscaleFactor})`,
     180_000,
   );
 
-  const predictions = (json as { predictions?: Array<{ bytesBase64Encoded: string; mimeType?: string }> }).predictions;
-  if (!predictions?.length) throw new Error('No image returned from Imagen Upscale');
+  if ((json as { usageMetadata?: object }).usageMetadata) {
+    recordUsage(
+      (json as { usageMetadata: { promptTokenCount?: number; candidatesTokenCount?: number } }).usageMetadata,
+      UPSCALE_MODEL_ID,
+    );
+  }
 
-  recordImagenUsage(modelId, 1);
+  const responseParts =
+    ((json as { candidates?: Array<{ content?: { parts?: Array<Record<string, unknown>> } }> })
+      .candidates?.[0]?.content?.parts) ?? [];
 
-  return {
-    base64: predictions[0].bytesBase64Encoded,
-    mimeType: predictions[0].mimeType || 'image/png',
-  };
+  const imagePart = responseParts.find(
+    (p: Record<string, unknown>) => (p as { inlineData?: object }).inlineData,
+  );
+
+  if (!imagePart) {
+    const textContent = responseParts
+      .filter((p: Record<string, unknown>) => (p as { text?: string }).text)
+      .map((p: Record<string, unknown>) => (p as { text: string }).text)
+      .join('\n');
+    throw new Error(`No image returned from AI Upscale${textContent ? ': ' + textContent.slice(0, 100) : ''}`);
+  }
+
+  const d = (imagePart as { inlineData: { mimeType: string; data: string } }).inlineData;
+  return { base64: d.data, mimeType: d.mimeType };
 }
 
 /* ── Gemini text generation (attribute extraction, enhance) ── */

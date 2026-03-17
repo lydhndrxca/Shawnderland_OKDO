@@ -112,22 +112,40 @@ function UpresStandaloneNodeInner({ id, data, selected }: Props) {
     }, 500);
 
     const controller = registerRequest();
-    const results: GeneratedImage[] = [];
 
     try {
-      for (let i = 0; i < inputImages.length; i++) {
-        if (!mountedRef.current || controller.signal.aborted) return;
-        setStatus(`Processing ${i + 1}/${inputImages.length}...`);
-        const result = await upscaleWithImagen(inputImages[i], factor);
-        results.push(result);
-      }
+      let done = 0;
+      setStatus(`Upscaling 0/${inputImages.length}…`);
+
+      const settled = await Promise.allSettled(
+        inputImages.map((img) =>
+          upscaleWithImagen(img, factor).then((result) => {
+            done++;
+            if (mountedRef.current) setStatus(`Upscaled ${done}/${inputImages.length}…`);
+            return result;
+          }),
+        ),
+      );
 
       if (!mountedRef.current || controller.signal.aborted) return;
 
-      const secs = ((Date.now() - t0) / 1000).toFixed(1);
-      setStatus(`Done — ${results.length} image${results.length !== 1 ? 's' : ''} upscaled in ${secs}s`);
+      const results: GeneratedImage[] = [];
+      const errors: string[] = [];
+      for (const r of settled) {
+        if (r.status === 'fulfilled') results.push(r.value);
+        else errors.push(r.reason instanceof Error ? r.reason.message : String(r.reason));
+      }
 
-      // Push results to connected output nodes
+      const secs = ((Date.now() - t0) / 1000).toFixed(1);
+      if (results.length === 0) {
+        setError(`All ${inputImages.length} upscales failed: ${errors[0]}`);
+        setStatus(null);
+        return;
+      }
+
+      const partial = errors.length > 0 ? ` (${errors.length} failed)` : '';
+      setStatus(`Done — ${results.length} image${results.length !== 1 ? 's' : ''} upscaled in ${secs}s${partial}`);
+
       setNodes((nds) =>
         nds.map((n) => {
           if (n.id !== id) return n;

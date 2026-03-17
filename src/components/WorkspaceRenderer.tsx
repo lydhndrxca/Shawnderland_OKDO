@@ -2,19 +2,11 @@
 
 import dynamic from "next/dynamic";
 import { useWorkspace } from "@/lib/workspace/WorkspaceContext";
-import { getTool } from "@/lib/registry";
-import { ToolShell } from "./ToolShell";
 import { SessionProvider } from "@/lib/ideation/context/SessionContext";
-import { UILabProvider } from "@/lib/ui-lab/UILabContext";
 
 const HomePage = dynamic(() => import("./HomePage"), { ssr: false });
 const IdeationShell = dynamic(
   () => import("@/app/ideation/layout/Shell"),
-  { ssr: false }
-);
-
-const UILabShell = dynamic(
-  () => import("@/app/ui-lab/UILabShell"),
   { ssr: false }
 );
 
@@ -47,56 +39,6 @@ function HomeContent() {
   return <HomePage />;
 }
 
-function ToolLandingContent({ toolId }: { toolId: string }) {
-  const tool = getTool(toolId);
-  if (!tool) return <div className="p-8 text-muted-foreground">Tool not found</div>;
-
-  return (
-    <ToolShell
-      toolId={toolId}
-      title={tool.name}
-      description={tool.description}
-      breadcrumbs={[{ label: tool.name }]}
-      accentColor={tool.accentColor}
-    >
-      <div className="max-w-2xl mx-auto space-y-6 p-6">
-        <div className="grid grid-cols-2 gap-3">
-          {tool.features.map((f) => (
-            <div
-              key={f}
-              className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground"
-            >
-              {f}
-            </div>
-          ))}
-        </div>
-
-        {tool.mode === "electron-only" ? (
-          <div className="rounded-lg border border-border bg-card/50 px-4 py-3">
-            <p className="text-xs text-muted-foreground">
-              <span className="font-medium text-foreground/80">Desktop only.</span>{" "}
-              Launch with:{" "}
-              <code className="rounded bg-muted/60 px-1.5 py-0.5 text-[11px] font-mono">
-                {tool.startCommand}
-              </code>
-            </p>
-          </div>
-        ) : (
-          <div className="rounded-lg border border-border bg-card/50 px-4 py-3">
-            <p className="text-xs text-muted-foreground">
-              <span className="font-medium text-foreground/80">Not running?</span>{" "}
-              Start the service:{" "}
-              <code className="rounded bg-muted/60 px-1.5 py-0.5 text-[11px] font-mono">
-                {tool.startCommand}
-              </code>
-            </p>
-          </div>
-        )}
-      </div>
-    </ToolShell>
-  );
-}
-
 function IdeationContent() {
   return (
     <SessionProvider>
@@ -105,11 +47,29 @@ function IdeationContent() {
   );
 }
 
-function UILabContent() {
+function WipPlaceholder() {
   return (
-    <UILabProvider>
-      <UILabShell />
-    </UILabProvider>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100%",
+        width: "100%",
+      }}
+    >
+      <span
+        style={{
+          fontSize: 24,
+          fontWeight: 600,
+          color: "var(--muted-foreground, #666)",
+          letterSpacing: "0.04em",
+          opacity: 0.5,
+        }}
+      >
+        Work in Progress
+      </span>
+    </div>
   );
 }
 
@@ -122,13 +82,13 @@ function resolveRoute(path: string): React.ReactNode {
   if (path === "/") return <HomeContent />;
   if (path === "/settings") return <GlobalSettingsPage />;
   if (path === "/ideation") return <IdeationContent />;
-  if (path === "/sprite-lab") return <ToolLandingContent toolId="sprite-lab" />;
-  if (path === "/ui-lab") return <UILabContent />;
+  if (path === "/ui-lab") return <WipPlaceholder />;
   if (path === "/gemini-studio") return <GeminiStudioShell />;
   if (path === "/concept-lab") return <ConceptLabShell />;
   if (path === "/concept-lab/upres") return <ConceptLabShell appKey="concept-lab:upres" />;
   if (path === "/concept-lab/restore") return <ConceptLabShell appKey="concept-lab:restore" />;
   if (path === "/concept-lab/style-conversion") return <ConceptLabShell appKey="concept-lab:style-conversion" />;
+  if (path === "/concept-lab/gemini-editor") return <WipPlaceholder />;
   if (path === "/walter") return <WalterShell />;
   if (path === "/writing-room") return <WritingRoomShell />;
   return <div className="p-8 text-muted-foreground">Page not found</div>;

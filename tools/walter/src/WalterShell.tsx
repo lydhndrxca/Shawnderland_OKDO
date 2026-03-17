@@ -146,7 +146,7 @@ export default function WalterShell() {
         />
         <div className="ws-landing">
           <div className="ws-landing-hero">
-            <h1>Walter Storyboard Generator</h1>
+            <h1>W_w_W Story Generator</h1>
             <p>
               Brainstorm, develop, and plan Walter episodes with a collaborative
               AI writing room. Walk onto set with a complete production plan.

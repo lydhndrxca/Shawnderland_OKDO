@@ -65,7 +65,7 @@ export default function Shell() {
         </div>
       )}
       <header className="shell-header">
-        <div className="shell-brand">ShawnderMind</div>
+        <div className="shell-brand">AI Ideation Pipeline</div>
         {session.projectName && (
           <span className="shell-project-name" title={session.projectName}>
             {session.projectName}

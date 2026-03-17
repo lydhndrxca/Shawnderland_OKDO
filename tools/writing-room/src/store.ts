@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import type {
   WritingSession, PlanningData, ChatMessage, RoomAgent, RoomPhase,
   ScreenId, ToastItem, LockedDecision, CreativeRoundId,
-  ProducerProjectState, AgentTurnState,
+  ProducerProjectState, AgentTurnState, MessageReactions,
 } from "./types";
 import { DEFAULT_PLANNING, DEFAULT_PROJECT_STATE, DEFAULT_AGENT_TURN_STATE } from "./types";
 
@@ -70,6 +70,8 @@ interface StoreState {
   toasts: ToastItem[];
   generating: boolean;
   autoRun: boolean;
+  currentSpeaker: string | null;
+  abortController: AbortController | null;
 }
 
 let state: StoreState = {
@@ -78,6 +80,8 @@ let state: StoreState = {
   toasts: [],
   generating: false,
   autoRun: false,
+  currentSpeaker: null,
+  abortController: null,
 };
 
 const listeners = new Set<() => void>();
@@ -321,8 +325,73 @@ export const storeActions = {
     });
   },
 
+  addRoomAgent(personaId: string) {
+    const s = getActiveSession();
+    if (!s) return;
+    if (s.roomAgents.some((a) => a.personaId === personaId)) return;
+    updateSession(s.id, (sess) => ({
+      ...sess,
+      roomAgents: [...sess.roomAgents, { personaId, approved: false }],
+    }));
+  },
+
+  removeRoomAgent(personaId: string) {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => ({
+      ...sess,
+      roomAgents: sess.roomAgents.filter((a) => a.personaId !== personaId),
+    }));
+  },
+
+  setWrappingUp(wrappingUp: boolean) {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => ({ ...sess, wrappingUp }));
+  },
+
+  addStarredIdea(idea: string) {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => ({
+      ...sess,
+      starredIdeas: [...(sess.starredIdeas ?? []), idea],
+    }));
+  },
+
+  setMessageReaction(messageId: string, reaction: keyof MessageReactions, value: boolean) {
+    const s = getActiveSession();
+    if (!s) return;
+    updateSession(s.id, (sess) => ({
+      ...sess,
+      chatHistory: sess.chatHistory.map((m) =>
+        m.id === messageId
+          ? {
+              ...m,
+              reactions: {
+                thumbsUp: false,
+                thumbsDown: false,
+                star: false,
+                ...m.reactions,
+                [reaction]: value,
+              },
+            }
+          : m,
+      ),
+    }));
+  },
+
   setGenerating(generating: boolean) { update({ generating }); },
   setAutoRun(autoRun: boolean) { update({ autoRun }); },
+  setCurrentSpeaker(name: string | null) { update({ currentSpeaker: name }); },
+  setAbortController(ctrl: AbortController | null) { update({ abortController: ctrl }); },
+
+  stopAll() {
+    if (state.abortController) {
+      state.abortController.abort();
+    }
+    update({ generating: false, autoRun: false, currentSpeaker: null, abortController: null });
+  },
 
   addToast(message: string, type: ToastItem["type"] = "info") {
     const toast: ToastItem = { id: uid(), message, type };

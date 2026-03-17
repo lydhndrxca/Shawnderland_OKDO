@@ -12,11 +12,11 @@ import { exportForResearch, downloadResearchExport } from '@/lib/ideation/engine
 import './CostWidget.css';
 
 const APP_LABELS: Record<string, string> = {
-  shawndermind: 'ShawnderMind',
+  shawndermind: 'Ideation Pipeline',
   'concept-lab': 'ConceptLab',
   'gemini-studio': 'Gemini Studio',
   'tool-editor': 'Tool Editor',
-  walter: 'Walter Storyboard',
+  walter: 'W_w_W Story',
 };
 
 function formatTokens(n: number): string {

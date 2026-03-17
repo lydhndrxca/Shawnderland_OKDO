@@ -46,10 +46,10 @@ export const WRITING_TYPE_OPTIONS: { id: WritingType; label: string }[] = [
 export type ScopeLength = "short" | "medium" | "long" | "open";
 
 export const SCOPE_OPTIONS: { id: ScopeLength; label: string; description: string }[] = [
-  { id: "short", label: "Short", description: "A few paragraphs" },
-  { id: "medium", label: "Medium", description: "1–2 pages" },
-  { id: "long", label: "Long", description: "Detailed document" },
-  { id: "open", label: "Open-ended", description: "No length constraint" },
+  { id: "short", label: "Short", description: "A focused piece — a scene, a pitch, a single concept" },
+  { id: "medium", label: "Medium", description: "A complete short work — a chapter, a detailed backstory, a full design doc" },
+  { id: "long", label: "Long", description: "An extended work — multi-chapter, full narrative arc, comprehensive worldbuilding" },
+  { id: "open", label: "Open-ended", description: "No length constraint — let the room explore freely" },
 ];
 
 export interface PlanningData {
@@ -85,6 +85,19 @@ export const AGENT_ROLES: { id: AgentRole; label: string; icon: string }[] = [
   { id: "writer", label: "Writer", icon: "✍️" },
 ];
 
+export type ModelTier = "quick" | "standard" | "deep";
+
+export const MODEL_TIER_OPTIONS: { id: ModelTier; label: string; description: string; model: string }[] = [
+  { id: "quick", label: "Quick", description: "Fast responses, less nuanced", model: "gemini-2.0-flash-lite" },
+  { id: "standard", label: "Standard", description: "Balanced speed and quality", model: "gemini-2.0-flash" },
+  { id: "deep", label: "Deep", description: "Slower but more thoughtful", model: "gemini-2.0-flash-thinking-exp" },
+];
+
+export function tierToModel(tier?: ModelTier): string | undefined {
+  if (!tier || tier === "standard") return undefined;
+  return MODEL_TIER_OPTIONS.find((t) => t.id === tier)?.model;
+}
+
 export interface AgentPersona {
   id: string;
   role: AgentRole;
@@ -93,6 +106,9 @@ export interface AgentPersona {
   isPreset: boolean;
   researchData: string;
   avatar: string;
+  modelTier?: ModelTier;
+  quirks?: string;
+  userDescription?: string;
 }
 
 export interface RoomAgent {
@@ -103,6 +119,12 @@ export interface RoomAgent {
 /* ─── Chat / Writing Room ────────────────────────────── */
 
 export type MessageSender = "agent" | "user" | "system";
+
+export interface MessageReactions {
+  thumbsUp: boolean;
+  thumbsDown: boolean;
+  star: boolean;
+}
 
 export interface ChatMessage {
   id: string;
@@ -115,6 +137,7 @@ export interface ChatMessage {
   content: string;
   isApproval?: boolean;
   isTldr?: boolean;
+  reactions?: MessageReactions;
 }
 
 export type RoomPhase =
@@ -235,6 +258,8 @@ export interface WritingSession {
   projectState: ProducerProjectState;
   activeScreen: ScreenId;
   userApproved: boolean;
+  wrappingUp?: boolean;
+  starredIdeas?: string[];
 }
 
 /* ─── UI ─────────────────────────────────────────────── */

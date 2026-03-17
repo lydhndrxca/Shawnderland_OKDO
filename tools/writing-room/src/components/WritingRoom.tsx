@@ -2,14 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWritingStore } from "../store";
-import type { ChatMessage, RoomPhase, ProducerProjectState } from "../types";
+import type { ChatMessage, RoomPhase, MessageReactions, ModelTier } from "../types";
 import {
   generateRoundTurn, selectRoundSpeaker,
   createUserMessage, createSystemMessage, createAgentMessage,
-  isApprovalMessage, detectConvergence, generateSummary,
+  isApprovalMessage, generateSummary,
+  generateProducerNudge, generateWrapUpSignal, generateImmediateWrapUp,
 } from "../agentEngine";
-import type { AgentTurnResult, ConvergenceResult } from "../agentEngine";
-import { getPersona } from "../agents";
+import type { AgentTurnResult } from "../agentEngine";
+import { getPersona, getAllPersonas, savePersona } from "../agents";
 import { PersonaBuilder } from "./PersonaBuilder";
 import { getRoundsForScope, getRoundByIndex, isLastRound } from "../creativeRounds";
 
@@ -23,14 +24,16 @@ const PHASE_LABELS: Record<RoomPhase, string> = {
   approved: "Approved — ready for export",
 };
 
+const TIER_CYCLE: ModelTier[] = ["quick", "standard", "deep"];
+
 export function WritingRoom() {
-  const { session, generating, autoRun, actions } = useWritingStore();
+  const { session, generating, autoRun, currentSpeaker, actions } = useWritingStore();
   const [userInput, setUserInput] = useState("");
   const [lockInput, setLockInput] = useState("");
   const [showPersonaBuilder, setShowPersonaBuilder] = useState(false);
-  const [convergence, setConvergence] = useState<ConvergenceResult | null>(null);
   const [summaryText, setSummaryText] = useState("");
   const [generatingSummary, setGeneratingSummary] = useState(false);
+  const [showAddAgent, setShowAddAgent] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const autoRunRef = useRef(false);
   const consecutiveErrors = useRef(0);
@@ -53,6 +56,14 @@ export function WritingRoom() {
   const isRoundsPhase = session?.roomPhase === "rounds";
   const isApproved = session?.roomPhase === "approved";
 
+  const producerAgent = useMemo(
+    () => session?.roomAgents.find((a) => {
+      const p = getPersona(a.personaId);
+      return p?.role === "producer";
+    }),
+    [session?.roomAgents],
+  );
+
   /* ─── Run one agent turn ──────────────────────────── */
   const runTurn = useCallback(async () => {
     if (!session || generating) return;
@@ -63,6 +74,8 @@ export function WritingRoom() {
     const round = currentRound;
 
     if (phase === "briefing" || phase === "rounds" || phase === "pitch" || phase === "revision") {
+      const abort = new AbortController();
+      actions.setAbortController(abort);
       actions.setGenerating(true);
       try {
         const lastSpeaker = chatHistory[chatHistory.length - 1]?.agentId ?? undefined;
@@ -70,9 +83,12 @@ export function WritingRoom() {
         if (!agent) { actions.setGenerating(false); return; }
 
         actions.ensureAgentState(agent.personaId);
+        const persona = getPersona(agent.personaId);
+        actions.setCurrentSpeaker(persona?.name ?? agent.personaId);
 
         if (!round && (phase === "briefing" || phase === "rounds")) {
           actions.setGenerating(false);
+          actions.setCurrentSpeaker(null);
           return;
         }
 
@@ -86,6 +102,7 @@ export function WritingRoom() {
           producerBrief,
           rs?.lockedDecisions ?? [],
           rs?.turnsInRound ?? 0,
+          { wrappingUp: session.wrappingUp, signal: abort.signal },
         );
 
         const msg = createAgentMessage(agent.personaId, result.text);
@@ -114,6 +131,7 @@ export function WritingRoom() {
           }
         }
       } catch (err) {
+        if ((err as Error).name === "AbortError") return;
         consecutiveErrors.current++;
         actions.addToast("Agent error: " + (err instanceof Error ? err.message : "unknown"), "error");
         if (consecutiveErrors.current >= 3) {
@@ -122,6 +140,8 @@ export function WritingRoom() {
         }
       } finally {
         actions.setGenerating(false);
+        actions.setCurrentSpeaker(null);
+        actions.setAbortController(null);
       }
     }
   }, [session, generating, actions, currentRound, activeRounds]);
@@ -223,6 +243,159 @@ export function WritingRoom() {
     actions.addToast("Transcript exported", "success");
   }, [session, actions]);
 
+  /* ─── Nudge Producer ──────────────────────────────── */
+  const handleNudgeProducer = useCallback(async () => {
+    if (!session || generating || !producerAgent) return;
+    const abort = new AbortController();
+    actions.setAbortController(abort);
+    actions.setGenerating(true);
+    const persona = getPersona(producerAgent.personaId);
+    actions.setCurrentSpeaker(persona?.name ?? "Producer");
+    try {
+      const text = await generateProducerNudge(
+        producerAgent.personaId,
+        session.chatHistory,
+        session.projectState,
+        session.producerBrief,
+        abort.signal,
+      );
+      actions.addChatMessage(createAgentMessage(producerAgent.personaId, text));
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        actions.addToast("Nudge failed: " + (err instanceof Error ? err.message : "unknown"), "error");
+      }
+    } finally {
+      actions.setGenerating(false);
+      actions.setCurrentSpeaker(null);
+      actions.setAbortController(null);
+    }
+  }, [session, generating, producerAgent, actions]);
+
+  /* ─── Start Wrapping Up ───────────────────────────── */
+  const handleStartWrapUp = useCallback(async () => {
+    if (!session || generating || !producerAgent) return;
+    const abort = new AbortController();
+    actions.setAbortController(abort);
+    actions.setGenerating(true);
+    actions.setWrappingUp(true);
+    actions.addChatMessage(createSystemMessage("The client has asked the room to start wrapping up."));
+    const persona = getPersona(producerAgent.personaId);
+    actions.setCurrentSpeaker(persona?.name ?? "Producer");
+    try {
+      const text = await generateWrapUpSignal(
+        producerAgent.personaId,
+        session.chatHistory,
+        session.projectState,
+        session.producerBrief,
+        abort.signal,
+      );
+      actions.addChatMessage(createAgentMessage(producerAgent.personaId, text));
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        actions.addToast("Wrap-up failed: " + (err instanceof Error ? err.message : "unknown"), "error");
+      }
+    } finally {
+      actions.setGenerating(false);
+      actions.setCurrentSpeaker(null);
+      actions.setAbortController(null);
+    }
+  }, [session, generating, producerAgent, actions]);
+
+  /* ─── Wrap Up Now ─────────────────────────────────── */
+  const handleWrapUpNow = useCallback(async () => {
+    if (!session || generating || !producerAgent) return;
+    const abort = new AbortController();
+    actions.setAbortController(abort);
+    actions.setGenerating(true);
+    const persona = getPersona(producerAgent.personaId);
+    actions.setCurrentSpeaker(persona?.name ?? "Producer");
+    try {
+      const text = await generateImmediateWrapUp(
+        producerAgent.personaId,
+        session.chatHistory,
+        session.projectState,
+        session.roundState.lockedDecisions,
+        session.producerBrief,
+        abort.signal,
+      );
+      actions.addChatMessage(createAgentMessage(producerAgent.personaId, text, { isTldr: true }));
+      actions.setRoomPhase("approved");
+      actions.setAutoRun(false);
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        actions.addToast("Immediate wrap-up failed: " + (err instanceof Error ? err.message : "unknown"), "error");
+      }
+    } finally {
+      actions.setGenerating(false);
+      actions.setCurrentSpeaker(null);
+      actions.setAbortController(null);
+    }
+  }, [session, generating, producerAgent, actions]);
+
+  /* ─── Stop All ────────────────────────────────────── */
+  const handleStopAll = useCallback(() => {
+    actions.stopAll();
+  }, [actions]);
+
+  /* ─── Reaction handlers ───────────────────────────── */
+  const handleReaction = useCallback(
+    (msgId: string, reaction: keyof MessageReactions) => {
+      if (!session) return;
+      const msg = session.chatHistory.find((m) => m.id === msgId);
+      const current = msg?.reactions?.[reaction] ?? false;
+      actions.setMessageReaction(msgId, reaction, !current);
+      if (reaction === "star" && !current && msg) {
+        actions.addStarredIdea(msg.content.slice(0, 200));
+      }
+    },
+    [session, actions],
+  );
+
+  /* ─── Add/Remove Agent ────────────────────────────── */
+  const handleRemoveAgent = useCallback(
+    (personaId: string) => {
+      if (!session) return;
+      const p = getPersona(personaId);
+      actions.removeRoomAgent(personaId);
+      actions.addChatMessage(createSystemMessage(`${p?.name ?? personaId} has left the room.`));
+    },
+    [session, actions],
+  );
+
+  const handleAddAgent = useCallback(
+    (personaId: string) => {
+      if (!session) return;
+      const p = getPersona(personaId);
+      actions.addRoomAgent(personaId);
+      actions.ensureAgentState(personaId);
+      actions.addChatMessage(createSystemMessage(`${p?.name ?? personaId} has joined the room.`));
+      setShowAddAgent(false);
+    },
+    [session, actions],
+  );
+
+  /* ─── Cycle Model Tier ────────────────────────────── */
+  const handleCycleTier = useCallback(
+    (personaId: string) => {
+      const p = getPersona(personaId);
+      if (!p) return;
+      const currentTier = p.modelTier ?? "standard";
+      const idx = TIER_CYCLE.indexOf(currentTier);
+      const next = TIER_CYCLE[(idx + 1) % TIER_CYCLE.length];
+      if (!p.isPreset) {
+        savePersona({ ...p, modelTier: next });
+      }
+      actions.addToast(`${p.name} set to ${next} mode`, "info");
+    },
+    [actions],
+  );
+
+  const availableToAdd = useMemo(() => {
+    if (!session) return [];
+    const inRoom = new Set(session.roomAgents.map((a) => a.personaId));
+    return getAllPersonas().filter((p) => !inRoom.has(p.id));
+  }, [session]);
+
   if (!session) return null;
 
   const phase = session.roomPhase;
@@ -240,6 +413,9 @@ export function WritingRoom() {
         <div className="wr-sidebar-section">
           <h3>Status</h3>
           <div className="wr-phase-badge">{PHASE_LABELS[phase]}</div>
+          {session.wrappingUp && (
+            <div style={{ fontSize: 11, color: "var(--wr-warning)", marginTop: 4 }}>Wrapping up...</div>
+          )}
           {currentRound && isRoundsPhase && (
             <div className="wr-round-info">
               <strong>Round:</strong> {currentRound.label}
@@ -252,17 +428,58 @@ export function WritingRoom() {
           <h3>Room</h3>
           {session.roomAgents.map((a) => {
             const p = getPersona(a.personaId);
+            const tier = p?.modelTier ?? "standard";
             return (
               <div key={a.personaId} className="wr-agent-badge">
-                <span>{p?.avatar ?? "?"}</span>
-                <span>{p?.name ?? a.personaId}</span>
+                <div className="wr-agent-badge-info">
+                  <span>{p?.avatar ?? "?"}</span>
+                  <span className="wr-agent-name">{p?.name ?? a.personaId}</span>
+                </div>
+                <button
+                  className={`wr-tier-badge wr-tier-badge--${tier}`}
+                  onClick={() => handleCycleTier(a.personaId)}
+                  title={`${tier} — click to change`}
+                >
+                  {tier === "standard" ? "std" : tier}
+                </button>
+                <button
+                  className="wr-agent-remove-btn"
+                  onClick={() => handleRemoveAgent(a.personaId)}
+                  title="Remove from room"
+                >
+                  ×
+                </button>
               </div>
             );
           })}
+
+          <div className="wr-add-agent-wrap">
+            <button
+              className="wr-btn wr-btn-ghost wr-btn-sm"
+              onClick={() => setShowAddAgent(!showAddAgent)}
+              style={{ width: "100%" }}
+            >
+              + Add Agent
+            </button>
+            {showAddAgent && availableToAdd.length > 0 && (
+              <div className="wr-add-agent-dropdown">
+                {availableToAdd.map((p) => (
+                  <button key={p.id} onClick={() => handleAddAgent(p.id)}>
+                    <span>{p.avatar}</span>
+                    <span>{p.name}</span>
+                    <span style={{ color: "var(--wr-text-dim)", marginLeft: "auto", fontSize: 10 }}>
+                      {p.role}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <button
             className="wr-btn wr-btn-ghost wr-btn-sm"
             onClick={() => setShowPersonaBuilder(true)}
-            style={{ marginTop: 8 }}
+            style={{ marginTop: 8, width: "100%" }}
           >
             Manage Personas
           </button>
@@ -279,43 +496,68 @@ export function WritingRoom() {
             ))}
           </div>
         )}
-
-        <div className="wr-sidebar-section" style={{ marginTop: "auto" }}>
-          <button
-            className="wr-btn wr-btn-secondary wr-btn-sm"
-            onClick={handleGenerateSummary}
-            disabled={generatingSummary || chatHistory.length === 0}
-            style={{ width: "100%", marginBottom: 6 }}
-          >
-            {generatingSummary ? "Generating..." : "Generate Summary"}
-          </button>
-          <button
-            className="wr-btn wr-btn-ghost wr-btn-sm"
-            onClick={handleExportTranscript}
-            disabled={chatHistory.length === 0}
-            style={{ width: "100%" }}
-          >
-            Export Transcript
-          </button>
-        </div>
       </aside>
 
       {/* Chat area */}
       <div className="wr-chat-area">
         <div className="wr-chat-messages">
-          {chatHistory.map((msg) => (
-            <div key={msg.id} className={`wr-chat-msg wr-chat-msg--${msg.sender}`}>
-              <div className="wr-chat-msg-header">
-                <span className="wr-chat-avatar">{msg.agentAvatar}</span>
-                <strong>{msg.agentName}</strong>
-                <span className="wr-chat-role">{msg.agentRole}</span>
-                <span className="wr-chat-time">
-                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </span>
+          {chatHistory.map((msg) => {
+            const isFinal = msg.isTldr && msg.sender === "agent";
+            return (
+              <div
+                key={msg.id}
+                className={`wr-chat-msg wr-chat-msg--${msg.sender}${isFinal ? " wr-chat-msg--final" : ""}`}
+              >
+                <div className="wr-chat-msg-header">
+                  <span className="wr-chat-avatar">{msg.agentAvatar}</span>
+                  <strong>{msg.agentName}</strong>
+                  <span className="wr-chat-role">{msg.agentRole}</span>
+                  <span className="wr-chat-time">
+                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+                <div className="wr-chat-msg-body">{msg.content}</div>
+                {msg.sender === "agent" && (
+                  <div className="wr-reactions">
+                    <button
+                      className={`wr-reaction-btn${msg.reactions?.thumbsUp ? " wr-reaction-btn--active" : ""}`}
+                      onClick={() => handleReaction(msg.id, "thumbsUp")}
+                      title="+1"
+                    >
+                      👍
+                    </button>
+                    <button
+                      className={`wr-reaction-btn wr-reaction-btn--down${msg.reactions?.thumbsDown ? " wr-reaction-btn--active" : ""}`}
+                      onClick={() => handleReaction(msg.id, "thumbsDown")}
+                      title="-1"
+                    >
+                      👎
+                    </button>
+                    <button
+                      className={`wr-reaction-btn wr-reaction-btn--star${msg.reactions?.star ? " wr-reaction-btn--active" : ""}`}
+                      onClick={() => handleReaction(msg.id, "star")}
+                      title="Star — run with this idea"
+                    >
+                      ⭐
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="wr-chat-msg-body">{msg.content}</div>
+            );
+          })}
+
+          {/* Typing indicator */}
+          {generating && currentSpeaker && (
+            <div className="wr-typing-indicator">
+              <span>{currentSpeaker} is typing</span>
+              <span className="wr-typing-dots">
+                <span />
+                <span />
+                <span />
+              </span>
             </div>
-          ))}
+          )}
+
           <div ref={chatEndRef} />
         </div>
 
@@ -382,27 +624,85 @@ export function WritingRoom() {
           </div>
 
           <div className="wr-action-row">
+            {/* Stop */}
             <button
-              className="wr-btn wr-btn-primary"
+              className="wr-btn wr-btn-danger wr-btn-sm"
+              onClick={handleStopAll}
+              disabled={!generating && !autoRun}
+              title="Stop all AI agents"
+            >
+              Stop
+            </button>
+
+            {/* Turn controls */}
+            <button
+              className="wr-btn wr-btn-primary wr-btn-sm"
               onClick={runTurn}
               disabled={generating || phase === "idle" || phase === "approved"}
             >
               {generating ? "Thinking..." : "Next Turn"}
             </button>
             <button
-              className={`wr-btn ${autoRun ? "wr-btn-danger" : "wr-btn-accent"}`}
+              className={`wr-btn wr-btn-sm ${autoRun ? "wr-btn-danger" : "wr-btn-accent"}`}
               onClick={() => actions.setAutoRun(!autoRun)}
               disabled={phase === "idle" || phase === "approved"}
             >
-              {autoRun ? "Stop Auto-Run" : "Auto-Run"}
+              {autoRun ? "Stop Auto" : "Auto-Run"}
             </button>
+
+            <span className="wr-action-divider" />
+
+            {/* Producer controls */}
+            <button
+              className="wr-btn wr-btn-secondary wr-btn-sm"
+              onClick={handleNudgeProducer}
+              disabled={generating || !producerAgent || phase === "idle"}
+              title="Ask the producer for a status update"
+            >
+              Nudge Producer
+            </button>
+            <button
+              className="wr-btn wr-btn-secondary wr-btn-sm"
+              onClick={handleStartWrapUp}
+              disabled={generating || !producerAgent || phase === "idle" || phase === "approved"}
+              title="Signal the room to start wrapping up"
+            >
+              Start Wrapping Up
+            </button>
+            <button
+              className="wr-btn wr-btn-secondary wr-btn-sm"
+              onClick={handleWrapUpNow}
+              disabled={generating || !producerAgent || phase === "idle" || phase === "approved"}
+              title="Produce a final deliverable immediately"
+            >
+              Wrap Up Now
+            </button>
+
+            <span className="wr-action-divider" />
+
+            {/* Summary & Export */}
+            <button
+              className="wr-btn wr-btn-secondary wr-btn-sm"
+              onClick={handleGenerateSummary}
+              disabled={generatingSummary || chatHistory.length === 0}
+            >
+              {generatingSummary ? "Generating..." : "Summary"}
+            </button>
+            <button
+              className="wr-btn wr-btn-ghost wr-btn-sm"
+              onClick={handleExportTranscript}
+              disabled={chatHistory.length === 0}
+            >
+              Export
+            </button>
+
             {(phase === "approval" || isApproved) && (
               <button
-                className="wr-btn wr-btn-success"
+                className="wr-btn wr-btn-success wr-btn-sm"
                 onClick={handleUserApprove}
                 disabled={isApproved}
               >
-                {isApproved ? "Approved ✓" : "Approve & Finish"}
+                {isApproved ? "Approved ✓" : "Approve"}
               </button>
             )}
           </div>

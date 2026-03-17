@@ -952,8 +952,8 @@ function FlowCanvasInner() {
     <CompatProvider errors={compatErrors}>
     <div className="flow-canvas-shell">
       <GlobalToolbar
-        title="ShawnderMind"
-        hint="Ideation pipeline"
+        title="AI Ideation Pipeline"
+        hint="Experimentation"
         canUndo={flow.canUndo}
         canRedo={flow.canRedo}
         hasSelection={selectedCount > 0}
@@ -1025,7 +1025,7 @@ function FlowCanvasInner() {
           onCloseInspector={() => setInspectorNodeId(null)}
         />
 
-        <button className="demo-trigger-btn" onClick={() => setShowDemo(true)} title="Learn how ShawnderMind works">
+        <button className="demo-trigger-btn" onClick={() => setShowDemo(true)} title="Learn how the Ideation Pipeline works">
           ?
         </button>
 

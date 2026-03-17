@@ -85,11 +85,13 @@ function StyleConversionNodeInner({ id, data, selected }: Props) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [elapsed, setElapsed] = useState(0);
   const [presets, setPresets] = useState<StylePreset[]>(() => loadPresets());
   const [showPresets, setShowPresets] = useState(false);
   const [presetName, setPresetName] = useState('');
 
   const mountedRef = useRef(true);
+  const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
   const persist = useCallback(
@@ -212,6 +214,66 @@ function StyleConversionNodeInner({ id, data, selected }: Props) {
     savePresets(updated);
   }, [presets]);
 
+  const buildPromptAndRefs = useCallback(
+    (inputImage: GeneratedImage): { prompt: string; refs: GeneratedImage[] } => {
+      let prompt: string;
+      let refs: GeneratedImage[];
+      const totalImages = 1 + styleImages.length;
+      const styleLabel = styleImages.length === 1
+        ? 'IMAGE 2 is the STYLE REFERENCE'
+        : `IMAGES 2–${totalImages} are STYLE REFERENCES`;
+      const styleShort = styleImages.length === 1
+        ? 'IMAGE 2'
+        : `IMAGES 2–${totalImages}`;
+
+      if (mode === 'rerender') {
+        if (styleImages.length > 0) {
+          refs = [inputImage, ...styleImages];
+          prompt = `You are given ${totalImages} images.
+
+IMAGE 1 (the first image) is the SOURCE — the image to be recreated.
+${styleLabel} — use ONLY for determining the visual rendering style.
+
+Your task: Recreate IMAGE 1 exactly, but rendered in the art style / visual style shown in ${styleShort}.
+
+CRITICAL RULES:
+- The OUTPUT must depict the EXACT same scene, subject(s), pose, composition, background, and framing as IMAGE 1.
+- Do NOT borrow any content, scene, environment, characters, or objects from the style reference(s).
+- The style reference(s) are ONLY for extracting rendering technique, color palette, shading, line work, texture treatment, and level of detail — then apply that style to IMAGE 1's content.
+- Think of it like a filter: same photo, different artistic rendering.${styleText.trim() ? `\nAdditional style guidance: ${styleText.trim()}` : ''}`;
+        } else {
+          refs = [inputImage];
+          prompt = `Recreate this exact image — same subject, pose, composition, background, and framing — but rendered in the following art style: ${styleText.trim()}.
+Do NOT change the scene content. Only change the visual rendering style.`;
+        }
+      } else {
+        const target = isolateTarget.trim() || 'the main subject';
+        if (styleImages.length > 0) {
+          refs = [inputImage, ...styleImages];
+          prompt = `You are given ${totalImages} images.
+
+IMAGE 1 (the first image) is the SOURCE.
+${styleLabel}.
+
+Your task: Isolate "${target}" from IMAGE 1 and make it the hero/main focus of the output.
+Render the result in the visual style shown in ${styleShort}.
+
+CRITICAL: Do NOT place the subject into any environment from the style reference(s). Only use them for art style, color palette, shading, and rendering technique.${styleText.trim() ? `\nAdditional style guidance: ${styleText.trim()}` : ''}`;
+        } else {
+          refs = [inputImage];
+          prompt = `Isolate "${target}" from this image and make it the hero/main focus of the output.${styleText.trim() ? `\nRender in this art style: ${styleText.trim()}` : ''}`;
+        }
+      }
+
+      if (customDimensions) {
+        prompt += `\n\nOutput dimensions: approximately ${width}x${height} pixels.`;
+      }
+
+      return { prompt, refs };
+    },
+    [mode, styleImages, styleText, isolateTarget, customDimensions, width, height],
+  );
+
   const handleProcess = useCallback(async () => {
     if (busy) return;
     if (styleImages.length === 0 && !styleText.trim()) {
@@ -229,58 +291,47 @@ function StyleConversionNodeInner({ id, data, selected }: Props) {
 
     setBusy(true);
     setError(null);
-    setStatus('Starting style conversion...');
+    setElapsed(0);
+    const t0 = Date.now();
+    timerRef.current = setInterval(() => {
+      if (mountedRef.current) setElapsed(Math.floor((Date.now() - t0) / 1000));
+    }, 500);
 
     const controller = registerRequest();
-    const results: GeneratedImage[] = [];
 
     try {
-      for (let i = 0; i < inputImages.length; i++) {
-        if (!mountedRef.current || controller.signal.aborted) return;
-        setStatus(`Converting ${i + 1}/${inputImages.length}...`);
+      let done = 0;
+      setStatus(`Converting 0/${inputImages.length}…`);
 
-        let prompt: string;
-        let refs: GeneratedImage[];
-
-        if (mode === 'rerender') {
-          if (styleImages.length > 0) {
-            refs = [inputImages[i], ...styleImages];
-            prompt = `Render this image in the EXACT visual style of the style reference image(s).
-Preserve the pose, framing, background, and all details exactly.
-Change ONLY the rendering style — geometry, textures, shading, color palette.${styleText.trim() ? `\nStyle description: ${styleText.trim()}` : ''}
-IMAGE LAYOUT: Image 1 = IMAGE TO RESTYLE. Images 2+ = STYLE REFERENCES.`;
-          } else {
-            refs = [inputImages[i]];
-            prompt = `Render this image in the following art style: ${styleText.trim()}.
-Preserve the pose, framing, background, and all details exactly.
-Change ONLY the rendering style.`;
-          }
-        } else {
-          const target = isolateTarget.trim() || 'the main subject';
-          if (styleImages.length > 0) {
-            refs = [inputImages[i], ...styleImages];
-            prompt = `Isolate and focus on: "${target}" from this image.
-Regenerate the image with "${target}" as the hero/main focus of the frame.
-Use the visual style of the style reference image(s).${styleText.trim() ? `\nStyle description: ${styleText.trim()}` : ''}
-IMAGE LAYOUT: Image 1 = SOURCE IMAGE. Images 2+ = STYLE REFERENCES.`;
-          } else {
-            refs = [inputImages[i]];
-            prompt = `Isolate and focus on: "${target}" from this image.
-Regenerate the image with "${target}" as the hero/main focus of the frame.${styleText.trim() ? `\nArt style: ${styleText.trim()}` : ''}`;
-          }
-        }
-
-        if (customDimensions) {
-          prompt += `\n\nOutput dimensions: approximately ${width}x${height} pixels.`;
-        }
-
-        const result = await generateWithGeminiRef(prompt, refs);
-        if (result[0]) results.push(result[0]);
-      }
+      const settled = await Promise.allSettled(
+        inputImages.map((img) => {
+          const { prompt, refs } = buildPromptAndRefs(img);
+          return generateWithGeminiRef(prompt, refs).then((result) => {
+            done++;
+            if (mountedRef.current) setStatus(`Converted ${done}/${inputImages.length}…`);
+            return result[0];
+          });
+        }),
+      );
 
       if (!mountedRef.current || controller.signal.aborted) return;
 
-      setStatus(`Done — ${results.length} image${results.length !== 1 ? 's' : ''} converted`);
+      const results: GeneratedImage[] = [];
+      const errors: string[] = [];
+      for (const r of settled) {
+        if (r.status === 'fulfilled' && r.value) results.push(r.value);
+        else if (r.status === 'rejected') errors.push(r.reason instanceof Error ? r.reason.message : String(r.reason));
+      }
+
+      const secs = ((Date.now() - t0) / 1000).toFixed(1);
+      if (results.length === 0) {
+        setError(`All ${inputImages.length} conversion(s) failed: ${errors[0] ?? 'unknown error'}`);
+        setStatus(null);
+        return;
+      }
+
+      const partial = errors.length > 0 ? ` (${errors.length} failed)` : '';
+      setStatus(`Done — ${results.length} image${results.length !== 1 ? 's' : ''} converted in ${secs}s${partial}`);
 
       setNodes((nds) =>
         nds.map((n) => {
@@ -297,10 +348,12 @@ Regenerate the image with "${target}" as the hero/main focus of the frame.${styl
       }
       setStatus(null);
     } finally {
+      clearInterval(timerRef.current);
       unregisterRequest(controller);
       setBusy(false);
+      setElapsed(0);
     }
-  }, [busy, styleImages, styleText, mode, isolateTarget, customDimensions, width, height, id, getNode, getEdges, setNodes]);
+  }, [busy, styleImages, styleText, id, getNode, getEdges, setNodes, buildPromptAndRefs]);
 
   const hasStyle = styleImages.length > 0 || styleText.trim().length > 0;
   const defaultPresetName = getDefaultPreset();
@@ -522,7 +575,7 @@ Regenerate the image with "${target}" as the hero/main focus of the frame.${styl
             background: hasStyle && !busy && inputCount > 0 ? '#7b1fa2' : undefined,
           }}
         >
-          {busy ? 'Converting…' : `Convert ${inputCount} Image${inputCount !== 1 ? 's' : ''}`}
+          {busy ? `Converting… ${elapsed}s` : `Convert ${inputCount} Image${inputCount !== 1 ? 's' : ''}`}
         </button>
 
         {status && <div className="util-status">{status}</div>}

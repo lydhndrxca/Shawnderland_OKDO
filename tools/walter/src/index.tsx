@@ -4,7 +4,7 @@ export { default as WalterShell } from "./WalterShell";
 
 export const WALTER_REGISTRY = {
   id: "walter",
-  name: "Walter Storyboard Generator",
+  name: "W_w_W Story Generator",
   tagline: "Collaborative AI episode planning",
   description:
     "Plan, write, and stage Walter episodes with a multi-agent AI writing room. Walk onto set with a complete production plan.",

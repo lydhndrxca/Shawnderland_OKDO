@@ -24,10 +24,10 @@ export const TOOLS: ToolRegistryEntry[] = [
     mode: "web",
     profiles: ["work", "personal"],
   },
-  // ── 2. ShawnderMind ────────────────────────────────────────────────
+  // ── 2. AI Ideation Pipeline ────────────────────────────────────────
   {
     id: "ideation",
-    name: "ShawnderMind",
+    name: "AI Ideation Pipeline - Experimentation",
     tagline: "Structured AI brainstorming",
     description:
       "An 8-stage AI ideation pipeline on an interactive node canvas. Feed in a seed idea and watch it grow through divergence, critique, expansion, and convergence into a fully realized concept.",
@@ -47,7 +47,7 @@ export const TOOLS: ToolRegistryEntry[] = [
     mode: "web",
     profiles: ["work", "personal"],
   },
-  // ── 3. Gemini Studio ───────────────────────────────────────────────
+  // ── 3. Gemini Studio (hidden — accessed only via direct URL) ────────
   {
     id: "gemini-studio",
     name: "Gemini Studio",
@@ -68,6 +68,7 @@ export const TOOLS: ToolRegistryEntry[] = [
     startCommand: "",
     mode: "web",
     profiles: ["work", "personal"],
+    hidden: true,
   },
   // ── 4. AI Writing Room ─────────────────────────────────────────────
   {
@@ -91,15 +92,15 @@ export const TOOLS: ToolRegistryEntry[] = [
     mode: "web",
     profiles: ["work", "personal"],
   },
-  // ── 5. Walter (personal-only) ───────────────────────────────────────
+  // ── 5. W_W_W (personal-only) ────────────────────────────────────────
   // Toggle visibility: set profiles to ["personal"] (visible in Personal/All)
   // or set hidden: true to hide everywhere.
   {
     id: "walter",
-    name: "Walter Storyboard Generator",
+    name: "W_w_W Story Generator",
     tagline: "Collaborative AI episode planning",
     description:
-      "Plan, write, and stage Walter episodes with a multi-agent AI writing room. Walk onto set with a complete production plan.",
+      "Plan, write, and stage W_w_W episodes with a multi-agent AI writing room. Walk onto set with a complete production plan.",
     icon: "clapperboard",
     href: "/walter",
     baseUrl: "",
@@ -116,31 +117,7 @@ export const TOOLS: ToolRegistryEntry[] = [
     mode: "web",
     profiles: ["personal"],
   },
-  // ── 6. AI Sprite Lab (WIP) ─────────────────────────────────────────
-  {
-    id: "sprite-lab",
-    name: "AI Sprite Lab",
-    tagline: "Game art, automated",
-    description:
-      "Create sprites, pixel art, animations, tilesets, and more with AI-powered tools built for game developers.",
-    icon: "palette",
-    href: "/sprite-lab",
-    baseUrl: process.env.NEXT_PUBLIC_SPRITE_LAB_URL || "http://localhost:4001",
-    accentColor: "var(--color-tool-sprite)",
-    accentDim: "var(--color-tool-sprite-dim)",
-    features: [
-      "Sprite extraction",
-      "Pixel art",
-      "AI generation",
-      "Tileset forge",
-      "SFX editor",
-    ],
-    startCommand: "cd AI-Sprite-Lab && run.bat",
-    mode: "web",
-    profiles: ["work"],
-    status: "wip",
-  },
-  // ── 7. AI UI Lab (WIP) ─────────────────────────────────────────────
+  // ── 6. AI UI Lab (WIP) ──────────────────────────────────────────────
   {
     id: "ui-lab",
     name: "AI UI Lab",

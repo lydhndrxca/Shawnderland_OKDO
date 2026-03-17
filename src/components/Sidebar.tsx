@@ -23,6 +23,7 @@ import {
   ImageUp,
   WandSparkles,
   Brush,
+  PencilRuler,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { TOOLS } from "@/lib/registry";
@@ -74,6 +75,7 @@ const CONCEPT_LAB_SUB_TOOLS = [
   { label: "AI Upres", href: "/concept-lab/upres", icon: ImageUp },
   { label: "AI Restore", href: "/concept-lab/restore", icon: WandSparkles },
   { label: "Style Conversion", href: "/concept-lab/style-conversion", icon: Brush },
+  { label: "Gemini Editor & Inpainting", href: "/concept-lab/gemini-editor", icon: PencilRuler },
 ];
 
 export function Sidebar({
@@ -100,7 +102,7 @@ export function Sidebar({
               href="/"
               className="text-xl font-bold tracking-tight text-foreground hover:text-primary transition-colors"
             >
-              Shawnderland
+              {profile === "work" ? "PUBG Madison AI Suite" : "Shawnderland"}
             </WorkspaceLink>
           </div>
 
@@ -319,7 +321,7 @@ export function Sidebar({
 
           <div className="border-t border-border px-3 py-1.5 flex items-center justify-center">
             <a
-              href="mailto:shawn@bluehole.net?subject=Shawnderland%20Bug%20Submission"
+              href={`mailto:shawn@bluehole.net?subject=${profile === "work" ? "PUBG%20Madison%20AI%20Suite" : "Shawnderland"}%20Bug%20Submission`}
               className="text-muted-foreground/50 hover:text-muted-foreground flex items-center gap-1.5 text-[10px] transition-colors"
               style={{ textDecoration: 'none' }}
             >
@@ -327,7 +329,7 @@ export function Sidebar({
               Feedback
             </a>
           </div>
-          <div className="border-t border-border px-3 py-2 flex items-center gap-1">
+          <div className="border-t border-border px-3 py-2 flex items-center justify-center gap-1">
             {PROFILE_OPTIONS.map((opt) => {
               const Icon = PROFILE_ICONS[opt.id];
               const active = profile === opt.id;
@@ -336,7 +338,7 @@ export function Sidebar({
                   key={opt.id}
                   onClick={() => setActiveProfile(opt.id)}
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-medium transition-all cursor-pointer",
+                    "flex items-center justify-center rounded-md p-1.5 transition-all cursor-pointer",
                     active
                       ? "bg-primary/15 text-foreground"
                       : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/30",
@@ -345,7 +347,6 @@ export function Sidebar({
                   title={opt.label}
                 >
                   <Icon className="h-3 w-3 shrink-0" />
-                  {opt.label}
                 </button>
               );
             })}

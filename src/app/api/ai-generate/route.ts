@@ -24,7 +24,6 @@ const ALLOWED_MODELS = new Set([
   'imagen-4.0-generate-001',
   'imagen-4.0-ultra-generate-001',
   'imagen-4.0-fast-generate-001',
-  'imagen-4.0-upscale-preview',
   'veo-2.0-generate-001',
 ]);
 

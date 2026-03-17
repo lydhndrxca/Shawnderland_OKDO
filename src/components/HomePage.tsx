@@ -3,17 +3,15 @@
 import { useCallback, useRef, useState } from 'react';
 import { Sparkles, Bug } from 'lucide-react';
 import { TOOLS } from '@/lib/registry';
-import { getVisibleTools } from '@/lib/profiles';
+import { getVisibleTools, getActiveProfile } from '@/lib/profiles';
 import { useWorkspace } from '@/lib/workspace/WorkspaceContext';
 import { useStyleStore } from '@/lib/styles/useStyleStore';
 import './Home.css';
 
 const TOOL_ICONS: Record<string, string> = {
-  'sprite-lab': '\u{1F3A8}',
   ideation: '\u{1F9E0}',
   'ui-lab': '\u{1F5BC}',
   'concept-lab': '\u{1F4A1}',
-  'gemini-studio': '\u2728',
   'tool-editor': '\u{1F527}',
   walter: '\u{1F3AC}',
 };
@@ -89,10 +87,10 @@ export default function HomePage() {
         <div className="home-hero-icon">
           <Sparkles size={22} color="var(--accent, #6c63ff)" />
         </div>
-        <h1>Shawnderland</h1>
+        <h1>{getActiveProfile() === "work" ? "PUBG Madison AI Suite" : "Shawnderland"}</h1>
         <p>Your creative AI workspace. Every tool below shares the same node system, style store, and design tokens — so ideas flow freely between them.</p>
         <a
-          href="mailto:shawn@bluehole.net?subject=Shawnderland%20Bug%20Submission"
+          href={`mailto:shawn@bluehole.net?subject=${getActiveProfile() === "work" ? "PUBG%20Madison%20AI%20Suite" : "Shawnderland"}%20Bug%20Submission`}
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
             marginTop: 10, fontSize: 12, color: 'var(--text-secondary, #888)',

@@ -8,6 +8,7 @@ import { recordImagenUsage, recordUsage } from '../provider/costTracker';
 import { getActiveBackend as _getActiveBackend } from '../apiConfig';
 import { registerRequest, unregisterRequest } from '@/lib/activeRequests';
 import { devLog, devWarn } from '@/lib/devLog';
+import { getGlobalSettings } from '@/lib/globalSettings';
 export type { ApiBackend } from '../apiConfig';
 export { getActiveBackend } from '../apiConfig';
 
@@ -76,9 +77,13 @@ async function attemptFetch(
   devLog(`[attemptFetch] → ${url.slice(0, 50)}… (${(bodyStr.length / 1024).toFixed(0)}KB, timeout=${timeoutMs / 1000}s)`);
 
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const userKey = getGlobalSettings().geminiApiKey;
+    if (userKey) headers['x-api-key'] = userKey;
+
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: bodyStr,
       signal: ac.signal,
     });

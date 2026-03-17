@@ -3,6 +3,7 @@
 import { memo, useCallback, useState, useRef, useEffect } from "react";
 import { Handle, Position, useReactFlow } from "@xyflow/react";
 import { recordUsage } from "@/lib/ideation/engine/provider/costTracker";
+import { getGlobalSettings } from "@/lib/globalSettings";
 import "./VideoAnalysisNode.css";
 
 interface VideoEntry {
@@ -89,8 +90,13 @@ async function analyzeVideo(
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
+    const headers: Record<string, string> = {};
+    const userKey = getGlobalSettings().geminiApiKey;
+    if (userKey) headers["x-api-key"] = userKey;
+
     const res = await fetch("/api/video-analyze", {
       method: "POST",
+      headers,
       body: form,
       signal: controller.signal,
     });

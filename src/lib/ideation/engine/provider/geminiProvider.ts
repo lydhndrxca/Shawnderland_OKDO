@@ -2,6 +2,7 @@ import type { Provider, ProviderGenerateOpts, MediaPart } from './types';
 import { recordUsage } from './costTracker';
 import type { ThinkingTier } from '../../state/sessionTypes';
 import { registerRequest, unregisterRequest } from '@/lib/activeRequests';
+import { getGlobalSettings } from '@/lib/globalSettings';
 
 interface TierConfig {
   model: string;
@@ -48,9 +49,13 @@ async function proxyGemini(
   try {
     let res: Response;
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const userKey = getGlobalSettings().geminiApiKey;
+      if (userKey) headers['x-api-key'] = userKey;
+
       res = await fetch(PROXY_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ model, method: 'generateContent', body }),
         signal: tracker.signal,
       });

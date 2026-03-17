@@ -274,3 +274,49 @@
 .gsp-btn-primary:hover:not(:disabled) {
   background: rgba(160,100,240,0.5);
 }
+
+/* ── API Key ── */
+
+.gsp-link {
+  color: rgba(160,140,240,0.9);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.gsp-link:hover { color: #d0c0ff; }
+
+.gsp-input-key {
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.gsp-btn-sm {
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.gsp-key-status {
+  margin-top: 10px;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.gsp-key-ok {
+  color: #6ee7b7;
+  background: rgba(110,231,183,0.08);
+  border: 1px solid rgba(110,231,183,0.2);
+}
+
+.gsp-key-fail {
+  color: #f87171;
+  background: rgba(248,113,113,0.08);
+  border: 1px solid rgba(248,113,113,0.2);
+}
+
+.gsp-key-warn {
+  color: #fbbf24;
+  background: rgba(251,191,36,0.06);
+  border: 1px solid rgba(251,191,36,0.15);
+}

@@ -125,6 +125,29 @@ export default function GlobalSettingsPage() {
   const settings = useGlobalSettings();
   const [showBrowser, setShowBrowser] = useState(false);
   const [showBrowser3D, setShowBrowser3D] = useState(false);
+  const [keyVisible, setKeyVisible] = useState(false);
+  const [keyTestStatus, setKeyTestStatus] = useState<'idle' | 'testing' | 'ok' | 'fail'>('idle');
+
+  const handleApiKeyChange = useCallback((val: string) => {
+    setGlobalSettings({ geminiApiKey: val.trim() });
+    setKeyTestStatus('idle');
+  }, []);
+
+  const handleTestKey = useCallback(async () => {
+    const key = settings.geminiApiKey;
+    if (!key) return;
+    setKeyTestStatus('testing');
+    try {
+      const res = await fetch('/api/ai-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': key },
+        body: JSON.stringify({ model: 'gemini-2.0-flash', method: 'generateContent', body: { contents: [{ parts: [{ text: 'Say OK' }] }] } }),
+      });
+      setKeyTestStatus(res.ok ? 'ok' : 'fail');
+    } catch {
+      setKeyTestStatus('fail');
+    }
+  }, [settings.geminiApiKey]);
 
   const handleOutputDirChange = useCallback((val: string) => {
     setGlobalSettings({ outputDir: val });
@@ -153,6 +176,49 @@ export default function GlobalSettingsPage() {
         <p className="gsp-subtitle">
           Settings that apply across all applications.
         </p>
+
+        <section className="gsp-section">
+          <h2 className="gsp-section-title">Gemini API Key</h2>
+          <p className="gsp-section-desc">
+            Required for all AI features. Get a free key from{' '}
+            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="gsp-link">
+              Google AI Studio
+            </a>. Stored locally in your browser — never sent anywhere except Google.
+          </p>
+
+          <div className="gsp-field-row">
+            <input
+              className="gsp-input gsp-input-key"
+              type={keyVisible ? 'text' : 'password'}
+              value={settings.geminiApiKey}
+              onChange={(e) => handleApiKeyChange(e.target.value)}
+              placeholder="AIzaSy..."
+              spellCheck={false}
+              autoComplete="off"
+            />
+            <button type="button" className="gsp-btn gsp-btn-sm" onClick={() => setKeyVisible((v) => !v)}>
+              {keyVisible ? 'Hide' : 'Show'}
+            </button>
+            <button
+              type="button"
+              className="gsp-btn gsp-btn-primary gsp-btn-sm"
+              onClick={handleTestKey}
+              disabled={!settings.geminiApiKey || keyTestStatus === 'testing'}
+            >
+              {keyTestStatus === 'testing' ? 'Testing...' : 'Test Key'}
+            </button>
+          </div>
+
+          {keyTestStatus === 'ok' && (
+            <div className="gsp-key-status gsp-key-ok">Key is valid and working.</div>
+          )}
+          {keyTestStatus === 'fail' && (
+            <div className="gsp-key-status gsp-key-fail">Key test failed. Check your key and try again.</div>
+          )}
+          {!settings.geminiApiKey && (
+            <div className="gsp-key-status gsp-key-warn">No API key set — AI features will not work.</div>
+          )}
+        </section>
 
         <section className="gsp-section">
           <h2 className="gsp-section-title">Output Directory</h2>

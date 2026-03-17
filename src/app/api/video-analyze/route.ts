@@ -4,9 +4,13 @@ import https from "node:https";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
-const API_KEY =
+const ENV_API_KEY =
   process.env.GEMINI_API_KEY ?? process.env.NEXT_PUBLIC_GEMINI_API_KEY ?? "";
 const HOST = "generativelanguage.googleapis.com";
+
+function resolveApiKey(req: NextRequest): string {
+  return ENV_API_KEY || req.headers.get("x-api-key") || "";
+}
 
 function httpsRequest(
   options: https.RequestOptions,
@@ -44,13 +48,14 @@ async function initiateResumableUpload(
   displayName: string,
   mimeType: string,
   fileSize: number,
+  apiKey: string,
 ): Promise<string> {
   const metadata = JSON.stringify({ file: { display_name: displayName } });
   const res = await httpsRequest(
     {
       hostname: HOST,
       port: 443,
-      path: `/upload/v1beta/files?key=${API_KEY}`,
+      path: `/upload/v1beta/files?key=${apiKey}`,
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -107,10 +112,11 @@ async function uploadFileBytes(
 
 async function pollFileReady(
   fileName: string,
+  apiKey: string,
   maxWaitMs = 120_000,
 ): Promise<string> {
   const start = Date.now();
-  const pollPath = `/v1beta/${fileName}?key=${API_KEY}`;
+  const pollPath = `/v1beta/${fileName}?key=${apiKey}`;
 
   while (Date.now() - start < maxWaitMs) {
     const res = await httpsRequest(
@@ -135,6 +141,7 @@ async function analyzeWithGemini(
   fileUri: string,
   mimeType: string,
   prompt: string,
+  apiKey: string,
 ): Promise<{ text: string; usage?: Record<string, number> }> {
   const body = JSON.stringify({
     contents: [
@@ -152,7 +159,7 @@ async function analyzeWithGemini(
     {
       hostname: HOST,
       port: 443,
-      path: `/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
+      path: `/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -188,9 +195,10 @@ async function analyzeWithGemini(
  */
 export async function POST(req: NextRequest) {
   try {
+    const API_KEY = resolveApiKey(req);
     if (!API_KEY) {
       return NextResponse.json(
-        { error: "API key not configured" },
+        { error: "API key not configured. Go to Settings and enter your Gemini API key." },
         { status: 500 },
       );
     }
@@ -221,15 +229,16 @@ export async function POST(req: NextRequest) {
       file.name,
       file.type,
       buffer.length,
+      API_KEY,
     );
-    const { name: fileName, uri: fileUri } = await uploadFileBytes(
+    const { name: fileName } = await uploadFileBytes(
       uploadUrl,
       buffer,
     );
 
     console.log(`[video-analyze] Uploaded → ${fileName}, polling for ACTIVE...`);
 
-    const activeUri = await pollFileReady(fileName);
+    const activeUri = await pollFileReady(fileName, API_KEY);
 
     console.log(`[video-analyze] File ACTIVE, analyzing with Gemini...`);
 
@@ -237,6 +246,7 @@ export async function POST(req: NextRequest) {
       activeUri,
       file.type,
       prompt,
+      API_KEY,
     );
 
     console.log(

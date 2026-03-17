@@ -4,7 +4,11 @@ import https from 'node:https';
 export const maxDuration = 180;
 export const dynamic = 'force-dynamic';
 
-const API_KEY = process.env.GEMINI_API_KEY ?? process.env.NEXT_PUBLIC_GEMINI_API_KEY ?? '';
+const ENV_API_KEY = process.env.GEMINI_API_KEY ?? process.env.NEXT_PUBLIC_GEMINI_API_KEY ?? '';
+
+function resolveApiKey(req: NextRequest): string {
+  return ENV_API_KEY || req.headers.get('x-api-key') || '';
+}
 const AI_STUDIO_HOST = 'generativelanguage.googleapis.com';
 const AI_STUDIO_BASE_PATH = '/v1beta';
 
@@ -104,6 +108,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid poll param format' }, { status: 400 });
     }
 
+    const API_KEY = resolveApiKey(req);
     const path = `${AI_STUDIO_BASE_PATH}/${opName}?key=${API_KEY}`;
     const result = await httpsGet(path, 30_000);
 
@@ -129,10 +134,11 @@ export async function GET(req: NextRequest) {
 /** POST — call a model method (generateContent, predict, etc.) */
 export async function POST(req: NextRequest) {
   try {
+    const API_KEY = resolveApiKey(req);
     const { model, method, body } = await req.json();
 
     if (!API_KEY) {
-      return NextResponse.json({ error: 'API key not configured' }, { status: 500 });
+      return NextResponse.json({ error: 'API key not configured. Go to Settings and enter your Gemini API key.' }, { status: 500 });
     }
     if (!model || !ALLOWED_MODELS.has(model)) {
       return NextResponse.json({ error: `Invalid model: ${model}` }, { status: 400 });

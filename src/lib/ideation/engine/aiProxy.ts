@@ -4,7 +4,16 @@
  * and avoid browser-level issues (CORS, extensions, ad blockers).
  */
 
+import { getGlobalSettings } from '@/lib/globalSettings';
+
 const PROXY_URL = '/api/ai-generate';
+
+function apiHeaders(extra?: Record<string, string>): Record<string, string> {
+  const h: Record<string, string> = { 'Content-Type': 'application/json', ...extra };
+  const key = getGlobalSettings().geminiApiKey;
+  if (key) h['x-api-key'] = key;
+  return h;
+}
 
 export async function proxyGenerate(
   model: string,
@@ -19,7 +28,7 @@ export async function proxyGenerate(
   try {
     res = await fetch(PROXY_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: apiHeaders(),
       body: JSON.stringify({ model, method, body }),
       signal: controller.signal,
     });
@@ -50,6 +59,7 @@ export async function proxyPollOperation(
   let res: Response;
   try {
     res = await fetch(`${PROXY_URL}?` + new URLSearchParams({ poll: operationName }), {
+      headers: apiHeaders(),
       signal: controller.signal,
     });
   } catch (err) {

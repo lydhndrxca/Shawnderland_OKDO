@@ -3,10 +3,14 @@ import https from "node:https";
 
 export const dynamic = "force-dynamic";
 
-const API_KEY =
+const ENV_API_KEY =
   process.env.GEMINI_API_KEY ?? process.env.NEXT_PUBLIC_GEMINI_API_KEY ?? "";
 const HOST = "generativelanguage.googleapis.com";
 const MODEL = "gemini-embedding-001";
+
+function resolveApiKey(req: NextRequest): string {
+  return ENV_API_KEY || req.headers.get("x-api-key") || "";
+}
 
 function httpsPost(
   path: string,
@@ -46,9 +50,10 @@ function httpsPost(
 
 export async function POST(req: NextRequest) {
   try {
+    const API_KEY = resolveApiKey(req);
     if (!API_KEY) {
       return NextResponse.json(
-        { error: "API key not configured" },
+        { error: "API key not configured. Go to Settings and enter your Gemini API key." },
         { status: 500 },
       );
     }

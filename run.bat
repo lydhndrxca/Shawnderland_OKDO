@@ -1,8 +1,8 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal
 
 echo ============================================
-echo  Shawnderland OKDO — Hub Launcher
+echo  Shawnderland OKDO - Hub Launcher
 echo ============================================
 echo.
 
@@ -10,26 +10,35 @@ echo.
 where node >nul 2>&1
 if %errorlevel% equ 0 goto :node_ok
 
-:: Check common install locations
-set "NODE_SEARCH_DIRS="
-set "NODE_SEARCH_DIRS=%NODE_SEARCH_DIRS% %ProgramFiles%\nodejs"
-set "NODE_SEARCH_DIRS=%NODE_SEARCH_DIRS% %ProgramFiles(x86)%\nodejs"
-set "NODE_SEARCH_DIRS=%NODE_SEARCH_DIRS% %LOCALAPPDATA%\Programs\nodejs"
-set "NODE_SEARCH_DIRS=%NODE_SEARCH_DIRS% %APPDATA%\nvm\current"
-set "NODE_SEARCH_DIRS=%NODE_SEARCH_DIRS% %LOCALAPPDATA%\fnm_multishells"
-set "NODE_SEARCH_DIRS=%NODE_SEARCH_DIRS% %LOCALAPPDATA%\volta\bin"
-set "NODE_SEARCH_DIRS=%NODE_SEARCH_DIRS% %USERPROFILE%\.volta\bin"
-set "NODE_SEARCH_DIRS=%NODE_SEARCH_DIRS% %LOCALAPPDATA%\node-portable\node-v22.16.0-win-x64"
-
-for %%D in (%NODE_SEARCH_DIRS%) do (
-    if exist "%%~D\node.exe" (
-        echo       Found Node.js at %%~D
-        set "PATH=%%~D;%PATH%"
-        goto :node_ok
-    )
+:: Check default installer location
+if exist "%ProgramFiles%\nodejs\node.exe" (
+    echo       Found Node.js in Program Files
+    set "PATH=%ProgramFiles%\nodejs;%PATH%"
+    goto :node_ok
 )
 
-:: Check nvm-windows versioned dirs
+:: Check x86 Program Files
+if exist "%ProgramFiles(x86)%\nodejs\node.exe" (
+    echo       Found Node.js in Program Files x86
+    set "PATH=%ProgramFiles(x86)%\nodejs;%PATH%"
+    goto :node_ok
+)
+
+:: Check user-local Programs
+if exist "%LOCALAPPDATA%\Programs\nodejs\node.exe" (
+    echo       Found Node.js in Local Programs
+    set "PATH=%LOCALAPPDATA%\Programs\nodejs;%PATH%"
+    goto :node_ok
+)
+
+:: Check nvm-windows current
+if exist "%APPDATA%\nvm\current\node.exe" (
+    echo       Found Node.js via nvm
+    set "PATH=%APPDATA%\nvm\current;%PATH%"
+    goto :node_ok
+)
+
+:: Check nvm-windows versioned folders
 if exist "%APPDATA%\nvm" (
     for /d %%V in ("%APPDATA%\nvm\v*") do (
         if exist "%%~V\node.exe" (
@@ -40,36 +49,55 @@ if exist "%APPDATA%\nvm" (
     )
 )
 
-:: Check fnm versioned dirs
+:: Check Volta
+if exist "%LOCALAPPDATA%\volta\bin\node.exe" (
+    echo       Found Node.js via Volta
+    set "PATH=%LOCALAPPDATA%\volta\bin;%PATH%"
+    goto :node_ok
+)
+if exist "%USERPROFILE%\.volta\bin\node.exe" (
+    echo       Found Node.js via Volta
+    set "PATH=%USERPROFILE%\.volta\bin;%PATH%"
+    goto :node_ok
+)
+
+:: Check fnm
 if exist "%APPDATA%\fnm\node-versions" (
     for /d %%V in ("%APPDATA%\fnm\node-versions\v*") do (
         if exist "%%~V\installation\node.exe" (
-            echo       Found Node.js at %%~V\installation
+            echo       Found Node.js via fnm at %%~V
             set "PATH=%%~V\installation;%PATH%"
             goto :node_ok
         )
     )
 )
 
+:: Check portable
+if exist "%LOCALAPPDATA%\node-portable\node-v22.16.0-win-x64\node.exe" (
+    echo       Using portable Node.js
+    set "PATH=%LOCALAPPDATA%\node-portable\node-v22.16.0-win-x64;%PATH%"
+    goto :node_ok
+)
+
+echo.
 echo [ERROR] Node.js not found.
 echo.
-echo   Checked PATH, Program Files, nvm, fnm, and volta.
+echo   Checked: PATH, Program Files, nvm, fnm, Volta, portable.
 echo   Install Node.js 18+ from https://nodejs.org
-echo   (Use the LTS installer and check "Add to PATH" during setup)
+echo   Use the LTS installer and check "Add to PATH" during setup.
 echo.
 pause
 exit /b 1
 
 :node_ok
-for /f "tokens=*" %%v in ('node -v') do set "NODE_VER=%%v"
-echo       Node.js %NODE_VER%
+for /f "tokens=*" %%v in ('node -v') do echo       Node.js %%v
 
 :: --- Dependencies ---
 echo [1/3] Checking dependencies...
 if not exist "node_modules" (
-    echo       Installing packages (first run, may take a minute)...
+    echo       Installing packages - first run, may take a minute...
     call npm install
-    if !errorlevel! neq 0 (
+    if %errorlevel% neq 0 (
         echo [ERROR] npm install failed.
         pause
         exit /b 1

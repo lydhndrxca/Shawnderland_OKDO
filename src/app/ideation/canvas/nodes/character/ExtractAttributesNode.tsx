@@ -287,20 +287,24 @@ function ExtractAttributesNodeInner({ id, data, selected }: Props) {
           const updates: Record<string, unknown> = {};
 
           if (n.type === 'charIdentity') {
+            const locks = (nd.lockedAttrs as Record<string, boolean>) ?? {};
+            const existing = (nd.identity as Record<string, string>) ?? {};
             updates.identity = {
-              age: bestMatch(json.age ?? '', AGE_OPTIONS),
-              race: bestMatch(json.race ?? '', RACE_OPTIONS),
-              gender: bestMatch(json.gender ?? '', GENDER_OPTIONS),
-              build: bestMatch(json.build ?? '', BUILD_OPTIONS),
+              age: locks.age ? existing.age : bestMatch(json.age ?? '', AGE_OPTIONS),
+              race: locks.race ? existing.race : bestMatch(json.race ?? '', RACE_OPTIONS),
+              gender: locks.gender ? existing.gender : bestMatch(json.gender ?? '', GENDER_OPTIONS),
+              build: locks.build ? existing.build : bestMatch(json.build ?? '', BUILD_OPTIONS),
             };
           } else if (n.type === 'charDescription') {
             updates.description = description;
           } else if (n.type === 'charAttributes') {
-            const attrs: Record<string, string> = {};
+            const locks = (nd.lockedAttrs as Record<string, boolean>) ?? {};
+            const existing = (nd.attributes as Record<string, string>) ?? {};
+            const merged = { ...existing };
             for (const g of ATTRIBUTE_GROUPS) {
-              if (json[g.key]) attrs[g.key] = json[g.key];
+              if (json[g.key] && !locks[g.key]) merged[g.key] = json[g.key];
             }
-            updates.attributes = { ...(nd.attributes as Record<string, string> ?? {}), ...attrs };
+            updates.attributes = merged;
           }
 
           if (Object.keys(updates).length === 0) return n;

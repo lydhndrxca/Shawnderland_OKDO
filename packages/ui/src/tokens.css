@@ -40,6 +40,8 @@
   --color-tool-concept-dim: rgba(244, 114, 182, 0.12);
   --color-tool-walter: #38bdf8;
   --color-tool-walter-dim: rgba(56, 189, 248, 0.12);
+  --color-tool-writing-room: #a78bfa;
+  --color-tool-writing-room-dim: rgba(167, 139, 250, 0.12);
 
   /* ── Radii ───────────────────────────────── */
   --radius-sm: 4px;

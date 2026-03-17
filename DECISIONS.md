@@ -299,3 +299,75 @@ room — fundamentally different from the previous wizard + grid + timeline
 layout. The agent/persona system uses deep research-driven profiles
 (not shallow role labels) for richer creative collaboration. Session-based
 state (not project-based) keeps all screens persistent and revisitable.
+
+## 032 — WIP status system for tools
+
+Tools can be tagged `status: "wip"` in the registry. WIP tools render
+with reduced opacity and a badge on the home page, and appear below a
+divider in the sidebar. Rationale: Sprite Lab and UI Lab are incomplete
+but should remain visible to indicate future capability.
+
+## 033 — Default canvas layouts as hardcoded fallback
+
+Default layouts for ConceptLab and ShawnderMind are stored in
+`src/lib/defaultLayouts.ts`. When a user first visits with no saved
+layout in localStorage, the default layout loads automatically.
+Rationale: ensures new users see a populated canvas demonstrating the
+tool's capabilities instead of an empty workspace.
+
+## 034 — AI Writing Room as monorepo tool package
+
+The AI Writing Room (`tools/writing-room/`) follows the same monorepo
+extraction pattern as Walter (`tools/walter/`). Imported as
+`@tools/writing-room`, uses `@shawnderland/ai` for Gemini calls
+(not its own wrapper), CSS scoped to `.wr-root` (no global leaks),
+lazy-loaded via `next/dynamic` in WorkspaceRenderer. Rationale: code
+reuse, shared AI proxy, consistent architecture, single dev server.
+
+## 035 — Writing Room: 2-screen workflow (no Staging Room)
+
+The AI Writing Room uses a 2-screen workflow (Planning → Writing Room)
+instead of Walter's 3-screen (Planning → Writing → Staging). Summary
+and transcript export replace the Staging Room's one-sheet export.
+Rationale: the Staging Room is Walter-specific (timeline, shot planning).
+Generalized writing projects need output summary, not production plans.
+
+## 036 — Writing Room: 10 preset personas with deep profiles
+
+10 preset personas include 4 adapted from Walter (Producer, Serling,
+Fielder, Pera — with generalized WHAT I BRING sections) and 6 new
+(Gritty Script Writer, Unhinged, David Lynch, Award-Winning Game
+Designer, Unhinged Game Designer, Korean Game Producer Executive).
+Each uses the same deep first-person format (WHO I AM, HOW I WORK,
+MY INSTINCTS, WHAT I BRING, WHAT I WOULD NEVER DO). Rationale:
+diverse creative perspectives for game development and general writing
+contexts.
+
+## 037 — ConceptLab sub-tool navigation via expandable sidebar
+
+ConceptLab uses an expandable dropdown in the sidebar (same pattern as
+Files) to expose 4 sub-tools: Concept Lab, AI Upres, AI Restore, Style
+Conversion. Each sub-tool routes to a unique path (`/concept-lab/*`) and
+reuses `ConceptLabShell` with a distinct `appKey` prop. This gives each
+sub-tool its own saved canvas layout without duplicating the shell.
+Rationale: sub-tool workflows (bulk upscale, bulk restore, style
+conversion) need dedicated default layouts but share the same canvas
+infrastructure.
+
+## 038 — Utility nodes as shared dock category
+
+Five new utility nodes (BulkImageInput, UpresStandalone,
+RestoreStandalone, StyleConversion, OutputGallery) are registered in a
+new "Utilities" dock category in `sharedNodeTypes.ts`. These are
+standalone pipeline nodes designed for the sub-tool workflows but
+available on any canvas. They communicate via `_bulkImages` and
+`_outputImages` data keys. Rationale: reusable building blocks that work
+in both sub-tool default layouts and user-composed canvases.
+
+## 039 — Two-phase Examine → Process workflow for Upres/Restore nodes
+
+The standalone Upres and Restore nodes use a two-phase workflow:
+Examine (count input images, show options) → Process (run the API).
+This prevents accidental expensive API calls and gives users visibility
+into what will be processed before committing. Rationale: batch image
+operations can be costly; explicit confirmation prevents waste.

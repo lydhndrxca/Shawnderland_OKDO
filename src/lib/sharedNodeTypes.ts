@@ -85,6 +85,7 @@ import ShowXMLNode from '@/app/ideation/canvas/nodes/character/ShowXMLNode';
 import QuickGenerateNode from '@/app/ideation/canvas/nodes/character/QuickGenerateNode';
 import GateNode from '@/app/ideation/canvas/nodes/character/GateNode';
 import StyleNode from '@/app/ideation/canvas/nodes/character/StyleNode';
+import SlimStyleNode from '@/app/ideation/canvas/nodes/character/SlimStyleNode';
 import ImageBucketNode from '@/app/ideation/canvas/nodes/character/ImageBucketNode';
 import RandomizeNode from '@/app/ideation/canvas/nodes/character/RandomizeNode';
 import GeminiEditorNode from '@/app/ideation/canvas/nodes/character/GeminiEditorNode';
@@ -128,6 +129,15 @@ import {
   UIButtonNode, UITextBoxNode, UIDropdownNode,
   UIImageNode, UIWindowNode, UIFrameNode, UIGenericNode,
 } from '@/components/nodes/ui';
+
+// ── Utility nodes ────────────────────────────────────────────────
+import {
+  BulkImageInputNode,
+  UpresStandaloneNode,
+  RestoreStandaloneNode,
+  StyleConversionNode,
+  OutputGalleryNode,
+} from '@/app/ideation/canvas/nodes/utility';
 
 // ── Tool Editor nodes ───────────────────────────────────────────
 import TEGenericNode from '@/app/tool-editor/nodes/GenericNode';
@@ -239,6 +249,7 @@ export const ALL_RAW_NODE_TYPES: NodeTypes = applySleep({
   charSideViewer: CharViewNode,
   charPose: CharAttributesNode,
   charStyle: StyleNode,
+  charSlimStyle: SlimStyleNode,
   charImageBucket: ImageBucketNode,
   charRandomize: RandomizeNode,
   charCustomView: CharViewNode,
@@ -290,6 +301,13 @@ export const ALL_RAW_NODE_TYPES: NodeTypes = applySleep({
   uiFrame: UIFrameNode,
   uiGeneric: UIGenericNode,
 
+  // Utility
+  bulkImageInput: BulkImageInputNode,
+  upresStandalone: UpresStandaloneNode,
+  restoreStandalone: RestoreStandaloneNode,
+  styleConversion: StyleConversionNode,
+  outputGallery: OutputGalleryNode,
+
   // Tool Editor (prefixed with te-)
   teGeneric: TEGenericNode,
   teWindow: TEWindowNode,
@@ -314,6 +332,7 @@ export const NODE_DEFAULTS: Record<string, { style?: { width: number; height: nu
   charAttributes: { style: { width: 400, height: 1600 } },
   charGate: { style: { width: 160, height: 80 }, data: { enabled: true } },
   charStyle: { style: { width: 360, height: 500 } },
+  charSlimStyle: { style: { width: 340, height: 480 } },
   charImageBucket: { style: { width: 240, height: 180 } },
   charRandomize: { style: { width: 180, height: 100 } },
   charCustomView: { style: { width: 400, height: 720 }, data: { viewKey: 'custom' } },
@@ -400,6 +419,11 @@ export const NODE_DEFAULTS: Record<string, { style?: { width: number; height: nu
   elVoiceDesigner: { style: { width: 340, height: 420 } },
   elDialogueWriter: { style: { width: 360, height: 520 } },
   videoAnalysis: { style: { width: 440, height: 640 } },
+  bulkImageInput: { style: { width: 360, height: 400 } },
+  upresStandalone: { style: { width: 320, height: 420 } },
+  restoreStandalone: { style: { width: 320, height: 460 } },
+  styleConversion: { style: { width: 400, height: 600 } },
+  outputGallery: { style: { width: 600, height: 700 } },
 };
 
 export interface DockNodeDef {
@@ -526,6 +550,7 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
       { type: 'charUpscale', label: 'Upscale Image', desc: 'AI upscale (x2/x3/x4)', color: '#e040fb' },
       { type: 'charRestore', label: 'Restore Quality', desc: 'AI redraw to remove artifacts', color: '#00c853' },
       { type: 'charSaveGroup', label: 'Export', desc: 'Save images, download, and export XML', color: '#009688' },
+      { type: 'charSlimStyle', label: 'Slim Style', desc: 'Post-process — convert viewer images to a target visual style', color: '#7b1fa2' },
     ],
   },
   /* ━━ Costume & Production Design ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
@@ -572,6 +597,19 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
       { type: 'elTTS', label: 'Text-to-Speech', desc: 'Generate speech with ElevenLabs voices', color: '#ff6f00' },
       { type: 'elSFX', label: 'Sound Effects', desc: 'Generate SFX from text prompts', color: '#e65100' },
       { type: 'elVoiceClone', label: 'Voice Clone', desc: 'Clone a voice from an audio sample', color: '#7b1fa2' },
+    ],
+  },
+  /* ━━ Utilities ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  {
+    key: 'utilities',
+    label: 'Utilities',
+    icon: '\u{1F527}',
+    items: [
+      { type: 'bulkImageInput', label: 'Bulk Image Input', desc: 'Load one or many images into the workflow', color: '#26a69a' },
+      { type: 'upresStandalone', label: 'AI Upres', desc: 'Examine → upscale images (x2/x3/x4)', color: '#e040fb' },
+      { type: 'restoreStandalone', label: 'AI Restore', desc: 'Examine → restore image quality via AI', color: '#00c853' },
+      { type: 'styleConversion', label: 'Style Conversion', desc: 'Re-render or isolate images in a target style', color: '#7b1fa2' },
+      { type: 'outputGallery', label: 'Output Gallery', desc: 'Browse, select, export processed images', color: '#00bfa5' },
     ],
   },
   /* ━━ Layout & Dev ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */

@@ -6,6 +6,7 @@ import { ImageContextMenu } from '@/components/ImageContextMenu';
 import { generateWithGeminiRef, restoreImageQuality, GEMINI_IMAGE_MODELS, type GeneratedImage, type GeminiImageModel } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { registerRequest, unregisterRequest } from '@/lib/activeRequests';
 import { synthesizeContextLens, hasContextData, type ContextLensInput } from '@/lib/ideation/engine/conceptlab/characterPrompts';
+import { MULTIMODAL_MODELS } from './modelData';
 import { NODE_TOOLTIPS } from './nodeTooltips';
 import { devLog, devWarn } from '@/lib/devLog';
 import './CharacterNodes.css';
@@ -620,16 +621,19 @@ function CharViewNodeInner({ id, data, selected }: Props) {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync gallery when pushed externally (e.g. from GenerateCharImageNode)
+  // Sync gallery when pushed externally (e.g. from GenerateCharImageNode or SlimStyleNode)
   const externalGallery = data?.imageGallery as GeneratedImage[] | undefined;
   const externalGallerySig = externalGallery?.length ? externalGallery.map((g) => g.base64.slice(0, 40)).join('|') : '';
+  const slimTs = data?._slimTs as number | undefined;
   const localGallerySig = imageGallery.length ? imageGallery.map((g) => g.base64.slice(0, 40)).join('|') : '';
   useEffect(() => {
-    if (externalGallerySig && externalGallerySig !== localGallerySig) {
-      setImageGallery(externalGallery!);
+    if (externalGallery && externalGallery.length > 0 && externalGallerySig !== localGallerySig) {
+      setImageGallery([...externalGallery]);
       setGalleryIdx(0);
+      const first = externalGallery[0];
+      if (first) setEditedImage(first);
     }
-  }, [externalGallerySig]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [externalGallerySig, slimTs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const persistGallery = useCallback((gallery: GeneratedImage[], idx: number) => {
     const img = gallery[idx] ?? gallery[0] ?? null;
@@ -843,7 +847,15 @@ function CharViewNodeInner({ id, data, selected }: Props) {
   const [editStatus, setEditStatus] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [editElapsed, setEditElapsed] = useState(0);
-  const editModel: GeminiImageModel = getMultimodalModelFromGraph(getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>) ?? 'gemini-flash-image';
+  const graphModel: GeminiImageModel = getMultimodalModelFromGraph(getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>) ?? 'gemini-flash-image';
+  const [editModel, setEditModel] = useState<GeminiImageModel>(
+    (data?.editModel as GeminiImageModel) ?? graphModel,
+  );
+  useEffect(() => {
+    if (!data?.editModel) setEditModel(graphModel);
+  }, [graphModel]); // eslint-disable-line react-hooks/exhaustive-deps
+  const editModelDef = MULTIMODAL_MODELS.find((m) => m.apiId === editModel) ?? MULTIMODAL_MODELS[0];
+  const displayAspect = getAspectRatioFromGraph(getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>);
   const editTimerRef = useRef<ReturnType<typeof setInterval>>(undefined);
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -1222,25 +1234,28 @@ function CharViewNodeInner({ id, data, selected }: Props) {
       let refImages: GeneratedImage | GeneratedImage[];
       let fullPrompt: string;
 
+      const VARIATION_DIRECTIVES = [
+        'confident expression, weight shifted to left foot',
+        'neutral expression, weight centered, arms naturally at sides',
+        'intense focused gaze, weight on right foot, slight lean',
+        'relaxed expression, weight shifted back',
+        'determined look, squared shoulders',
+        'calm steady gaze, contrapposto stance',
+        'thoughtful expression, head tilted slightly',
+        'alert expression, feet staggered',
+      ];
+
+      const count = Math.max(1, genCount);
+      const genAspect = getAspectRatioFromGraph(getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>);
+
       if (isMain) {
         const srcImage = viewImage;
         const freshPass = count > 1;
-        const hasStyleOverride = !!(genCtx.styleText || genCtx.styleImages.length > 0);
-        const stylePrefix = genCtx.styleImages.length > 0
-          ? `⚠️ STYLE REPLICATION — #1 PRIORITY: Your output MUST look like a screenshot from the SAME game/artwork as the style reference image(s). Replicate the EXACT geometry fidelity, texture resolution, shading method, polygon count, and abstraction level. Do NOT "clean up" or "modernize" — if the style is low-poly, your output MUST be low-poly. If textures are low-res, your output MUST have low-res textures.${genCtx.styleText ? ` Style description: ${genCtx.styleText}` : ''}\n`
-          : '';
-        const renderBlock = hasStyleOverride
-          ? `\n${stylePrefix}RENDERING STYLE — CRITICAL: Render in the EXACT art style described/shown in the style reference(s). Replicate the precise rendering technique, line quality, color palette, shading method, and medium. Style adherence takes priority over photorealism.${genCtx.styleText && !genCtx.styleImages.length ? ` Style directive: ${genCtx.styleText}` : ''}\n`
-          : RENDER_STYLE_BLOCK;
 
         if (srcImage && !freshPass) {
-          const editInstr = userEdit || 'Regenerate this character with the same design, same outfit, same pose. Produce a clean, high-quality result.';
-          fullPrompt = EDIT_PREFIX + editInstr + (hasStyleOverride ? `\n${renderBlock}` : '') + EDIT_SUFFIX;
-          refImages = genCtx.styleImages.length > 0 ? [srcImage, ...genCtx.styleImages] : srcImage;
-
-          if (genCtx.styleImages.length > 0) {
-            fullPrompt += `\n\nIMAGE LAYOUT: Image 1 is the CHARACTER REFERENCE. Images 2–${1 + genCtx.styleImages.length} are STYLE REFERENCES — replicate their visual style. Do NOT copy characters/scenes from style refs.`;
-          }
+          const editInstr = userEdit || 'Regenerate this character with the same design, same outfit, same pose.';
+          fullPrompt = EDIT_PREFIX + editInstr + EDIT_SUFFIX;
+          refImages = srcImage;
         } else {
           if (!freshPass && !userEdit) {
             setEditError('Enter a description in the edit field to generate a new image');
@@ -1249,71 +1264,41 @@ function CharViewNodeInner({ id, data, selected }: Props) {
             unregisterRequest(session);
             return;
           }
-
           const charDesc = genCtx.text || userEdit || '';
-          fullPrompt = `${NO_TEXT_RULE}\n\n${charDesc}\n${renderBlock}\n${FULL_BODY_RULE}\nBackground: solid flat neutral grey. No floor, no shadows, no environment.`;
-          if (userEdit && genCtx.text) {
-            fullPrompt += `\n\nAdditional instructions: ${userEdit}`;
-          }
-          refImages = genCtx.styleImages.length > 0 ? genCtx.styleImages : [];
-
-          if (genCtx.styleImages.length > 0) {
-            fullPrompt += `\n\nIMAGE LAYOUT: All ${genCtx.styleImages.length} image(s) are STYLE REFERENCES — replicate their visual style. Do NOT copy characters/scenes from style refs.`;
-          }
+          fullPrompt = `${NO_TEXT_RULE}\n\n${charDesc}\n${FULL_BODY_RULE}\nBackground: solid flat neutral grey.`;
+          if (userEdit && genCtx.text) fullPrompt += `\nAdditional: ${userEdit}`;
+          refImages = [];
         }
       } else {
         const baseRefs: GeneratedImage[] = (() => {
-          if (isCustom && useImage && effectiveAngleRef) {
-            return [mainImg!, effectiveAngleRef];
-          }
+          if (isCustom && useImage && effectiveAngleRef) return [mainImg!, effectiveAngleRef];
           return [mainImg!];
         })();
-        refImages = genCtx.styleImages.length > 0
-          ? [...baseRefs, ...genCtx.styleImages]
-          : baseRefs.length === 1 ? baseRefs[0] : baseRefs;
+        refImages = baseRefs.length === 1 ? baseRefs[0] : baseRefs;
 
-        const orthoStylePrefix = genCtx.styleImages.length > 0
-          ? `⚠️ STYLE REPLICATION — #1 PRIORITY: Match the EXACT rendering style, polygon fidelity, texture resolution, and abstraction level from the style reference image(s). Do NOT modernize or clean up the style.${genCtx.styleText ? ` Style: ${genCtx.styleText}` : ''}\n`
-          : '';
-        const renderBlock = (genCtx.styleText || genCtx.styleImages.length > 0)
-          ? `\n${orthoStylePrefix}RENDERING STYLE — CRITICAL: Render in the EXACT art style from the style reference(s). Replicate the precise rendering technique, line quality, color palette, shading method, and medium. Style adherence takes priority over photorealism. Preserve character design accuracy.\n`
-          : RENDER_STYLE_BLOCK;
         fullPrompt = isCustom && useImage && effectiveAngleRef && !useText
-          ? `${NO_TEXT_RULE}\n\nCreate a custom view of this character matching the camera angle and pose shown in the second reference image. Preserve the character's identity from the first reference image exactly.\n${renderBlock}\n${FULL_BODY_RULE}\nBackground: solid flat neutral grey. No floor, no shadows, no environment.`
+          ? `${NO_TEXT_RULE}\n\nCreate a custom view matching the camera angle from the second reference image. Preserve character identity from the first.\n${FULL_BODY_RULE}\nBackground: solid flat neutral grey.`
           : (isCustom && useImage && effectiveAngleRef
-            ? basePrompt! + '\nUse the second reference image as a guide for the desired camera angle, pose, and framing.'
+            ? basePrompt! + '\nUse the second reference image for camera angle and pose.'
             : basePrompt!);
 
-        if (genCtx.styleText || genCtx.styleImages.length > 0) {
-          fullPrompt = fullPrompt.replace(RENDER_STYLE_BLOCK, renderBlock);
-        }
-        if (genCtx.styleImages.length > 0) {
-          const charCount = Array.isArray(refImages) ? refImages.length - genCtx.styleImages.length : 1;
-          const styleStart = charCount + 1;
-          fullPrompt += `\n\nIMAGE LAYOUT: Images 1–${charCount} are CHARACTER REFERENCES. Images ${styleStart}–${charCount + genCtx.styleImages.length} are STYLE REFERENCES — replicate their visual style. Do NOT copy characters/scenes from style refs.`;
-        }
-
-        if (userEdit) {
-          fullPrompt += `\n\nAdditional instructions: ${userEdit}`;
-        }
+        if (userEdit) fullPrompt += `\nAdditional: ${userEdit}`;
       }
 
-      if (genCtx.text) {
+      if (genCtx.text && !isMain) {
         fullPrompt = genCtx.text + '\n\n' + fullPrompt;
       }
 
       const modelLabel = GEMINI_IMAGE_MODELS[editModel]?.label ?? editModel;
-      const genAspect = getAspectRatioFromGraph(getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>);
-      const count = Math.max(1, genCount);
-      console.log(`%c[CharView:${viewKey}] Generate: ${count}x, ${Array.isArray(refImages) ? refImages.length : 1} ref imgs (${genCtx.styleImages.length} style), aspect=${genAspect}`, 'color: #00bcd4; font-weight: bold');
+      console.log(`%c[CharView:${viewKey}] Generate: ${count}x, ${Array.isArray(refImages) ? refImages.length : 1} ref imgs, aspect=${genAspect}`, 'color: #00bcd4; font-weight: bold');
 
       setEditStatus(`Generating ${count > 1 ? `${count} images` : ''} (${modelLabel})…`);
 
       const promises = Array.from({ length: count }, (_, i) => {
-        const variationTag = count > 1
-          ? `\n\n[VARIATION #${i + 1}] — This is one of ${count} independent generations. Produce a UNIQUE interpretation: vary the pose, body language, camera angle, expression, weight distribution, and composition. Do NOT replicate other variations. Make this version feel distinctly different while maintaining the same character identity and attributes.\n`
+        const variationLine = count > 1
+          ? `\nVARIATION: ${VARIATION_DIRECTIVES[i % VARIATION_DIRECTIVES.length]}. Keep same character, same outfit, same view angle.\n`
           : '';
-        return generateWithGeminiRef(fullPrompt + variationTag, refImages, editModel, genAspect);
+        return generateWithGeminiRef(fullPrompt + variationLine, refImages, editModel, genAspect);
       });
       const settled = await Promise.allSettled(promises);
 
@@ -1796,6 +1781,32 @@ function CharViewNodeInner({ id, data, selected }: Props) {
                 outline: 'none',
               }}
             />
+            <select
+              className="nowheel"
+              value={editModel}
+              disabled={anyBusy}
+              onChange={(e) => {
+                const val = e.target.value as GeminiImageModel;
+                setEditModel(val);
+                setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, editModel: val } } : n));
+              }}
+              style={{
+                padding: '4px 2px',
+                fontSize: 9,
+                background: '#1a1a2e',
+                border: '1px solid #444',
+                borderRadius: 4,
+                color: '#aaa',
+                maxWidth: 130,
+              }}
+              title={`${editModelDef.label} — ${editModelDef.maxRes[displayAspect] ?? 'auto'} — ${editModelDef.timeEstimate}`}
+            >
+              {MULTIMODAL_MODELS.map((m) => (
+                <option key={m.apiId} value={m.apiId}>
+                  {m.label.replace(/[()]/g, '').split(' ').slice(0, 2).join(' ')} — {m.maxRes[displayAspect] ?? 'auto'} — {m.timeEstimate}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
               onClick={handleEdit}

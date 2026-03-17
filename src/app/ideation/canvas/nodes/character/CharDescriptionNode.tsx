@@ -114,7 +114,16 @@ function CharDescriptionNodeInner({ id, data, selected }: Props) {
           if (!connectedIds.has(n.id)) return n;
 
           if (n.type === 'charIdentity' && identity) {
-            return { ...n, data: { ...n.data, identity, name: (n.data as Record<string, unknown>).name ?? '' } };
+            const nd = n.data as Record<string, unknown>;
+            const locks = (nd.lockedAttrs as Record<string, boolean>) ?? {};
+            const existing = (nd.identity as Record<string, string>) ?? {};
+            const mergedIdentity = {
+              age: locks.age ? existing.age : identity.age,
+              race: locks.race ? existing.race : identity.race,
+              gender: locks.gender ? existing.gender : identity.gender,
+              build: locks.build ? existing.build : identity.build,
+            };
+            return { ...n, data: { ...n.data, identity: mergedIdentity, name: nd.name ?? '' } };
           }
           if (n.type === 'charAttributes' && attributes) {
             const existing = (n.data as Record<string, unknown>).attributes as Record<string, string> | undefined;

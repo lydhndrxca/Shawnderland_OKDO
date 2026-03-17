@@ -15,6 +15,7 @@ export interface ToolRegistryEntry {
   mode: "web" | "desktop" | "electron-only";
   hidden?: boolean;
   profiles?: AppProfile[];
+  status?: "active" | "wip";
 }
 
 export interface ToolResponse<T = unknown> {

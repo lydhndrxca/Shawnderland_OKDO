@@ -33,6 +33,11 @@ const WalterShell = dynamic(
   { ssr: false }
 );
 
+const WritingRoomShell = dynamic(
+  () => import("@tools/writing-room").then((m) => ({ default: m.WritingRoomShell })),
+  { ssr: false }
+);
+
 const GlobalSettingsPage = dynamic(
   () => import("./GlobalSettingsPage"),
   { ssr: false }
@@ -121,7 +126,11 @@ function resolveRoute(path: string): React.ReactNode {
   if (path === "/ui-lab") return <UILabContent />;
   if (path === "/gemini-studio") return <GeminiStudioShell />;
   if (path === "/concept-lab") return <ConceptLabShell />;
+  if (path === "/concept-lab/upres") return <ConceptLabShell appKey="concept-lab:upres" />;
+  if (path === "/concept-lab/restore") return <ConceptLabShell appKey="concept-lab:restore" />;
+  if (path === "/concept-lab/style-conversion") return <ConceptLabShell appKey="concept-lab:style-conversion" />;
   if (path === "/walter") return <WalterShell />;
+  if (path === "/writing-room") return <WritingRoomShell />;
   return <div className="p-8 text-muted-foreground">Page not found</div>;
 }
 

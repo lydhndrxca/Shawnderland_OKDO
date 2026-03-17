@@ -195,13 +195,21 @@ src/app/
         DialogueWriterNode.tsx          Gemini-powered dialogue line generation
         AudioNodes.css                  Shared audio node styles
         index.ts                        Barrel export
+      nodes/utility/                    Utility pipeline nodes (sub-tool workflows)
+        BulkImageInputNode.tsx          Multi-image drag/drop/paste/browse input
+        UpresStandaloneNode.tsx         Examine → Process upscaling (Imagen 4)
+        RestoreStandaloneNode.tsx       Examine → Process quality restoration
+        StyleConversionNode.tsx         Re-render/Isolate modes with preset mgmt
+        OutputGalleryNode.tsx           Browsable gallery with export & overlay
+        UtilityNodes.css                Shared utility node styles
+        index.ts                        Barrel export
     stages/                     Stage-specific UI components
     layout/                     Shell, settings panel, save/open dialogs
     views/                      Lineage graph, evaluation dashboard
     ipc.ts                      Inter-process communication
 
   concept-lab/                  AI ConceptLab (standalone canvas)
-    ConceptLabShell.tsx/.css    Canvas shell with useCanvasSession
+    ConceptLabShell.tsx/.css    Canvas shell with useCanvasSession (accepts appKey prop)
     ConceptLabDock.tsx          Node template dock (presets panel)
     nodes/
       WeapBaseNode.tsx          Weapon base design
@@ -378,6 +386,24 @@ Overridable via env vars: SPRITE_LAB_URL, SHAWNDERMIND_URL, UI_LAB_URL, CONCEPT_
 The WorkspaceRenderer mounts a panel for each visited path. Only the active
 panel is visible; inactive panels remain in the DOM to preserve React state,
 scroll position, and in-flight requests.
+
+## Sub-tool Routing
+
+ConceptLab supports sub-tool routing via expandable sidebar navigation.
+The sidebar renders ConceptLab as a dropdown with four sub-tool items,
+each routing to a distinct path:
+
+| Sub-tool | Path | appKey |
+|----------|------|--------|
+| AI Concept Lab | `/concept-lab` | `concept-lab` |
+| AI Upres | `/concept-lab/upres` | `concept-lab:upres` |
+| AI Restore | `/concept-lab/restore` | `concept-lab:restore` |
+| Style Conversion | `/concept-lab/style-conversion` | `concept-lab:style-conversion` |
+
+`WorkspaceRenderer.resolveRoute()` maps each path to `<ConceptLabShell appKey=.../>`.
+The `appKey` prop flows to `useCanvasSession`, giving each sub-tool its own saved
+layout and hardcoded default in `defaultLayouts.ts`. This pattern can be reused
+for other tools that need sub-tool navigation.
 
 ## State Management Patterns
 

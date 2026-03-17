@@ -43,6 +43,16 @@ function CharAttributesNodeInner({ id, data, selected }: Props) {
     }
   }, [data?.attributes]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const lockedInitRef = useRef(false);
+  useEffect(() => {
+    if (!lockedInitRef.current) {
+      lockedInitRef.current = true;
+      if (!data?.lockedAttrs) {
+        persistLocks({ pose: true });
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const extLocked = (data?.lockedAttrs as Record<string, boolean>) ?? {};
     setLocked((prev) => {
@@ -87,13 +97,11 @@ function CharAttributesNodeInner({ id, data, selected }: Props) {
 
   const toggleLock = useCallback(
     (key: string) => {
-      setLocked((prev) => {
-        const next = { ...prev, [key]: !prev[key] };
-        persistLocks(next);
-        return next;
-      });
+      const next = { ...locked, [key]: !locked[key] };
+      setLocked(next);
+      persistLocks(next);
     },
-    [persistLocks],
+    [locked, persistLocks],
   );
 
   const setAttr = useCallback(
@@ -104,28 +112,24 @@ function CharAttributesNodeInner({ id, data, selected }: Props) {
       persistAttrs(next);
 
       const baseline = baselineRef.current[key] ?? '';
-      setChangedFields((prev) => {
-        const n = new Set(prev);
-        if (val !== baseline && val.trim() !== '') n.add(key);
-        else n.delete(key);
-        persistChangedFields([...n]);
-        return n;
-      });
+      const nextChanged = new Set(changedFields);
+      if (val !== baseline && val.trim() !== '') nextChanged.add(key);
+      else nextChanged.delete(key);
+      setChangedFields(nextChanged);
+      persistChangedFields([...nextChanged]);
     },
-    [attributes, persistAttrs, persistChangedFields],
+    [attributes, changedFields, persistAttrs, persistChangedFields],
   );
 
   const toggleHighlight = useCallback(
     (key: string) => {
-      setChangedFields((prev) => {
-        const n = new Set(prev);
-        if (n.has(key)) n.delete(key);
-        else if (attributes[key]?.trim()) n.add(key);
-        persistChangedFields([...n]);
-        return n;
-      });
+      const n = new Set(changedFields);
+      if (n.has(key)) n.delete(key);
+      else if (attributes[key]?.trim()) n.add(key);
+      setChangedFields(n);
+      persistChangedFields([...n]);
     },
-    [attributes, persistChangedFields],
+    [attributes, changedFields, persistChangedFields],
   );
 
   const randomizeAll = useCallback(() => {

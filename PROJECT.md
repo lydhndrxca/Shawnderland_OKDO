@@ -6,12 +6,13 @@ Unified hub for AI creative tools. One interface, integrated toolsets.
 
 | Tool | Purpose | Stack | Status |
 |------|---------|-------|--------|
-| AI Sprite Lab | Sprites, pixel art, animations, tilesets, SFX | Next.js, Gemini, FFmpeg | Landing page |
-| ShawnderMind | 8-stage AI ideation + character/3D/audio pipeline | React, @xyflow/react, Gemini, Meshy, Hitem3D, ElevenLabs | Functional |
-| AI UI Lab | Game UI generation, layout planning | PySide6, FastAPI, Gemini | Workspace UI |
-| AI ConceptLab | Unified canvas (same node set as ShawnderMind) | React, @xyflow/react, Imagen 4/Gemini | Functional |
-| Gemini Studio | Consumer AI media generation (image + video) | React, @xyflow/react, Imagen 4/Gemini/Veo | Functional |
-| Walter Storyboard Builder | Canon-aware AI storyboard + shoot sheet export | React, Gemini | Functional |
+| AI ConceptLab | AI-powered character & asset design | React, @xyflow/react, Imagen 4/Gemini | Functional |
+| ShawnderMind | Structured AI brainstorming | React, @xyflow/react, Gemini, Meshy, Hitem3D, ElevenLabs | Functional |
+| Gemini Studio | Raw Gemini creation tools | React, @xyflow/react, Imagen 4/Gemini/Veo | Functional |
+| AI Writing Room | Multi-agent collaborative writing | React, Gemini | Functional |
+| Walter Storyboard Builder | Canon-aware AI storyboard + shoot sheet export | React, Gemini | Functional (personal) |
+| AI Sprite Lab | Sprites, pixel art, animations, tilesets, SFX | Next.js, Gemini, FFmpeg | WIP |
+| AI UI Lab | Game UI generation, layout planning | PySide6, FastAPI, Gemini | WIP |
 | Tool Editor | Visual tool designer with exportable AI-readable specs | React, @xyflow/react | Functional |
 
 ## ShawnderMind Features
@@ -100,6 +101,23 @@ All Google AI calls support both AI Studio and Vertex AI backends:
 | Google AI | Server-side Gemini/Imagen | `/api/ai-generate` |
 
 All API keys are server-side only — the client calls local proxy routes.
+
+## AI Writing Room
+
+A generalized multi-agent writing room built as `tools/writing-room/` in the
+monorepo, following the same pattern as Walter. Imported as `@tools/writing-room`.
+
+- **10 preset personas**: The Producer, Rod Serling, Nathan Fielder, Joe Pera,
+  Gritty Script Writer, The Unhinged, David Lynch, Award-Winning Game Designer,
+  Unhinged Game Designer, Korean Game Producer Executive (Krafton 2026)
+- **7 creative rounds**: Core Concept → World & Context → Key Characters →
+  Central Conflict → Structure & Beats → Details & Polish → Final Review
+- **2-screen workflow**: Planning Page → Writing Room (no Staging Room)
+- **Generalized Planning Page**: writing type, project context, target audience,
+  tone/mood chips, hard rules, reference material, scope/length, additional notes
+- **Summary & Export**: generate AI summary and export full transcript
+- **Custom persona builder**: research and create custom personas via AI
+- **Zero Walter/Weeping Willows references**: fully standalone, work-safe
 
 ## Walter Storyboard Builder
 

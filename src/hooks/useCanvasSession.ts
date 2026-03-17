@@ -35,6 +35,7 @@ import {
   getActiveSessionName as storeGetActiveSessionName,
   type SessionSnapshot,
 } from '@/lib/layoutStore';
+import { getHardcodedDefault } from '@/lib/defaultLayouts';
 import { devLog, devWarn } from '@/lib/devLog';
 
 export interface CutLine {
@@ -1010,6 +1011,9 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
 
     // 2) Fallback to named layouts / default
     if (!snap) snap = loadDefaultOrLatest(appKey);
+
+    // 3) Fallback to hardcoded default layout (ships with the app)
+    if (!snap) snap = getHardcodedDefault(appKey);
 
     if (snap) restoreSnapshot(snap);
     setTimeout(() => { isRestoringRef.current = false; }, 500);

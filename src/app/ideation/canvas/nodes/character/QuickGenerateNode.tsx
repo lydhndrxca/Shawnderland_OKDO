@@ -307,7 +307,16 @@ function QuickGenerateNodeInner({ id, data, selected }: Props) {
           if (!connected.has(n.id)) return n;
           if (n.type === 'charIdentity') {
             pushed++;
-            return { ...n, data: { ...n.data, identity, name: charName ?? '' } };
+            const d = n.data as Record<string, unknown>;
+            const locks = (d.lockedAttrs as Record<string, boolean>) ?? {};
+            const existing = (d.identity as Record<string, string>) ?? {};
+            const mergedIdentity = {
+              age: locks.age ? existing.age : identity.age,
+              race: locks.race ? existing.race : identity.race,
+              gender: locks.gender ? existing.gender : identity.gender,
+              build: locks.build ? existing.build : identity.build,
+            };
+            return { ...n, data: { ...n.data, identity: mergedIdentity, name: charName ?? '' } };
           }
           if (n.type === 'charDescription') {
             pushed++;
@@ -316,11 +325,13 @@ function QuickGenerateNodeInner({ id, data, selected }: Props) {
           if (n.type === 'charAttributes') {
             pushed++;
             const d = n.data as Record<string, unknown>;
+            const locks = (d.lockedAttrs as Record<string, boolean>) ?? {};
             const existingAttrs = (d.attributes as CharacterAttributes) ?? {};
-            const merged = {
-              ...attributes,
-              pose: existingAttrs.pose || 'Pose — relaxed A-stance, hands at sides',
-            };
+            const merged: CharacterAttributes = {};
+            for (const [key, val] of Object.entries(attributes)) {
+              merged[key] = locks[key] ? (existingAttrs[key] ?? val) : val;
+            }
+            if (!merged.pose) merged.pose = existingAttrs.pose || 'Pose — relaxed A-stance, hands at sides';
             return { ...n, data: { ...n.data, attributes: merged } };
           }
           return n;

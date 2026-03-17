@@ -67,6 +67,25 @@
 - [x] Walter: Staging Room (3-level timeline, shot editor, feedback loop, one-sheet export)
 - [x] Walter: Deleted 19 old components, replaced with 5 new screen components
 
+### Work-Safe Conversion (Phase 1–3)
+
+- [x] Reorder tools in registry (ConceptLab first, Sprite Lab / UI Lab last)
+- [x] Update tool taglines & descriptions for professional presentation
+- [x] Add WIP status to Sprite Lab & UI Lab with dimmed cards and badges
+- [x] Add feedback/bug report mailto link in sidebar
+- [x] Verify Walter hidden in Work mode; document toggle mechanism
+- [x] Update homepage Getting Started section (HOWTO_STEPS)
+- [x] Hardcode default canvas layouts for ConceptLab & ShawnderMind
+- [x] AI Writing Room: create tools/writing-room/ as monorepo package following Walter pattern
+- [x] AI Writing Room: generalized Planning Page (writing type, context, audience, tones, hard rules, reference material, scope, notes)
+- [x] AI Writing Room: 10 preset personas (Producer, Serling, Fielder, Pera + 6 new: Gritty Script Writer, Unhinged, David Lynch, Game Designer, Unhinged Game Designer, Korean Game Producer Executive)
+- [x] AI Writing Room: 7 generalized creative rounds (Core Concept → Final Review)
+- [x] AI Writing Room: summary/export buttons replacing Staging Room (2-screen workflow)
+- [x] AI Writing Room: wired into hub (WorkspaceRenderer, registry, tsconfig, next.config)
+- [x] AI Writing Room: pen-tool icon in sidebar ICON_MAP
+- [x] AI Writing Room: no Walter/Weeping Willows references; fully standalone
+- [x] Update governance docs (TASKS.md, PROJECT.md, SPEC.md, DECISIONS.md)
+
 ### Health Audit Cleanup
 
 - [x] Commit monorepo migration (Walter extraction, profile system, @shawnderland/ai)
@@ -77,6 +96,19 @@
 - [x] Fix doc drift: SPEC.md missing writer agent packages, LoRA training pipeline, Ollama integration
 - [x] Gitignore training artifacts (tokenizer.json, checkpoint dirs, *-gguf/, *-merged-16bit/)
 - [ ] Evaluate Git LFS for corpus/taxonomy JSON (~271 MB combined)
+
+### ConceptLab Sub-tools (2026-03-17)
+
+- [x] Task 1.1: Expandable sidebar for ConceptLab with 4 sub-tool items (Concept Lab, AI Upres, AI Restore, Style Conversion)
+- [x] Task 1.2: Sub-route handling in WorkspaceRenderer + ConceptLabShell appKey prop
+- [x] Task 1.3: Default layouts for 3 sub-tools (upres, restore, style-conversion)
+- [x] Task 2.1: BulkImageInputNode — drag/drop, paste, browse, thumbnails, clear/remove
+- [x] Task 2.2: UpresStandaloneNode — Examine → Process two-phase workflow, batch support
+- [x] Task 2.3: RestoreStandaloneNode — Examine → Process, describe-then-regenerate pipeline
+- [x] Task 2.4: StyleConversionNode — Re-render/Isolate modes, presets, custom dimensions
+- [x] Task 2.5: OutputGalleryNode — gallery grid, expand overlay, context menu, export/copy
+- [x] Phase 3: UtilityNodes.css, barrel export, "Utilities" dock category, NODE_DEFAULTS
+- [x] Phase 4: Verified clear/reset buttons on BulkImageInput and OutputGallery
 
 ## Next
 

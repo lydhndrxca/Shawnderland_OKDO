@@ -1,0 +1,199 @@
+import type { LayoutSnapshot } from "./layoutStore";
+
+const CONCEPT_LAB_DEFAULT: LayoutSnapshot = {
+  nodes: [
+    { id: "cl-def-01", position: { x: 720, y: 1340 }, type: "charGenerate", style: { width: 320, height: 420 } },
+    { id: "cl-def-02", position: { x: -1180, y: 680 }, type: "charExtractAttrs" },
+    { id: "cl-def-03", position: { x: -1180, y: 1100 }, type: "charEnhanceDesc" },
+    { id: "cl-def-04", position: { x: 200, y: 1780 }, type: "charRefCallout" },
+    { id: "cl-def-05", position: { x: -1980, y: 1000 }, type: "charQuickGen" },
+    { id: "cl-def-06", position: { x: -780, y: 680 }, type: "charIdentity", style: { width: 360, height: 500 } },
+    { id: "cl-def-07", position: { x: -380, y: 680 }, type: "charAttributes", style: { width: 400, height: 1600 } },
+    { id: "cl-def-08", position: { x: -780, y: 1100 }, type: "charDescription" },
+    { id: "cl-def-09", position: { x: 1120, y: 1400 }, type: "charMainViewer", style: { width: 600, height: 700 } },
+    { id: "cl-def-10", position: { x: 1760, y: 1400 }, type: "charFrontViewer", style: { width: 500, height: 720 } },
+    { id: "cl-def-11", position: { x: 2320, y: 1400 }, type: "charBackViewer", style: { width: 500, height: 720 } },
+    { id: "cl-def-12", position: { x: 2880, y: 1400 }, type: "charSideViewer", style: { width: 500, height: 720 } },
+    { id: "cl-def-13", position: { x: 2340, y: 600 }, type: "charCreativeDirector", style: { width: 820, height: 500 } },
+    { id: "cl-def-14", position: { x: 720, y: 1760 }, type: "imageStudio", style: { width: 320, height: 340 } },
+    { id: "cl-def-15", position: { x: 4020, y: 1900 }, type: "charSaveGroup", style: { width: 280, height: 240 } },
+    { id: "cl-def-16", position: { x: -1020, y: -640 }, type: "charBible", style: { width: 400, height: 740 } },
+    { id: "cl-def-17", position: { x: -580, y: -640 }, type: "charPreservationLock", style: { width: 320, height: 560 } },
+    { id: "cl-def-18", position: { x: -220, y: -640 }, type: "costumeDirector", style: { width: 440, height: 900 } },
+    { id: "cl-def-19", position: { x: 260, y: -820 }, type: "charStyleFusion", style: { width: 380, height: 600 } },
+    { id: "cl-def-20", position: { x: 680, y: -820 }, type: "envPlacement", style: { width: 340, height: 600 } },
+    { id: "cl-def-21", position: { x: 560, y: -180 }, type: "contextHub", style: { width: 280, height: 340 } },
+    { id: "cl-def-22", position: { x: 880, y: -180 }, type: "imageViewHub", style: { width: 280, height: 340 } },
+    { id: "cl-def-23", position: { x: 3960, y: 2580 }, type: "meshyImageTo3D", style: { width: 340, height: 620 } },
+    { id: "cl-def-24", position: { x: 3960, y: 3220 }, type: "hitem3dImageTo3D", style: { width: 340, height: 640 } },
+    { id: "cl-def-25", position: { x: 4400, y: 2580 }, type: "meshyModelViewer", style: { width: 480, height: 640 } },
+    { id: "cl-def-26", position: { x: -1400, y: 680 }, type: "imageInfluence" },
+    { id: "cl-def-27", position: { x: 0, y: 1780 }, type: "imageInfluence" },
+    { id: "cl-def-28", position: { x: 720, y: 2120 }, type: "charSlimStyle", style: { width: 340, height: 480 } },
+    { id: "cl-def-29", position: { x: 1960, y: 600 }, type: "artDirector" },
+    { id: "cl-def-30", position: { x: 4400, y: 3280 }, type: "meshyModelViewer", style: { width: 480, height: 680 } },
+  ],
+  edges: [
+    { id: "e-def-01", source: "cl-def-03", target: "cl-def-08", sourceHandle: "output", targetHandle: "desc-in" },
+    { id: "e-def-02", source: "cl-def-02", target: "cl-def-06", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-def-03", source: "cl-def-06", target: "cl-def-01", sourceHandle: "identity-out", targetHandle: "input" },
+    { id: "e-def-04", source: "cl-def-07", target: "cl-def-01", sourceHandle: "attrs-out", targetHandle: "input" },
+    { id: "e-def-05", source: "cl-def-02", target: "cl-def-07", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-def-06", source: "cl-def-08", target: "cl-def-01", sourceHandle: "desc-out", targetHandle: "input" },
+    { id: "e-def-07", source: "cl-def-04", target: "cl-def-01", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-def-08", source: "cl-def-26", target: "cl-def-02", targetHandle: "image-in" },
+    { id: "e-def-09", source: "cl-def-05", target: "cl-def-06", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-def-10", source: "cl-def-05", target: "cl-def-08", sourceHandle: "output", targetHandle: "desc-in" },
+    { id: "e-def-11", source: "cl-def-05", target: "cl-def-07", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-def-12", source: "cl-def-27", target: "cl-def-04", targetHandle: "image-in" },
+    { id: "e-def-13", source: "cl-def-01", target: "cl-def-09", sourceHandle: "image-out", targetHandle: "input" },
+    { id: "e-def-14", source: "cl-def-09", target: "cl-def-14", sourceHandle: "output" },
+    { id: "e-def-15", source: "cl-def-10", target: "cl-def-14", sourceHandle: "output" },
+    { id: "e-def-16", source: "cl-def-11", target: "cl-def-14", sourceHandle: "output" },
+    { id: "e-def-17", source: "cl-def-12", target: "cl-def-14", sourceHandle: "output" },
+    { id: "e-def-18", source: "cl-def-09", target: "cl-def-15", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-def-19", source: "cl-def-10", target: "cl-def-15", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-def-20", source: "cl-def-11", target: "cl-def-15", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-def-21", source: "cl-def-12", target: "cl-def-15", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-def-22", source: "cl-def-09", target: "cl-def-28", sourceHandle: "output" },
+    { id: "e-def-23", source: "cl-def-10", target: "cl-def-28", sourceHandle: "output" },
+    { id: "e-def-24", source: "cl-def-11", target: "cl-def-28", sourceHandle: "output" },
+    { id: "e-def-25", source: "cl-def-12", target: "cl-def-28", sourceHandle: "output" },
+    { id: "e-def-26", source: "cl-def-29", target: "cl-def-13", targetHandle: "input" },
+    { id: "e-def-27", source: "cl-def-09", target: "cl-def-29", sourceHandle: "output" },
+    { id: "e-def-28", source: "cl-def-12", target: "cl-def-23", sourceHandle: "output" },
+    { id: "e-def-29", source: "cl-def-11", target: "cl-def-23", sourceHandle: "output" },
+    { id: "e-def-30", source: "cl-def-10", target: "cl-def-23", sourceHandle: "output" },
+    { id: "e-def-31", source: "cl-def-09", target: "cl-def-23", sourceHandle: "output" },
+    { id: "e-def-32", source: "cl-def-23", target: "cl-def-25" },
+    { id: "e-def-33", source: "cl-def-24", target: "cl-def-30" },
+    { id: "e-def-34", source: "cl-def-12", target: "cl-def-24", sourceHandle: "output" },
+    { id: "e-def-35", source: "cl-def-11", target: "cl-def-24", sourceHandle: "output" },
+    { id: "e-def-36", source: "cl-def-10", target: "cl-def-24", sourceHandle: "output" },
+    { id: "e-def-37", source: "cl-def-09", target: "cl-def-24", sourceHandle: "output" },
+  ],
+  nodeData: {
+    "cl-def-01": {
+      imageGenModelId: "imagen4-fast",
+      imageGenApiId: "imagen-4.0-fast-generate-001",
+      multimodalModelId: "nb2-mm",
+      multimodalApiId: "gemini-flash-image",
+      aspectRatio: "9:16",
+      orthoFront: false,
+      orthoBack: false,
+      orthoSide: false,
+    },
+    "cl-def-09": { viewKey: "main", genCount: 1 },
+    "cl-def-10": { viewKey: "front", genCount: 1 },
+    "cl-def-11": { viewKey: "back", genCount: 1 },
+    "cl-def-12": { viewKey: "side", genCount: 1 },
+    "cl-def-23": {
+      aiModel: "meshy-6",
+      topology: "triangle",
+      targetPoly: 30000,
+      symmetry: "auto",
+      poseMode: "",
+      shouldRemesh: true,
+      shouldTexture: true,
+      enablePbr: true,
+      imageEnhance: true,
+      removeLighting: false,
+      texturePrompt: "",
+    },
+    "cl-def-24": {
+      h3dModel: "hitem3dv2.0",
+      h3dResolution: "1536pro",
+      h3dRequestType: 3,
+      h3dFace: 2000000,
+      h3dFormat: 2,
+    },
+    "cl-def-25": { exportName: "model" },
+    "cl-def-28": {
+      slimModel: "gemini-flash-image",
+      slimMain: true,
+      slimFront: true,
+      slimBack: true,
+      slimSide: true,
+    },
+    "cl-def-30": { exportName: "model" },
+  },
+  viewport: { x: 932, y: 268, zoom: 0.2 },
+};
+
+const SHAWNDERMIND_DEFAULT: LayoutSnapshot = {
+  nodes: [
+    { id: "seed", position: { x: 200, y: 160 }, type: "seed" },
+    { id: "normalize", position: { x: 560, y: 160 }, type: "normalize" },
+    { id: "diverge", position: { x: 880, y: 160 }, type: "diverge" },
+    { id: "critique-salvage", position: { x: 1200, y: 160 }, type: "critique-salvage" },
+    { id: "expand", position: { x: 1520, y: 160 }, type: "expand" },
+    { id: "converge", position: { x: 1840, y: 160 }, type: "converge" },
+    { id: "commit", position: { x: 2140, y: 160 }, type: "commit" },
+    { id: "iterate", position: { x: 2440, y: 160 }, type: "iterate" },
+    { id: "report-default", position: { x: 2740, y: 160 }, type: "generateReport" },
+  ],
+  edges: [
+    { id: "e-seed-normalize", source: "seed", target: "normalize" },
+    { id: "e-normalize-assumptions-diverge", source: "normalize", target: "diverge", sourceHandle: "assumptions" },
+    { id: "e-normalize-questions-diverge", source: "normalize", target: "diverge", sourceHandle: "questions" },
+    { id: "e-diverge-practical-critique-salvage", source: "diverge", target: "critique-salvage", sourceHandle: "practical" },
+    { id: "e-diverge-inversion-critique-salvage", source: "diverge", target: "critique-salvage", sourceHandle: "inversion" },
+    { id: "e-diverge-constraint-critique-salvage", source: "diverge", target: "critique-salvage", sourceHandle: "constraint" },
+    { id: "e-critique-salvage-generic-expand", source: "critique-salvage", target: "expand", sourceHandle: "generic" },
+    { id: "e-critique-salvage-mutations-expand", source: "critique-salvage", target: "expand", sourceHandle: "mutations" },
+    { id: "e-expand-converge", source: "expand", target: "converge" },
+    { id: "e-converge-commit", source: "converge", target: "commit" },
+    { id: "e-commit-iterate", source: "commit", target: "iterate" },
+  ],
+  nodeData: {
+    seed: { seedText: "", seedContext: "", seedMedia: [] },
+  },
+};
+
+const UPRES_DEFAULT: LayoutSnapshot = {
+  nodes: [
+    { id: "upres-def-01", position: { x: 0, y: 0 }, type: "bulkImageInput", style: { width: 360, height: 400 } },
+    { id: "upres-def-02", position: { x: 460, y: 0 }, type: "upresStandalone", style: { width: 320, height: 420 } },
+    { id: "upres-def-03", position: { x: 880, y: 0 }, type: "outputGallery", style: { width: 600, height: 700 } },
+  ],
+  edges: [
+    { id: "e-upres-01", source: "upres-def-01", target: "upres-def-02", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-upres-02", source: "upres-def-02", target: "upres-def-03", sourceHandle: "output", targetHandle: "input" },
+  ],
+};
+
+const RESTORE_DEFAULT: LayoutSnapshot = {
+  nodes: [
+    { id: "restore-def-01", position: { x: 0, y: 0 }, type: "bulkImageInput", style: { width: 360, height: 400 } },
+    { id: "restore-def-02", position: { x: 460, y: 0 }, type: "restoreStandalone", style: { width: 320, height: 460 } },
+    { id: "restore-def-03", position: { x: 880, y: 0 }, type: "outputGallery", style: { width: 600, height: 700 } },
+  ],
+  edges: [
+    { id: "e-restore-01", source: "restore-def-01", target: "restore-def-02", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-restore-02", source: "restore-def-02", target: "restore-def-03", sourceHandle: "output", targetHandle: "input" },
+  ],
+};
+
+const STYLE_CONVERSION_DEFAULT: LayoutSnapshot = {
+  nodes: [
+    { id: "style-def-01", position: { x: 0, y: 0 }, type: "bulkImageInput", style: { width: 360, height: 400 } },
+    { id: "style-def-02", position: { x: 460, y: 0 }, type: "styleConversion", style: { width: 400, height: 600 } },
+    { id: "style-def-03", position: { x: 960, y: 0 }, type: "outputGallery", style: { width: 600, height: 700 } },
+  ],
+  edges: [
+    { id: "e-style-01", source: "style-def-01", target: "style-def-02", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-style-02", source: "style-def-02", target: "style-def-03", sourceHandle: "output", targetHandle: "input" },
+  ],
+};
+
+const DEFAULTS: Record<string, LayoutSnapshot> = {
+  "concept-lab": CONCEPT_LAB_DEFAULT,
+  "concept-lab:upres": UPRES_DEFAULT,
+  "concept-lab:restore": RESTORE_DEFAULT,
+  "concept-lab:style-conversion": STYLE_CONVERSION_DEFAULT,
+  ideation: SHAWNDERMIND_DEFAULT,
+};
+
+export function getHardcodedDefault(appKey: string): LayoutSnapshot | null {
+  return DEFAULTS[appKey] ?? null;
+}

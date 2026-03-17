@@ -35,7 +35,32 @@ Each external tool runs as its own service in its own repository.
 The hub proxies API calls and hosts native React UI for each tool.
 Walter Storyboard Builder is an extracted workspace package (`@tools/walter`)
 in `tools/walter/`, lazy-loaded by the hub via `next/dynamic`.
+AI Writing Room is an extracted workspace package (`@tools/writing-room`)
+in `tools/writing-room/`, lazy-loaded by the hub via `next/dynamic`.
 Hub-native tools (Tool Editor) live entirely inside this repo.
+AI Sprite Lab and AI UI Lab are marked as WIP with dimmed cards.
+
+### Sub-tool Navigation
+
+AI ConceptLab supports sub-tool routing. The sidebar renders ConceptLab as an
+expandable dropdown with four sub-tool items:
+- **AI Concept Lab** (`/concept-lab`) — default character/asset canvas
+- **AI Upres** (`/concept-lab/upres`) — bulk image upscaling pipeline
+- **AI Restore** (`/concept-lab/restore`) — AI quality restoration pipeline
+- **Style Conversion** (`/concept-lab/style-conversion`) — style transfer pipeline
+
+Each sub-tool reuses `ConceptLabShell` with a distinct `appKey` prop, giving each
+its own saved layout and hardcoded default in `defaultLayouts.ts`.
+
+### Utility Nodes
+
+Five utility nodes are registered in `sharedNodeTypes.ts` under the "Utilities"
+dock category:
+- `bulkImageInput` — multi-image drag/drop/paste/browse input
+- `upresStandalone` — Examine → Process upscaling (x2/x3/x4 via Imagen 4)
+- `restoreStandalone` — Examine → Process quality restoration
+- `styleConversion` — Re-render or Isolate modes with preset management
+- `outputGallery` — browsable gallery with export, context menu, full-size overlay
 
 ## Dual-Backend API
 

@@ -184,81 +184,10 @@ export interface CharacterAttributes {
 
 /* ── Style Constants ── */
 
-export const CHARACTER_STYLE_NOTES = `CRITICAL IMAGE FORMAT: 9:16 vertical portrait (1536 x 2816).
-
-MANDATORY FULL-BODY FRAMING — #1 PRIORITY (DO NOT VIOLATE):
-- The character should occupy approximately 65% of the frame height, centered vertically.
-- Leave at LEAST 15% empty solid grey space ABOVE the top of the head AND 15% empty solid grey space BELOW the soles of the feet/shoes.
-- START composing the image from the FEET UP. Place the shoe soles first at about 15% from the bottom edge, then build the figure upward.
-- The ENTIRE body must be visible: TOP OF THE HEAD (including all hair/headwear) to the BOTTOM OF THE FEET (including the flat soles of the shoes resting on the invisible ground plane).
-- SHOES AND FEET are the #1 most commonly cropped part. You MUST verify feet are fully visible with grey padding below them.
-- If the character is tall or has elaborate headwear, zoom the camera out further. NEVER crop ANY body part.
-- Think of this as a fashion lookbook photo taken with a wide-angle lens — the model is small in the frame with lots of grey space around them.
-- This is NOT a portrait, NOT a headshot, NOT waist-up, NOT shin-crop. This is a FULL-LENGTH character reference.
-
-FOLLOW THE DESCRIPTION LITERALLY:
-- Wardrobe, props, colors, materials, condition, and wear must match the attribute list.
-- Body type, age, and demeanor must match the identity description.
-- Include any listed props and accessories. Do not invent extra items.
-
-VISUAL STYLE — PHOTOREALISTIC (MANDATORY, DO NOT DEVIATE):
-This MUST look like a photograph taken with a real camera of a real person wearing a real costume. NOT concept art, NOT digital painting, NOT illustration, NOT a video game render, NOT stylized in any way.
-- SKIN: Real human skin with visible pores, subsurface scattering, natural blemishes, uneven skin tone. NOT smooth/airbrushed/plastic-looking.
-- EYES: Wet, reflective, with visible blood vessels in the sclera. NOT glowing, NOT unnaturally vivid.
-- HAIR: Individual strands with natural flyaways and imperfect texture. NOT perfectly styled CG hair.
-- FABRICS: Heavy, lived-in materials that sag and wrinkle under gravity. Visible thread texture, natural pilling, realistic wear. NOT clean/pristine/crisp CG materials.
-- METALS: Real metal with scratches, fingerprints, uneven patina. NOT perfectly polished/shiny CG metal.
-- LIGHTING: Soft, even studio photography lighting (diffused softbox). Neutral color temperature. NO dramatic rim lights, NO colored gels, NO cinematic atmosphere, NO volumetric fog, NO lens flares, NO bloom/glow effects.
-- PROPORTIONS: Natural and un-idealized — realistic weight distribution, no exaggerated musculature, no heroic proportions.
-- OVERALL: If this image could be mistaken for concept art, a game character, or a digital painting, it has FAILED. It must pass as a real photograph.
-- Pose: casual standing, slight 3/4 to camera.
-
-ZERO TEXT IN IMAGE (MANDATORY):
-- Do NOT render any text, letters, numbers, hex codes, color codes, logos, labels, captions, annotations, or watermarks anywhere in the image.
-- The image must contain ONLY the character on a plain background — absolutely nothing written or printed.
-
-BACKGROUND (REQUIRED):
-- Flat solid neutral grey only.
-- No floor, no ground plane, no environment, no background objects.
-- No ground shadows, reflections, gradients, or lighting effects.
-
-CAMERA & COMPOSITION:
-- Eye-level camera at chest height, natural perspective, 70-85mm equivalent lens unless overridden.
-- Centered full-body framing. ZOOM OUT enough so the full character fits with padding on all sides.`;
+export const CHARACTER_STYLE_NOTES = `Photorealistic rendering — this must look like a real photograph, not concept art or illustration. Real skin with pores, real fabric with texture and weight, real materials with wear. Natural proportions.`;
 
 export function getStyleNotes(styleOverride: string): string {
-  return `CRITICAL IMAGE FORMAT: 9:16 vertical portrait (1536 x 2816).
-
-MANDATORY FULL-BODY FRAMING — #1 PRIORITY (DO NOT VIOLATE):
-- The character should occupy approximately 65% of the frame height, centered vertically.
-- Leave at LEAST 15% empty solid grey space ABOVE the top of the head AND 15% empty solid grey space BELOW the soles of the feet/shoes.
-- START composing the image from the FEET UP. Place the shoe soles first at about 15% from the bottom edge, then build the figure upward.
-- The ENTIRE body must be visible: TOP OF THE HEAD (including all hair/headwear) to the BOTTOM OF THE FEET (including the flat soles of the shoes resting on the invisible ground plane).
-- SHOES AND FEET are the #1 most commonly cropped part. You MUST verify feet are fully visible with grey padding below them.
-- If the character is tall or has elaborate headwear, zoom the camera out further. NEVER crop ANY body part.
-- This is NOT a portrait, NOT a headshot, NOT waist-up, NOT shin-crop. This is a FULL-LENGTH character reference.
-
-FOLLOW THE DESCRIPTION LITERALLY:
-- Wardrobe, props, colors, materials, condition, and wear must match the attribute list.
-- Body type, age, and demeanor must match the identity description.
-- Include any listed props and accessories. Do not invent extra items.
-
-VISUAL STYLE — USER-DIRECTED (FOLLOW THIS STYLE):
-Render the character in the following art style: ${styleOverride}
-This style directive takes priority over any other style guidance. The entire image must be consistent with this style.
-
-ZERO TEXT IN IMAGE (MANDATORY):
-- Do NOT render any text, letters, numbers, hex codes, color codes, logos, labels, captions, annotations, or watermarks anywhere in the image.
-- The image must contain ONLY the character on a plain background — absolutely nothing written or printed.
-
-BACKGROUND (REQUIRED):
-- Flat solid neutral grey only.
-- No floor, no ground plane, no environment, no background objects.
-- No ground shadows, reflections, gradients, or lighting effects.
-
-CAMERA & COMPOSITION:
-- Eye-level camera at chest height, natural perspective, 70-85mm equivalent lens unless overridden.
-- Centered full-body framing. ZOOM OUT enough so the full character fits with padding on all sides.`;
+  return `Render in the following art style: ${styleOverride}. This style takes priority over photorealism. Match the style precisely.`;
 }
 
 export const VIEW_REQUESTS: Record<string, string> = {
@@ -286,69 +215,38 @@ export function buildCharacterDescription(
   identity: CharacterIdentity,
   attributes: CharacterAttributes,
   userDescription: string,
-  styleOverride?: string,
+  _styleOverride?: string,
 ): string {
   const parts: string[] = [];
 
   if (userDescription.trim()) {
-    parts.push('[REQUIRED DESCRIPTION]');
-    parts.push(userDescription.trim());
+    parts.push('CHARACTER CONCEPT: ' + userDescription.trim());
     parts.push('');
   }
 
   const identityParts = [identity.age, identity.race, identity.gender, identity.build].filter(Boolean);
   if (identityParts.length) {
-    parts.push('## CHARACTER IDENTITY (PRIMARY)');
-    parts.push('[IDENTITY]');
-    parts.push(identityParts.join(', '));
-    parts.push('');
+    parts.push('IDENTITY: ' + identityParts.join(', '));
   }
 
-  parts.push('## CLOTHING & GEAR (STRICT ADHERENCE)');
+  const attrLines: string[] = [];
   for (const group of ATTRIBUTE_GROUPS) {
     const val = attributes[group.key]?.trim();
     if (val && val.toLowerCase() !== 'none') {
-      parts.push(`${group.label}: ${val}`);
+      attrLines.push(`${group.label}: ${val}`);
     }
   }
-  parts.push('');
-
-  if (styleOverride) {
-    parts.push('## VISUAL STYLE & LIGHTING — USER-DIRECTED STYLE');
-    parts.push(`- ART STYLE: ${styleOverride}`);
-    parts.push('- Render the character in the art style described above. This style takes priority over any default.');
-    parts.push('- Lighting: appropriate for the chosen style. Maintain consistency with the style direction.');
-    parts.push('- Background: Flat solid neutral grey only. No floor, no environment.');
-  } else {
-    parts.push('## VISUAL STYLE & LIGHTING — PHOTOREALISTIC (MANDATORY)');
-    parts.push('- This MUST look like a real photograph of a real person in a real costume — NOT concept art, NOT illustration, NOT a game render.');
-    parts.push('- Skin: real pores, subsurface scattering, natural blemishes. Hair: individual strands with flyaways.');
-    parts.push('- Fabrics: heavy, lived-in, visible thread texture, natural wrinkles and sag under gravity. Render exactly as described. NO LEATHER unless specified.');
-    parts.push('- Metals/hardware: real scratches, fingerprints, uneven patina — NOT clean CG metal.');
-    parts.push('- Lighting: Soft, even studio photography lighting. Neutral color temperature. NO dramatic lighting, NO colored gels, NO rim lights, NO cinematic atmosphere.');
-    parts.push('- Background: Flat solid neutral grey only. No floor, no environment.');
-    parts.push('- If the result could be mistaken for concept art or a digital painting, it has FAILED.');
+  if (attrLines.length) {
+    parts.push('');
+    parts.push('ATTRIBUTES:');
+    parts.push(attrLines.join('\n'));
   }
-  parts.push('');
 
-  parts.push('## CAMERA & COMPOSITION');
-  parts.push('- Aspect Ratio: 9:16 portrait.');
-  parts.push('- Framing: FULL BODY — the complete character from the top of the head (including all hair/headwear) to the bottom of the feet (including soles of shoes) MUST be visible with padding. NEVER crop the head or feet.');
-  parts.push('- Lens: 85mm portrait lens, eye-level at chest height, no extreme perspective.');
-  parts.push('- Zoom out enough so the entire figure fits comfortably with space above and below.');
-  parts.push('');
-
-  parts.push('## NEGATIVE CONSTRAINTS (MUST AVOID)');
-  parts.push('- NO cropped body, NO cut off feet, NO cut off head.');
-  parts.push('- NO close-up, NO portrait framing, NO headshot, NO bust shot, NO waist-up framing.');
-  parts.push('- NO text, letters, numbers, hex codes, color codes, logos, labels, captions, annotations, or watermarks anywhere in the image.');
-  parts.push('- NO background environment, cityscape, or scene — ONLY solid grey.');
-  parts.push('- NO tactical gear, heroic props, or sunglasses unless explicitly requested.');
-  if (!styleOverride) {
-    parts.push('- NO stylized rendering — no painterly strokes, no cel-shading, no digital art aesthetic, no concept art look, no video game character rendering.');
-    parts.push('- NO dramatic/cinematic lighting — no colored rim lights, no atmospheric fog, no lens effects.');
+  const pose = attributes.pose?.trim();
+  if (pose && pose.toLowerCase() !== 'none') {
+    parts.push('');
+    parts.push('POSE: ' + pose);
   }
-  parts.push('- NO idealized proportions — no exaggerated musculature, no heroic builds unless described.');
 
   return parts.join('\n');
 }
@@ -359,74 +257,46 @@ export function buildCharacterViewPrompt(
   styleOverride?: string,
 ): string {
   const view = VIEW_REQUESTS[viewKey] ?? VIEW_REQUESTS.main;
-  const styleNotes = styleOverride ? getStyleNotes(styleOverride) : CHARACTER_STYLE_NOTES;
 
   if (viewKey === 'main') {
     const styleLine = styleOverride
-      ? `STYLE: Render in the following art style: ${styleOverride}. This style directive takes priority. Maintain consistency with this style throughout.`
-      : 'STYLE: PHOTOREALISTIC — this must look like a high-resolution PHOTOGRAPH taken with a real camera of a real person wearing a real costume in a studio. NOT a painting, NOT an illustration, NOT concept art, NOT a video game character render, NOT stylized in ANY way. Real skin pores, real fabric texture, real metal scratches. If it could be mistaken for concept art or digital art, it has FAILED.';
+      ? `STYLE: Render in the art style described/shown in the style reference. This takes priority over photorealism.`
+      : 'STYLE: Photorealistic — real photograph of a real person in a real costume. Real skin, real fabric, real materials.';
 
     const lightingLine = styleOverride
-      ? 'LIGHTING: Use lighting appropriate for the chosen art style. Keep it consistent and well-crafted.'
-      : 'LIGHTING: Soft, even studio PHOTOGRAPHY lighting (as from a diffused softbox). Neutral color temperature. NO dramatic cinematic lighting, NO colored gels, NO rim lights, NO neon, NO volumetric effects, NO atmospheric haze, NO lens flares, NO bloom/glow.';
-
-    const finalChecks = styleOverride
-      ? [
-          'FINAL MANDATORY CHECK (verify ALL before outputting):',
-          '• Are the character\'s SHOES/FEET fully visible with grey padding below? If NO → zoom out more.',
-          '• Is the background solid grey with no environment? If NO → remove environment.',
-          '• Is the image rendered in the requested art style? If NO → re-render in the correct style.',
-        ]
-      : [
-          'FINAL MANDATORY CHECK (verify ALL before outputting):',
-          '• Are the character\'s SHOES/FEET fully visible with grey padding below? If NO → zoom out more.',
-          '• Is the background solid grey with no environment? If NO → remove environment.',
-          '• Does the SKIN look like real human skin with pores and blemishes? If NO → add realistic skin detail.',
-          '• Do the FABRICS look like real cloth with weight, wrinkles, and thread texture? If NO → make materials realistic.',
-          '• Is the LIGHTING flat studio lighting without dramatic effects? If NO → remove cinematic lighting.',
-          '• Could this image be mistaken for concept art, a digital painting, or a game render? If YES → start over with photorealistic rendering. It MUST look like a real photograph.',
-        ];
+      ? 'LIGHTING: Match the style reference.'
+      : 'LIGHTING: Soft, even studio photography lighting. Neutral color temperature. No dramatic or cinematic lighting.';
 
     return [
-      'CRITICAL RENDERING REQUIREMENTS (READ FIRST — ALL ARE MANDATORY):',
-      '',
-      'FRAMING: This is a FULL-LENGTH photo. The character must occupy only about 65% of the frame height. START from the FEET: place shoe soles at ~15% from the bottom edge, then build the figure upward. There MUST be visible empty grey space ABOVE the head AND BELOW the shoe soles. Think of a fashion lookbook photo — the model is relatively small in the frame with lots of grey space around them. If ANY part of the feet/shoes would be cropped, ZOOM OUT MORE. This is the #1 most common error.',
+      'No text, labels, or watermarks in the image.',
       '',
       styleLine,
-      '',
-      'BACKGROUND: Solid flat neutral grey ONLY. No environment, no cityscape, no room, no floor, no gradients — JUST flat grey.',
-      '',
       lightingLine,
-      '',
-      characterDescription,
+      'BACKGROUND: Solid flat neutral grey only. No environment, no floor.',
+      'FRAMING: Full body, head to feet with padding. Character fills ~65% of frame height. Feet must be fully visible. Camera at chest height, 85mm lens.',
       '',
       view,
       '',
-      `Style Requirements:\n${styleNotes}`,
-      '',
-      ...finalChecks,
+      characterDescription,
     ].join('\n');
   }
 
-  const styleIntro = styleOverride
-    ? `CRITICAL: Render in the following art style: ${styleOverride}. This style directive takes priority.`
-    : 'CRITICAL: This must be a PHOTOREALISTIC image — like a high-resolution photograph, NOT an illustration, painting, or concept art.';
+  const styleLine = styleOverride
+    ? `Render in the art style from the style reference. Style takes priority.`
+    : 'Photorealistic rendering — real photograph, not illustration or concept art.';
 
   return [
-    'ZERO TEXT IN IMAGE: Do NOT render any text, titles, labels, letters, numbers, hex codes, color codes, logos, captions, annotations, or watermarks anywhere in the image. The image must contain ONLY the character on a plain background — absolutely nothing written or printed.',
+    'No text, labels, or watermarks in the image.',
     '',
-    styleIntro,
+    styleLine,
     '',
-    'Using the provided character image as reference, recompose to the specified view,',
-    'preserving EXACT character design, body type, materials, colors, clothing, accessories, and all details.',
+    'Recompose the character to the specified view. Preserve EXACT design, clothing, accessories, and all details.',
     '',
     view,
     '',
     LOCK_OUTFIT_BLOCK,
     '',
-    'Background: solid flat neutral grey. No floor, no shadows, no environment.',
-    '',
-    `Style requirements:\n${styleNotes}`,
+    'Background: solid flat neutral grey. No floor, no environment.',
   ].join('\n');
 }
 

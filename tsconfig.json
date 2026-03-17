@@ -22,7 +22,9 @@
       "@shawnderland/serling": ["./packages/serling/src/index.ts"],
       "@shawnderland/serling/*": ["./packages/serling/src/*"],
       "@tools/walter": ["./tools/walter/src/index.tsx"],
-      "@tools/walter/*": ["./tools/walter/src/*"]
+      "@tools/walter/*": ["./tools/walter/src/*"],
+      "@tools/writing-room": ["./tools/writing-room/src/index.tsx"],
+      "@tools/writing-room/*": ["./tools/writing-room/src/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

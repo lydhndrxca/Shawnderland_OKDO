@@ -513,13 +513,9 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
       const mainStageMMLabel = MULTIMODAL_MODELS.find((m) => m.apiId === mainStageMMApiId)?.label ?? mainStageMMApiId;
       const hasTextOnlyStyle = hasStyleOverride && styleImages.length === 0 && contentRefs.length === 0;
 
-      const genMode = styleImages.length > 0
-        ? `${mainStageMMLabel} + ${styleImages.length} style ref${contentRefs.length > 0 ? ` + ${contentRefs.length} content ref` : ''}`
-        : contentRefs.length > 0
+      const genMode = contentRefs.length > 0
           ? `${mainStageMMLabel} + ${contentRefs.length} content ref`
-          : hasTextOnlyStyle
-            ? `${mainStageMMLabel} + style text`
-            : `${imgDef.label}, ${aspectRatio}`;
+          : `${imgDef.label}, ${aspectRatio}`;
       setProgress(`Generating (${genMode})...`);
       const earlyIds = findDownstreamViewersAndHub(id, getNode, getEdges).mainViewerIds;
       setNodes((nds) =>
@@ -555,83 +551,52 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
       }
       console.log(`%c[Generate] Final viewerGenCount = ${viewerGenCount}`, 'color: #ff9800; font-weight: bold');
 
+      const VARIATION_DIRECTIVES = [
+        'confident expression, weight shifted to left foot, one hand relaxed at side',
+        'neutral expression, weight centered, arms naturally at sides',
+        'intense focused gaze, weight on right foot, slight lean forward',
+        'relaxed expression, weight shifted back, one hand in pocket',
+        'determined look, squared shoulders, hands loosely clasped',
+        'calm steady gaze, contrapposto stance, one arm bent',
+        'thoughtful expression, head tilted slightly, weight on back foot',
+        'alert expression, feet staggered, arms loose and ready',
+      ];
+
       const doGenerate = async (variationIdx?: number): Promise<GeneratedImage[]> => {
-      const variationTag = variationIdx != null
-        ? `\n\n[VARIATION #${variationIdx + 1}] — This is one of several independent generations. Produce a UNIQUE interpretation: vary the pose, body language, camera angle, expression, weight distribution, and composition. Do NOT replicate other variations. Make this version feel distinctly different while maintaining the same character identity and attributes.\n`
-        : '';
-      let result: GeneratedImage[];
-      if (styleImages.length > 0 || contentRefs.length > 0) {
-        const allRefImages = [...styleImages, ...refImages];
-        const styleDesc = effectiveStyleText ? `The user describes the target style as: "${effectiveStyleText}". Use this description to further guide your style analysis. ` : '';
-
-        const imageLines: string[] = [];
-        styleImages.forEach((_, i) => {
-          imageLines.push(`• Image ${i + 1}: STYLE REFERENCE — extract ONLY the art style. Do NOT copy characters, objects, or scene from this image.`);
-        });
-        contentRefs.forEach((ref, i) => {
-          const imgIdx = styleImages.length + i + 1;
-          imageLines.push(`• Image ${imgIdx}: CONTENT REFERENCE — "${ref.callout}" — The character MUST ${calloutVerb(ref.callout)} the specific item/object shown in this image.`);
-        });
-        const imageIndexing = `IMAGE LAYOUT — I am providing ${allRefImages.length} image(s) in this order:\n${imageLines.join('\n')}`;
-
-        const calloutSection = contentRefs.length > 0
-          ? `\n\n⚠️ CONTENT REFERENCE INSTRUCTIONS — MANDATORY, DO NOT SKIP:\n${contentRefs.map((ref, i) => {
-  const imgIdx = styleImages.length + i + 1;
-  return `• Image ${imgIdx} — "${ref.callout}": The character MUST ${calloutVerb(ref.callout)} the exact item from Image ${imgIdx}. Preserve its design, shape, and colors. Render it in the target art style.`;
-}).join('\n')}\nALL ${contentRefs.length} content reference item(s) MUST appear in the final image. This is not optional.`
-          : '';
-
-        const hasStyleRefs = styleImages.length > 0;
-
-        const styleBlock = hasStyleRefs ? `⚠️ STYLE REPLICATION — THIS IS YOUR #1 PRIORITY ⚠️
-You are given style reference image(s). Your output MUST look like a screenshot from the SAME game/artwork/medium as those references.
-
-MANDATORY ANALYSIS — study the style reference(s) and replicate ALL of these EXACTLY:
-• GEOMETRY: polygon count, edge hardness (low-poly angular faces vs smooth vs voxel)
-• TEXTURE FIDELITY: resolution level, visible pixels, hand-painted quality, UV mapping style
-• SHADING: flat vs cel-shaded vs gradient vs PBR-stylized — match the EXACT method
-• COLOR PALETTE: saturation level, hue range, tonal values — match precisely
-• EDGE TREATMENT: outlines, anti-aliasing level, faceted edges
-• LEVEL OF DETAIL: if the reference is deliberately low-detail/low-poly, your output MUST be equally low-detail/low-poly — do NOT "improve" or "upscale" the fidelity
-• OVERALL FIDELITY: match the abstraction level exactly — if it looks like a PS2/PS3 era game, the output should too
-
-HARD RULES:
-- The output must be VISUALLY INDISTINGUISHABLE in rendering style from the style reference(s)
-- Do NOT "clean up", "enhance", or "modernize" the style — replicate it EXACTLY as-is
-- If the style is low-poly with visible polygons, YOUR OUTPUT MUST HAVE VISIBLE POLYGONS
-- If the style has low-res textures, YOUR OUTPUT MUST HAVE LOW-RES TEXTURES
-- Do NOT produce photorealistic or hyper-detailed output when the style reference is stylized
-- Extract ONLY the visual technique — do NOT copy characters, objects, or scenes from the style reference
-${styleDesc ? `- User's style description: "${styleDesc.trim()}"` : ''}` : '';
-
-        const prompt = `${hasStyleRefs ? styleBlock + '\n\n' : ''}${imageIndexing}${calloutSection}${variationTag}
-
-${styleDesc && !hasStyleRefs ? styleDesc : ''}${hasStyleRefs ? 'Generate a NEW image of the following character. CRITICAL: render in the EXACT same visual style, fidelity level, and rendering technique as the style reference image(s):' : 'Generate the following character, incorporating all content reference items:'}
-
-${fullPrompt}
-${contentRefs.length > 0 ? `- Every content reference item MUST appear on the character. This is MANDATORY — do not skip any.` : ''}
-${hasStyleRefs ? '\nFINAL REMINDER: Style match is your #1 priority. The output must look like it came from the same game/artwork as the style reference. Do NOT default to realistic rendering.' : ''}`;
-
-        console.log(`%c[Generate] PATH: Main stage multimodal (${mainStageMMLabel}) — ${styleImages.length} style imgs + ${contentRefs.length} content refs, aspect=${aspectRatio}`, 'color: #ff9800; font-weight: bold');
-        devLog(`[GenerateCharImage] Multimodal prompt length: ${prompt.length}, model: ${mainStageMMApiId} (mapped from ${imgDef.label})`);
-        result = await generateWithGeminiRef(prompt, allRefImages, mainStageMMApiId, aspectRatio);
-      } else if (hasTextOnlyStyle) {
-        console.log(`%c[Generate] PATH: Main stage multimodal for text-only style (${mainStageMMLabel}) — style: "${effectiveStyleText?.slice(0, 60)}…"`, 'color: #ff9800; font-weight: bold');
-        result = await generateWithGeminiRef(fullPrompt + variationTag, [], mainStageMMApiId, aspectRatio);
-      } else if (imgDef.apiId.startsWith('imagen-')) {
-        console.log(`%c[Generate] PATH: Imagen 4 text-only (${imgDef.label}) — prompt length: ${fullPrompt.length}`, 'color: #2196f3; font-weight: bold');
-        result = await generateWithImagen4(fullPrompt + variationTag, aspectRatio, 1, imgDef.apiId);
-      } else {
-        console.log(`%c[Generate] PATH: Nano Banana text-only (${imgDef.label}) — prompt length: ${fullPrompt.length}`, 'color: #9c27b0; font-weight: bold');
-        result = await generateWithNanoBanana(fullPrompt + variationTag, aspectRatio, 1, imgDef.apiId);
+      let variationLine = '';
+      if (variationIdx != null) {
+        const directive = VARIATION_DIRECTIVES[variationIdx % VARIATION_DIRECTIVES.length];
+        variationLine = `\nVARIATION: ${directive}. Keep the same character, same outfit, same view angle.\n`;
       }
+
+      let result: GeneratedImage[];
+
+      if (contentRefs.length > 0) {
+        const imageLines: string[] = [];
+        contentRefs.forEach((ref, i) => {
+          imageLines.push(`• Image ${i + 1}: CONTENT REFERENCE — "${ref.callout}".`);
+        });
+        const imageIndexing = `IMAGE LAYOUT:\n${imageLines.join('\n')}`;
+        const calloutSection = `\nContent refs: ${contentRefs.map((ref, i) => `Image ${i + 1} — "${ref.callout}": character MUST ${calloutVerb(ref.callout)} this item.`).join(' ')}`;
+        const prompt = `${imageIndexing}${calloutSection}${variationLine}\n\nGenerate this character:\n\n${fullPrompt}`;
+
+        console.log(`%c[Generate] Multimodal + ${contentRefs.length} content refs (${mainStageMMLabel}), aspect=${aspectRatio}`, 'color: #ff9800; font-weight: bold');
+        result = await generateWithGeminiRef(prompt, refImages, mainStageMMApiId, aspectRatio);
+      } else if (imgDef.apiId.startsWith('imagen-')) {
+        console.log(`%c[Generate] Imagen 4 text-only (${imgDef.label})`, 'color: #2196f3; font-weight: bold');
+        result = await generateWithImagen4(fullPrompt + variationLine, aspectRatio, 1, imgDef.apiId);
+      } else {
+        console.log(`%c[Generate] Nano Banana text-only (${imgDef.label})`, 'color: #9c27b0; font-weight: bold');
+        result = await generateWithNanoBanana(fullPrompt + variationLine, aspectRatio, 1, imgDef.apiId);
+      }
+
       return result;
       }; // end doGenerate
 
       const count = Math.max(1, viewerGenCount);
       let gallery: GeneratedImage[];
       if (count > 1) {
-        setProgress(`Generating ${count} images concurrently…`);
+        setProgress(`Generating ${count} images…`);
         const settled = await Promise.allSettled(
           Array.from({ length: count }, (_, i) => doGenerate(i)),
         );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Bug } from 'lucide-react';
 import { TOOLS } from '@/lib/registry';
 import { getVisibleTools } from '@/lib/profiles';
 import { useWorkspace } from '@/lib/workspace/WorkspaceContext';
@@ -19,10 +19,10 @@ const TOOL_ICONS: Record<string, string> = {
 };
 
 const HOWTO_STEPS = [
-  { title: 'Pick a tool', body: 'Click any tool card below to jump straight into it. Each app opens in its own tab.' },
-  { title: 'Use nodes', body: 'Most apps use the same node-based canvas. Drag nodes from the dock, connect them, and run pipelines.' },
-  { title: 'Save styles', body: 'Create styles in the Style Store below. Every app can reference them so your look stays consistent.' },
-  { title: 'Export anything', body: 'Right-click generated images to save, copy, or export. Use the global toolbar for bulk actions.' },
+  { title: 'Pick a tool', body: 'Click any tool card below to open it. Each tool runs in its own workspace and stays loaded when you switch between them.' },
+  { title: 'Use the node canvas', body: 'Most tools use a shared node-based canvas. Drag nodes from the dock on the left, connect them with edges, and run AI pipelines. Right-click for more options.' },
+  { title: 'Save your work', body: 'Your canvas layout auto-saves. Use the toolbar to save named sessions, export layouts, or import previous work.' },
+  { title: 'Keyboard shortcuts', body: 'Ctrl+Z undo, Ctrl+Y redo, Ctrl+D duplicate, Ctrl+C/V copy-paste, Delete to remove. Ctrl+K opens the command palette for quick navigation.' },
 ];
 
 export default function HomePage() {
@@ -91,6 +91,17 @@ export default function HomePage() {
         </div>
         <h1>Shawnderland</h1>
         <p>Your creative AI workspace. Every tool below shares the same node system, style store, and design tokens — so ideas flow freely between them.</p>
+        <a
+          href="mailto:shawn@bluehole.net?subject=Shawnderland%20Bug%20Submission"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            marginTop: 10, fontSize: 12, color: 'var(--text-secondary, #888)',
+            textDecoration: 'none', opacity: 0.7,
+          }}
+        >
+          <Bug size={13} />
+          Report a Bug
+        </a>
       </div>
 
       <div className="home-content">
@@ -112,7 +123,7 @@ export default function HomePage() {
         <div className="home-section">
           <div className="home-section-title">Tools</div>
           <div className="home-tools-grid">
-            {getVisibleTools(TOOLS).map((tool) => (
+            {getVisibleTools(TOOLS).filter((t) => t.status !== 'wip').map((tool) => (
               <div
                 key={tool.id}
                 className="home-tool-card"
@@ -123,6 +134,37 @@ export default function HomePage() {
                   style={{ background: tool.accentDim || 'rgba(108,99,255,0.12)' }}
                 >
                   {TOOL_ICONS[tool.id] || '\u2699'}
+                </div>
+                <div className="home-tool-info">
+                  <div className="home-tool-name">{tool.name}</div>
+                  <div className="home-tool-tagline">{tool.tagline}</div>
+                  <div className="home-tool-desc">{tool.description}</div>
+                  <div className="home-tool-features">
+                    {tool.features.map((f) => (
+                      <span key={f} className="home-tool-feature">{f}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {getVisibleTools(TOOLS).filter((t) => t.status === 'wip').map((tool) => (
+              <div
+                key={tool.id}
+                className="home-tool-card"
+                style={{ opacity: 0.45, cursor: 'default' }}
+                title="Coming soon"
+              >
+                <div
+                  className="home-tool-accent"
+                  style={{ background: tool.accentDim || 'rgba(108,99,255,0.12)', position: 'relative' }}
+                >
+                  {TOOL_ICONS[tool.id] || '\u2699'}
+                  <span style={{
+                    position: 'absolute', top: 6, right: 6,
+                    fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
+                    background: 'rgba(255,255,255,0.12)', color: 'var(--text-secondary, #aaa)',
+                    padding: '2px 6px', borderRadius: 4, letterSpacing: '0.05em',
+                  }}>WIP</span>
                 </div>
                 <div className="home-tool-info">
                   <div className="home-tool-name">{tool.name}</div>

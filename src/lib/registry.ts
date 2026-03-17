@@ -1,77 +1,13 @@
 import type { ToolRegistryEntry } from "./types";
 
 export const TOOLS: ToolRegistryEntry[] = [
-  {
-    id: "sprite-lab",
-    name: "AI Sprite Lab",
-    tagline: "Game art, automated",
-    description:
-      "Create sprites, pixel art, animations, tilesets, and more with AI-powered tools built for game developers.",
-    icon: "palette",
-    href: "/sprite-lab",
-    baseUrl: process.env.NEXT_PUBLIC_SPRITE_LAB_URL || "http://localhost:4001",
-    accentColor: "var(--color-tool-sprite)",
-    accentDim: "var(--color-tool-sprite-dim)",
-    features: [
-      "Sprite extraction",
-      "Pixel art",
-      "AI generation",
-      "Tileset forge",
-      "SFX editor",
-    ],
-    startCommand: "cd AI-Sprite-Lab && run.bat",
-    mode: "web",
-    profiles: ["work"],
-  },
-  {
-    id: "ideation",
-    name: "ShawnderMind",
-    tagline: "Ideas, amplified",
-    description:
-      "An 8-stage AI ideation pipeline that takes a seed thought and grows it into a fully realized concept with critique, expansion, and convergence.",
-    icon: "brain",
-    href: "/ideation",
-    baseUrl:
-      process.env.NEXT_PUBLIC_SHAWNDERMIND_URL || "http://localhost:5173",
-    accentColor: "var(--color-tool-mind)",
-    accentDim: "var(--color-tool-mind-dim)",
-    features: [
-      "Idea pipeline",
-      "AI critique",
-      "Diverge & converge",
-      "Artifact export",
-    ],
-    startCommand: "cd ShawnderMind && npm run dev:web",
-    mode: "web",
-    profiles: ["work", "personal"],
-  },
-  {
-    id: "ui-lab",
-    name: "AI UI Lab",
-    tagline: "UI elements, generated",
-    description:
-      "Generate game UI assets, extract style specs from images, plan layouts, and remove UI overlays — all powered by Gemini.",
-    icon: "layout",
-    href: "/ui-lab",
-    baseUrl: process.env.NEXT_PUBLIC_UI_LAB_URL || "http://localhost:4003",
-    accentColor: "var(--color-tool-ui)",
-    accentDim: "var(--color-tool-ui-dim)",
-    features: [
-      "UI generation",
-      "Spec extraction",
-      "Layout planning",
-      "Overlay removal",
-    ],
-    startCommand: "cd AI_UI_Lab/service && run.bat",
-    mode: "web",
-    profiles: ["work"],
-  },
+  // ── 1. AI ConceptLab ──────────────────────────────────────────────
   {
     id: "concept-lab",
     name: "AI ConceptLab",
-    tagline: "Concepts, visualized",
+    tagline: "AI-powered character & asset design",
     description:
-      "Node-based AI image generation with workspaces for general creation, multiview orthographics, character design, and weapon design.",
+      "Design characters, weapons, and assets on a node-based canvas. Generate images with Imagen 4, create multi-view turnarounds, extract attributes from references, and iterate with AI-driven creative direction.",
     icon: "lightbulb",
     href: "/concept-lab",
     baseUrl:
@@ -88,12 +24,36 @@ export const TOOLS: ToolRegistryEntry[] = [
     mode: "web",
     profiles: ["work", "personal"],
   },
+  // ── 2. ShawnderMind ────────────────────────────────────────────────
+  {
+    id: "ideation",
+    name: "ShawnderMind",
+    tagline: "Structured AI brainstorming",
+    description:
+      "An 8-stage AI ideation pipeline on an interactive node canvas. Feed in a seed idea and watch it grow through divergence, critique, expansion, and convergence into a fully realized concept.",
+    icon: "brain",
+    href: "/ideation",
+    baseUrl:
+      process.env.NEXT_PUBLIC_SHAWNDERMIND_URL || "http://localhost:5173",
+    accentColor: "var(--color-tool-mind)",
+    accentDim: "var(--color-tool-mind-dim)",
+    features: [
+      "Idea pipeline",
+      "AI critique",
+      "Diverge & converge",
+      "Artifact export",
+    ],
+    startCommand: "cd ShawnderMind && npm run dev:web",
+    mode: "web",
+    profiles: ["work", "personal"],
+  },
+  // ── 3. Gemini Studio ───────────────────────────────────────────────
   {
     id: "gemini-studio",
     name: "Gemini Studio",
-    tagline: "Create anything, instantly",
+    tagline: "Raw Gemini creation tools",
     description:
-      "Consumer-friendly AI media generation. Point-and-shoot image and video creation with every available Google AI model — Imagen 4, Gemini 3 Pro, Veo 3.1 and more.",
+      "Node-based access to Google's AI models for image and text generation. Build reusable prompt chains, reference images, and generate with Imagen 4, Gemini 3 Pro, Veo, and more.",
     icon: "sparkles",
     href: "/gemini-studio",
     baseUrl: "",
@@ -109,6 +69,31 @@ export const TOOLS: ToolRegistryEntry[] = [
     mode: "web",
     profiles: ["work", "personal"],
   },
+  // ── 4. AI Writing Room ─────────────────────────────────────────────
+  {
+    id: "writing-room",
+    name: "AI Writing Room",
+    tagline: "Multi-agent collaborative writing",
+    description:
+      "Assemble an AI writing room with distinct creative personas. Brainstorm, develop, and refine game scripts, character backstories, world lore, marketing copy, and more through structured creative rounds.",
+    icon: "pen-tool",
+    href: "/writing-room",
+    baseUrl: "",
+    accentColor: "var(--color-tool-writing-room)",
+    accentDim: "var(--color-tool-writing-room-dim)",
+    features: [
+      "Multi-agent writing room",
+      "8 creative personas",
+      "7-round development",
+      "Summary & transcript export",
+    ],
+    startCommand: "",
+    mode: "web",
+    profiles: ["work", "personal"],
+  },
+  // ── 5. Walter (personal-only) ───────────────────────────────────────
+  // Toggle visibility: set profiles to ["personal"] (visible in Personal/All)
+  // or set hidden: true to hide everywhere.
   {
     id: "walter",
     name: "Walter Storyboard Generator",
@@ -130,6 +115,53 @@ export const TOOLS: ToolRegistryEntry[] = [
     startCommand: "",
     mode: "web",
     profiles: ["personal"],
+  },
+  // ── 6. AI Sprite Lab (WIP) ─────────────────────────────────────────
+  {
+    id: "sprite-lab",
+    name: "AI Sprite Lab",
+    tagline: "Game art, automated",
+    description:
+      "Create sprites, pixel art, animations, tilesets, and more with AI-powered tools built for game developers.",
+    icon: "palette",
+    href: "/sprite-lab",
+    baseUrl: process.env.NEXT_PUBLIC_SPRITE_LAB_URL || "http://localhost:4001",
+    accentColor: "var(--color-tool-sprite)",
+    accentDim: "var(--color-tool-sprite-dim)",
+    features: [
+      "Sprite extraction",
+      "Pixel art",
+      "AI generation",
+      "Tileset forge",
+      "SFX editor",
+    ],
+    startCommand: "cd AI-Sprite-Lab && run.bat",
+    mode: "web",
+    profiles: ["work"],
+    status: "wip",
+  },
+  // ── 7. AI UI Lab (WIP) ─────────────────────────────────────────────
+  {
+    id: "ui-lab",
+    name: "AI UI Lab",
+    tagline: "UI elements, generated",
+    description:
+      "Generate game UI assets, extract style specs from images, plan layouts, and remove UI overlays — all powered by Gemini.",
+    icon: "layout",
+    href: "/ui-lab",
+    baseUrl: process.env.NEXT_PUBLIC_UI_LAB_URL || "http://localhost:4003",
+    accentColor: "var(--color-tool-ui)",
+    accentDim: "var(--color-tool-ui-dim)",
+    features: [
+      "UI generation",
+      "Spec extraction",
+      "Layout planning",
+      "Overlay removal",
+    ],
+    startCommand: "cd AI_UI_Lab/service && run.bat",
+    mode: "web",
+    profiles: ["work"],
+    status: "wip",
   },
 ];
 

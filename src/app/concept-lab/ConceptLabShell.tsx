@@ -52,7 +52,7 @@ function CutLineOverlay({ cutLine }: { cutLine: CutLine | null }) {
   );
 }
 
-function ConceptLabCanvas() {
+function ConceptLabCanvas({ appKey = 'concept-lab' }: { appKey?: string }) {
   const reactFlowInstance = useReactFlow();
   const canvasRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -60,7 +60,7 @@ function ConceptLabCanvas() {
   const registeredTypes = useMemo(() => new Set(Object.keys(ALL_RAW_NODE_TYPES)), []);
 
   const cs = useCanvasSession({
-    appKey: 'concept-lab',
+    appKey,
     initialNodes: DEFAULT_NODES,
     initialEdges: DEFAULT_EDGES,
     idPrefix: 'cl',
@@ -429,15 +429,15 @@ function ConceptLabCanvas() {
         </div>
       </div>
       <input ref={fileInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleFileChange} />
-      <CostWidget appKey="concept-lab" />
+      <CostWidget appKey={appKey} />
     </div>
   );
 }
 
-export default function ConceptLabShell() {
+export default function ConceptLabShell({ appKey }: { appKey?: string }) {
   return (
     <ReactFlowProvider>
-      <ConceptLabCanvas />
+      <ConceptLabCanvas appKey={appKey} />
     </ReactFlowProvider>
   );
 }

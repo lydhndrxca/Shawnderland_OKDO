@@ -5,6 +5,7 @@ import { Sidebar } from "./Sidebar";
 import { CommandPalette } from "./CommandPalette";
 import { WorkspaceProvider } from "@/lib/workspace/WorkspaceContext";
 import { WorkspaceRenderer } from "./WorkspaceRenderer";
+import { cancelAll } from "@/lib/activeRequests";
 
 export function ClientShell({ children }: { children: React.ReactNode }) {
   void children;
@@ -23,8 +24,16 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
       }
     }
 
+    function handleBeforeUnload() {
+      cancelAll();
+    }
+
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
   }, []);
 
   return (

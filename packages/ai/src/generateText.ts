@@ -63,6 +63,7 @@ export interface GeneratedImage {
 export interface GenerateOptions {
   temperature?: number;
   image?: GeneratedImage;
+  images?: GeneratedImage[];
   model?: string;
 }
 
@@ -158,6 +159,7 @@ async function _generateTextInner(
   imageOrOpts?: GeneratedImage | GenerateOptions,
 ): Promise<string> {
   let image: GeneratedImage | undefined;
+  let images: GeneratedImage[] | undefined;
   let temperature = 0.4;
   let model = GEMINI_FLASH_MODEL;
 
@@ -166,13 +168,18 @@ async function _generateTextInner(
       image = imageOrOpts;
     } else {
       image = imageOrOpts.image;
+      images = imageOrOpts.images;
       if (imageOrOpts.temperature !== undefined) temperature = imageOrOpts.temperature;
       if (imageOrOpts.model) model = imageOrOpts.model;
     }
   }
 
   const parts: Array<Record<string, unknown>> = [];
-  if (image) {
+  if (images && images.length > 0) {
+    for (const img of images) {
+      parts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } });
+    }
+  } else if (image) {
     parts.push({
       inlineData: { mimeType: image.mimeType, data: image.base64 },
     });

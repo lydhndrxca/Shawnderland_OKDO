@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWritingStore } from "../store";
-import type { ChatMessage, RoomPhase, MessageReactions, ModelTier } from "../types";
+import type { ChatMessage, ChatAttachment, RoomPhase, MessageReactions, ModelTier } from "../types";
+import { MODEL_TIER_OPTIONS } from "../types";
 import {
   generateRoundTurn, selectRoundSpeaker,
   createUserMessage, createSystemMessage, createAgentMessage,
@@ -27,13 +28,16 @@ const PHASE_LABELS: Record<RoomPhase, string> = {
 const TIER_CYCLE: ModelTier[] = ["quick", "standard", "deep"];
 
 export function WritingRoom() {
-  const { session, generating, autoRun, currentSpeaker, actions } = useWritingStore();
+  const { session, generating, autoRun, currentSpeaker, globalModelTier, actions } = useWritingStore();
   const [userInput, setUserInput] = useState("");
   const [lockInput, setLockInput] = useState("");
   const [showPersonaBuilder, setShowPersonaBuilder] = useState(false);
   const [summaryText, setSummaryText] = useState("");
   const [generatingSummary, setGeneratingSummary] = useState(false);
   const [showAddAgent, setShowAddAgent] = useState(false);
+  const [loraViewPersonaId, setLoraViewPersonaId] = useState<string | null>(null);
+  const [stagedAttachments, setStagedAttachments] = useState<ChatAttachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const autoRunRef = useRef(false);
   const consecutiveErrors = useRef(0);
@@ -102,7 +106,7 @@ export function WritingRoom() {
           producerBrief,
           rs?.lockedDecisions ?? [],
           rs?.turnsInRound ?? 0,
-          { wrappingUp: session.wrappingUp, signal: abort.signal },
+          { wrappingUp: session.wrappingUp, signal: abort.signal, globalModelTier },
         );
 
         const msg = createAgentMessage(agent.personaId, result.text);
@@ -144,7 +148,7 @@ export function WritingRoom() {
         actions.setAbortController(null);
       }
     }
-  }, [session, generating, actions, currentRound, activeRounds]);
+  }, [session, generating, actions, currentRound, activeRounds, globalModelTier]);
 
   /* ─── Auto-run loop ──────────────────────────────── */
   useEffect(() => {
@@ -190,12 +194,56 @@ export function WritingRoom() {
     }
   }, [actions, currentRound, session, activeRounds]);
 
+  /* ─── File / Paste helpers ───────────────────────── */
+  const handleFilesSelected = useCallback((files: FileList | null) => {
+    if (!files) return;
+    Array.from(files).forEach((file) => {
+      if (!file.type.startsWith("image/")) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(",")[1];
+        setStagedAttachments((prev) => [
+          ...prev,
+          { type: "image", mimeType: file.type, base64, fileName: file.name },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) continue;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(",")[1];
+          setStagedAttachments((prev) => [
+            ...prev,
+            { type: "image", mimeType: file.type, base64, fileName: file.name || "pasted-image.png" },
+          ]);
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+  }, []);
+
+  const removeStagedAttachment = useCallback((idx: number) => {
+    setStagedAttachments((prev) => prev.filter((_, i) => i !== idx));
+  }, []);
+
   /* ─── User sends message ─────────────────────────── */
   const handleUserSend = useCallback(() => {
-    if (!userInput.trim() || !session) return;
-    actions.addChatMessage(createUserMessage(userInput.trim()));
+    if ((!userInput.trim() && stagedAttachments.length === 0) || !session) return;
+    const atts = stagedAttachments.length > 0 ? stagedAttachments : undefined;
+    actions.addChatMessage(createUserMessage(userInput.trim(), atts));
     setUserInput("");
-  }, [userInput, session, actions]);
+    setStagedAttachments([]);
+  }, [userInput, stagedAttachments, session, actions]);
 
   /* ─── User approves ─────────────────────────────── */
   const handleUserApprove = useCallback(() => {
@@ -408,6 +456,23 @@ export function WritingRoom() {
         <PersonaBuilder onClose={() => setShowPersonaBuilder(false)} />
       )}
 
+      {loraViewPersonaId && (() => {
+        const lp = getPersona(loraViewPersonaId);
+        return (
+          <div className="wr-lora-overlay" onClick={() => setLoraViewPersonaId(null)}>
+            <div className="wr-lora-panel" onClick={(e) => e.stopPropagation()}>
+              <div className="wr-lora-panel-header">
+                <span>{lp?.avatar} {lp?.name} — Training Data</span>
+                <button className="wr-btn wr-btn-ghost wr-btn-sm" onClick={() => setLoraViewPersonaId(null)}>×</button>
+              </div>
+              <div className="wr-lora-panel-body">
+                {lp?.researchData || "No training data available."}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Sidebar */}
       <aside className="wr-writing-sidebar">
         <div className="wr-sidebar-section">
@@ -434,6 +499,15 @@ export function WritingRoom() {
                 <div className="wr-agent-badge-info">
                   <span>{p?.avatar ?? "?"}</span>
                   <span className="wr-agent-name">{p?.name ?? a.personaId}</span>
+                  {p?.researchData && (
+                    <button
+                      className="wr-lora-badge"
+                      onClick={() => setLoraViewPersonaId(a.personaId)}
+                      title="Has LORA training data — click to view"
+                    >
+                      LORA
+                    </button>
+                  )}
                 </div>
                 <button
                   className={`wr-tier-badge wr-tier-badge--${tier}`}
@@ -516,7 +590,21 @@ export function WritingRoom() {
                     {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </span>
                 </div>
-                <div className="wr-chat-msg-body">{msg.content}</div>
+                <div className="wr-chat-msg-body">
+                  {msg.content}
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <div className="wr-msg-attachments">
+                      {msg.attachments.filter((a) => a.type === "image" && a.base64).map((att, i) => (
+                        <img
+                          key={i}
+                          src={`data:${att.mimeType};base64,${att.base64}`}
+                          alt={att.fileName || "attachment"}
+                          className="wr-msg-thumb"
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
                 {msg.sender === "agent" && (
                   <div className="wr-reactions">
                     <button
@@ -605,19 +693,51 @@ export function WritingRoom() {
             </div>
           )}
 
+          {stagedAttachments.length > 0 && (
+            <div className="wr-staged-attachments">
+              {stagedAttachments.map((att, i) => (
+                <div key={i} className="wr-staged-thumb-wrap">
+                  <img
+                    src={`data:${att.mimeType};base64,${att.base64}`}
+                    alt={att.fileName || "staged"}
+                    className="wr-staged-thumb"
+                  />
+                  <button className="wr-staged-remove" onClick={() => removeStagedAttachment(i)} title="Remove">×</button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="wr-input-row">
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="wr-hidden-input"
+              accept="image/*"
+              multiple
+              onChange={(e) => { handleFilesSelected(e.target.files); e.target.value = ""; }}
+            />
+            <button
+              className="wr-btn wr-btn-ghost wr-btn-sm wr-upload-btn"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={phase === "idle"}
+              title="Attach images"
+            >
+              📎
+            </button>
             <input
               className="wr-input"
               placeholder="Say something to the room..."
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleUserSend()}
+              onPaste={handlePaste}
               disabled={phase === "idle"}
             />
             <button
               className="wr-btn wr-btn-primary wr-btn-sm"
               onClick={handleUserSend}
-              disabled={!userInput.trim() || phase === "idle"}
+              disabled={(!userInput.trim() && stagedAttachments.length === 0) || phase === "idle"}
             >
               Send
             </button>
@@ -695,6 +815,21 @@ export function WritingRoom() {
             >
               Export
             </button>
+
+            <span className="wr-action-divider" />
+
+            {/* Global speed toggle */}
+            <div className="wr-speed-toggle" title="Universal AI speed — click active to revert to per-agent">
+              {MODEL_TIER_OPTIONS.map((t) => (
+                <button
+                  key={t.id}
+                  className={`wr-speed-btn${globalModelTier === t.id ? " wr-speed-btn--active" : ""}`}
+                  onClick={() => actions.setGlobalModelTier(globalModelTier === t.id ? null : t.id)}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
 
             {(phase === "approval" || isApproved) && (
               <button

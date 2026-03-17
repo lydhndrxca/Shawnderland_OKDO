@@ -138,6 +138,7 @@ import {
   StyleConversionNode,
   OutputGalleryNode,
 } from '@/app/ideation/canvas/nodes/utility';
+import { WritingRoomNode } from '@/app/ideation/canvas/nodes/utility/WritingRoomNode';
 
 // ── Tool Editor nodes ───────────────────────────────────────────
 import TEGenericNode from '@/app/tool-editor/nodes/GenericNode';
@@ -307,6 +308,7 @@ export const ALL_RAW_NODE_TYPES: NodeTypes = applySleep({
   restoreStandalone: RestoreStandaloneNode,
   styleConversion: StyleConversionNode,
   outputGallery: OutputGalleryNode,
+  writingRoomBridge: WritingRoomNode,
 
   // Tool Editor (prefixed with te-)
   teGeneric: TEGenericNode,
@@ -424,6 +426,7 @@ export const NODE_DEFAULTS: Record<string, { style?: { width: number; height: nu
   restoreStandalone: { style: { width: 320, height: 460 } },
   styleConversion: { style: { width: 400, height: 600 } },
   outputGallery: { style: { width: 600, height: 700 } },
+  writingRoomBridge: { style: { width: 320, height: 520 } },
 };
 
 export interface DockNodeDef {
@@ -610,6 +613,7 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
       { type: 'restoreStandalone', label: 'AI Restore', desc: 'Examine → restore image quality via AI', color: '#00c853' },
       { type: 'styleConversion', label: 'Style Conversion', desc: 'Re-render or isolate images in a target style', color: '#7b1fa2' },
       { type: 'outputGallery', label: 'Output Gallery', desc: 'Browse, select, export processed images', color: '#00bfa5' },
+      { type: 'writingRoomBridge', label: 'Writing Room Bridge', desc: 'Start an art direction discussion with AI personas', color: '#6366f1' },
     ],
   },
   /* ━━ Layout & Dev ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */

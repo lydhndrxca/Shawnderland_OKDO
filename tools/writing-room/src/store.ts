@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import type {
   WritingSession, PlanningData, ChatMessage, RoomAgent, RoomPhase,
   ScreenId, ToastItem, LockedDecision, CreativeRoundId,
-  ProducerProjectState, AgentTurnState, MessageReactions,
+  ProducerProjectState, AgentTurnState, MessageReactions, ModelTier,
 } from "./types";
 import { DEFAULT_PLANNING, DEFAULT_PROJECT_STATE, DEFAULT_AGENT_TURN_STATE } from "./types";
 
@@ -72,6 +72,7 @@ interface StoreState {
   autoRun: boolean;
   currentSpeaker: string | null;
   abortController: AbortController | null;
+  globalModelTier: ModelTier | null;
 }
 
 let state: StoreState = {
@@ -82,6 +83,7 @@ let state: StoreState = {
   autoRun: false,
   currentSpeaker: null,
   abortController: null,
+  globalModelTier: null,
 };
 
 const listeners = new Set<() => void>();
@@ -385,6 +387,7 @@ export const storeActions = {
   setAutoRun(autoRun: boolean) { update({ autoRun }); },
   setCurrentSpeaker(name: string | null) { update({ currentSpeaker: name }); },
   setAbortController(ctrl: AbortController | null) { update({ abortController: ctrl }); },
+  setGlobalModelTier(tier: ModelTier | null) { update({ globalModelTier: tier }); },
 
   stopAll() {
     if (state.abortController) {

@@ -1,8 +1,9 @@
-import { generateText, generateStructured } from "@shawnderland/ai";
+import { generateText, generateStructured, type GeneratedImage } from "@shawnderland/ai";
 import { getPersona } from "./agents";
 import type {
   ChatMessage, RoomAgent, RoomPhase, PlanningData, AgentRole,
   CreativeRound, LockedDecision, ProducerProjectState, AgentTurnState,
+  ChatAttachment,
 } from "./types";
 import { DEFAULT_PROJECT_STATE, tierToModel } from "./types";
 import {
@@ -70,6 +71,8 @@ export function compileBrief(planning: PlanningData): string {
   if (planning.tones.length > 0) lines.push(`Tone: ${planning.tones.join(", ")}`);
   if (planning.hardRules) lines.push(`Hard Rules: ${planning.hardRules}`);
   if (planning.referenceMaterial) lines.push(`Reference Material: ${planning.referenceMaterial}`);
+  const refImgCount = planning.referenceAttachments?.filter((a) => a.type === "image").length ?? 0;
+  if (refImgCount > 0) lines.push(`Reference Images Attached: ${refImgCount} image${refImgCount > 1 ? "s" : ""} (agents will be able to see them)`);
   if (planning.additionalNotes) lines.push("", "Additional Notes:", planning.additionalNotes);
 
   lines.push("", "=== END BRIEF ===");
@@ -80,8 +83,8 @@ export function createBriefMessage(brief: string): ChatMessage {
   return makeMessage(null, "System", "system", "📋", `The creator has submitted a project brief:\n\n${brief}`);
 }
 
-export function createUserMessage(content: string): ChatMessage {
-  return makeMessage(null, "You", "user", "👤", content);
+export function createUserMessage(content: string, attachments?: ChatAttachment[]): ChatMessage {
+  return makeMessage(null, "You", "user", "👤", content, attachments?.length ? { attachments } : undefined);
 }
 
 export function createSystemMessage(content: string): ChatMessage {
@@ -219,6 +222,8 @@ function buildConversationContext(history: ChatMessage[], maxMessages = 10): str
   return recent
     .map((m) => {
       let line = `[${m.agentName} (${m.agentRole})]: ${m.content}`;
+      const imgCount = m.attachments?.filter((a) => a.type === "image").length ?? 0;
+      if (imgCount > 0) line += ` [attached: ${imgCount} image${imgCount > 1 ? "s" : ""}]`;
       if (m.reactions) {
         const tags: string[] = [];
         if (m.reactions.thumbsUp) tags.push("[+1 from client]");
@@ -229,6 +234,21 @@ function buildConversationContext(history: ChatMessage[], maxMessages = 10): str
       return line;
     })
     .join("\n\n");
+}
+
+function collectRecentImages(history: ChatMessage[], maxImages = 3): GeneratedImage[] {
+  const images: GeneratedImage[] = [];
+  for (let i = history.length - 1; i >= 0 && images.length < maxImages; i--) {
+    const msg = history[i];
+    if (!msg.attachments) continue;
+    for (const att of msg.attachments) {
+      if (att.type === "image" && att.base64) {
+        images.push({ base64: att.base64, mimeType: att.mimeType });
+        if (images.length >= maxImages) break;
+      }
+    }
+  }
+  return images;
 }
 
 /* ─── Agent Memory ───────────────────────────────────── */
@@ -407,6 +427,27 @@ translation — what reads as cool rebellion in America vs. respectful polish in
 Korea. Push for live-service sustainability: can this concept support 12 months of
 content? Does the lore have room for seasonal storylines? Represent the stakeholders
 who aren't in the room — Seoul, marketing, community, the player in Jakarta.`,
+
+    "preset-art-director": `=== YOUR CREATIVE INSTINCT ===
+Your instinct is VISUAL IDENTITY. Every character, every scene, every frame needs to
+read at a glance. You think in silhouettes, color palettes, compositional weight. When
+someone describes a character, you see their shape language before their backstory.
+You reference specific artists — Moebius, Yoji Shinkawa, Frazetta, Mucha, Ashley Wood,
+Kim Jung Gi — and specific movements. "Cool" is not a direction; specificity is. Push
+for iconic readability: if you squint, can you still tell who this character is? Cultural
+resonance matters — know the difference between homage and appropriation. Art history
+is your arsenal. Use it.`,
+
+    "preset-costume-designer": `=== YOUR CREATIVE INSTINCT ===
+Your instinct is CHARACTER THROUGH CLOTH. Wardrobe is the first dialogue — it speaks
+before the character opens their mouth. You think about what fabric communicates: the
+difference between a character who wears vintage Levi's vs. slim-cut Dior tells you
+everything about their self-image. Pull from the unexpected — Tarsem's The Fall, the
+gutter punk aesthetic of Repo Man, Tilda Swinton in anything. Avoid the obvious genre
+tropes. When someone says "soldier," don't give them camo — ask what KIND of soldier,
+what war, what decade, what class. Push back on safe choices. "What if we went the
+other direction entirely?" is your favorite question. You know texture, drape, how
+light hits silk vs. canvas vs. leather. You're difficult but worth it.`,
   };
 
   const tension = personaTensions[personaId];
@@ -517,7 +558,7 @@ export async function generateRoundTurn(
   brief: string | null,
   lockedDecisions: LockedDecision[],
   turnsInRound: number,
-  options?: { wrappingUp?: boolean; signal?: AbortSignal },
+  options?: { wrappingUp?: boolean; signal?: AbortSignal; globalModelTier?: import("./types").ModelTier | null },
 ): Promise<AgentTurnResult> {
   const persona = getPersona(agent.personaId);
   if (!persona) return { text: "[Unknown persona]" };
@@ -572,10 +613,16 @@ export async function generateRoundTurn(
     .join("\n\n");
 
   const temp = getTemperatureForRole(persona.role);
-  const modelId = tierToModel(persona.modelTier);
+  const globalTier = options?.globalModelTier;
+  const effectiveTier = globalTier ?? persona.modelTier;
+  const modelId = tierToModel(effectiveTier);
   const genOpts: Record<string, unknown> = { temperature: temp };
   if (modelId) genOpts.model = modelId;
   if (options?.signal) genOpts.signal = options.signal;
+
+  const recentImages = collectRecentImages(history);
+  if (recentImages.length > 0) genOpts.images = recentImages;
+
   const raw = await generateText(prompt, genOpts);
 
   let text = raw;

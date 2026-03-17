@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWritingStore } from "../store";
 import { TONE_OPTIONS, WRITING_TYPE_OPTIONS, SCOPE_OPTIONS } from "../types";
-import type { ToneMood, PlanningData } from "../types";
+import type { ToneMood, PlanningData, ChatAttachment } from "../types";
 import { compileBrief, randomizePlanning, createBriefMessage } from "../agentEngine";
-import { getAllPersonas } from "../agents";
+import { getAllPersonas, getPersona } from "../agents";
 import { PersonaBuilder } from "./PersonaBuilder";
 
 const LS_CUSTOM_TONES = "writing-room-custom-tones";
@@ -55,9 +55,11 @@ export function PlanningPage() {
   const [newTone, setNewTone] = useState("");
   const [selectedAgents, setSelectedAgents] = useState<string[]>(DEFAULT_AGENT_IDS);
   const [showPersonaBuilder, setShowPersonaBuilder] = useState(false);
+  const [loraViewPersonaId, setLoraViewPersonaId] = useState<string | null>(null);
   const [presets, setPresets] = useState<PlanningPreset[]>(() => loadPresets());
   const planning = session?.planning;
 
+  const refFileInputRef = useRef<HTMLInputElement>(null);
   const allPersonas = useMemo(() => getAllPersonas(), []);
 
   const updateField = useCallback(
@@ -99,6 +101,27 @@ export function PlanningPage() {
     },
     [customTones, planning, actions],
   );
+
+  const handleRefFiles = useCallback((files: FileList | null) => {
+    if (!files || !planning) return;
+    Array.from(files).forEach((file) => {
+      if (!file.type.startsWith("image/")) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(",")[1];
+        const att: ChatAttachment = { type: "image", mimeType: file.type, base64, fileName: file.name };
+        const prev = planning.referenceAttachments ?? [];
+        updateField("referenceAttachments", [...prev, att]);
+      };
+      reader.readAsDataURL(file);
+    });
+  }, [planning, updateField]);
+
+  const removeRefAttachment = useCallback((idx: number) => {
+    if (!planning) return;
+    const prev = planning.referenceAttachments ?? [];
+    updateField("referenceAttachments", prev.filter((_, i) => i !== idx));
+  }, [planning, updateField]);
 
   const toggleAgent = useCallback(
     (id: string) => {
@@ -195,6 +218,19 @@ export function PlanningPage() {
     [presets],
   );
 
+  const ART_DIRECTION_AGENTS = ["preset-producer", "preset-art-director", "preset-costume-designer"];
+
+  useEffect(() => {
+    if (planning?.writingType === "art-direction") {
+      setSelectedAgents((prev) => {
+        const merged = new Set(prev);
+        ART_DIRECTION_AGENTS.forEach((id) => merged.add(id));
+        return Array.from(merged);
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planning?.writingType]);
+
   if (!session || !planning) return null;
 
   const allToneOptions = [
@@ -209,6 +245,23 @@ export function PlanningPage() {
       {showPersonaBuilder && (
         <PersonaBuilder onClose={() => setShowPersonaBuilder(false)} />
       )}
+
+      {loraViewPersonaId && (() => {
+        const lp = getPersona(loraViewPersonaId);
+        return (
+          <div className="wr-lora-overlay" onClick={() => setLoraViewPersonaId(null)}>
+            <div className="wr-lora-panel" onClick={(e) => e.stopPropagation()}>
+              <div className="wr-lora-panel-header">
+                <span>{lp?.avatar} {lp?.name} — Training Data</span>
+                <button className="wr-btn wr-btn-ghost wr-btn-sm" onClick={() => setLoraViewPersonaId(null)}>×</button>
+              </div>
+              <div className="wr-lora-panel-body">
+                {lp?.researchData || "No training data available."}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="wr-planning-scroll">
         <h2 className="wr-planning-title">Project Planning</h2>
@@ -385,6 +438,37 @@ export function PlanningPage() {
             value={planning.referenceMaterial}
             onChange={(e) => updateField("referenceMaterial", e.target.value)}
           />
+          <div className="wr-ref-upload-area">
+            <input
+              type="file"
+              ref={refFileInputRef}
+              className="wr-hidden-input"
+              accept="image/*"
+              multiple
+              onChange={(e) => { handleRefFiles(e.target.files); e.target.value = ""; }}
+            />
+            <button
+              className="wr-btn wr-btn-ghost wr-btn-sm"
+              onClick={() => refFileInputRef.current?.click()}
+            >
+              📎 Attach Images
+            </button>
+            <span style={{ fontSize: 11, color: "var(--wr-text-dim)" }}>or paste images into the text area</span>
+          </div>
+          {(planning.referenceAttachments ?? []).length > 0 && (
+            <div className="wr-ref-attachments">
+              {(planning.referenceAttachments ?? []).map((att, i) => (
+                <div key={i} className="wr-ref-thumb-wrap">
+                  <img
+                    src={`data:${att.mimeType};base64,${att.base64}`}
+                    alt={att.fileName || "ref"}
+                    className="wr-ref-thumb"
+                  />
+                  <button className="wr-ref-remove" onClick={() => removeRefAttachment(i)} title="Remove">×</button>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Additional Notes */}
@@ -413,7 +497,18 @@ export function PlanningPage() {
                 <span className="wr-agent-card-avatar">{p.avatar}</span>
                 <div className="wr-agent-card-info">
                   <span className="wr-agent-card-name">{p.name}</span>
-                  <span className="wr-agent-card-role">{p.role}</span>
+                  <span className="wr-agent-card-role">
+                    {p.role}
+                    {p.researchData && (
+                      <span
+                        className="wr-lora-badge"
+                        onClick={(e) => { e.stopPropagation(); setLoraViewPersonaId(p.id); }}
+                        style={{ marginLeft: 4 }}
+                      >
+                        LORA
+                      </span>
+                    )}
+                  </span>
                 </div>
               </button>
             ))}

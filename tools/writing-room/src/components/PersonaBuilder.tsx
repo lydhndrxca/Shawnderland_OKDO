@@ -288,9 +288,9 @@ export function PersonaBuilder({ onClose, onPersonaChange }: Props) {
               Blend traits from a real person or character into this persona
             </p>
 
-            {/* Persona Profile */}
+            {/* LORA Training Data */}
             <label style={{ ...labelStyle, marginTop: 16 }}>
-              Persona Profile
+              LORA Training Data
               <button
                 style={{ ...smallBtnStyle, marginLeft: 8 }}
                 onClick={() => setShowResearchData(!showResearchData)}

@@ -31,7 +31,8 @@ export const TONE_OPTIONS: { id: ToneMood; label: string }[] = [
 
 export type WritingType =
   | "game-script" | "character-backstory" | "world-lore"
-  | "story-pitch" | "marketing-copy" | "dialogue" | "other";
+  | "story-pitch" | "marketing-copy" | "dialogue"
+  | "art-direction" | "other";
 
 export const WRITING_TYPE_OPTIONS: { id: WritingType; label: string }[] = [
   { id: "game-script", label: "Game Script" },
@@ -40,6 +41,7 @@ export const WRITING_TYPE_OPTIONS: { id: WritingType; label: string }[] = [
   { id: "story-pitch", label: "Story Pitch" },
   { id: "marketing-copy", label: "Marketing Copy" },
   { id: "dialogue", label: "Dialogue" },
+  { id: "art-direction", label: "Art Direction" },
   { id: "other", label: "Other (freeform)" },
 ];
 
@@ -52,6 +54,15 @@ export const SCOPE_OPTIONS: { id: ScopeLength; label: string; description: strin
   { id: "open", label: "Open-ended", description: "No length constraint — let the room explore freely" },
 ];
 
+export interface ChatAttachment {
+  type: "image" | "link" | "document";
+  mimeType: string;
+  base64?: string;
+  url?: string;
+  fileName?: string;
+  caption?: string;
+}
+
 export interface PlanningData {
   writingType: WritingType | "";
   writingTypeOther: string;
@@ -60,6 +71,7 @@ export interface PlanningData {
   tones: ToneMood[];
   hardRules: string;
   referenceMaterial: string;
+  referenceAttachments?: ChatAttachment[];
   scopeLength: ScopeLength;
   additionalNotes: string;
 }
@@ -72,6 +84,7 @@ export const DEFAULT_PLANNING: PlanningData = {
   tones: [],
   hardRules: "",
   referenceMaterial: "",
+  referenceAttachments: [],
   scopeLength: "medium",
   additionalNotes: "",
 };
@@ -135,6 +148,7 @@ export interface ChatMessage {
   agentRole: AgentRole | "user" | "system";
   agentAvatar: string;
   content: string;
+  attachments?: ChatAttachment[];
   isApproval?: boolean;
   isTldr?: boolean;
   reactions?: MessageReactions;

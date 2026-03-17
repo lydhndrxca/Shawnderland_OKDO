@@ -471,4 +471,9 @@ export const NODE_DESCRIPTIONS: Record<string, NodeDescription> = {
     color: '#8d6e63',
     description: 'A frame container for organizing elements in Tool Editor layouts.',
   },
+  writingRoomBridge: {
+    label: 'Writing Room Bridge',
+    color: '#6366f1',
+    description: 'Launches an AI Writing Room art direction session from the canvas. Connect images, select personas, and start a collaborative discussion.',
+  },
 };

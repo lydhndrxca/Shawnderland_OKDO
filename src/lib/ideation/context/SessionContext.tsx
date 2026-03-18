@@ -32,6 +32,7 @@ import {
 import type { DivergeCandidate } from '../engine/schemas';
 import { deriveEffectiveNormalize } from '../engine/normalize';
 import { devWarn } from '@/lib/devLog';
+import { getGlobalSettings } from '@/lib/globalSettings';
 
 export interface GuidedRunState {
   active: boolean;
@@ -198,21 +199,20 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    try {
-      _getApiKey();
-      setHasApiKey(true);
-    } catch {
-      setHasApiKey(false);
-    }
+    let found = false;
+    try { _getApiKey(); found = true; } catch { /* env key missing */ }
+    if (!found && getGlobalSettings().geminiApiKey) found = true;
+    setHasApiKey(found);
   }, []);
 
   function getProvider(): Provider {
     const settings = getEffectiveSettings(sessionRef.current);
     if (settings.providerMode === 'real') {
-      if (!hasApiKey) {
+      const settingsKey = getGlobalSettings().geminiApiKey;
+      if (!hasApiKey && !settingsKey) {
         throw new Error(
-          'Gemini provider selected but no NEXT_PUBLIC_GEMINI_API_KEY found. ' +
-          'Set the environment variable in .env.local, or switch to Mock in Settings.',
+          'No Gemini API key found. Enter your key in Settings, ' +
+          'or set NEXT_PUBLIC_GEMINI_API_KEY in .env.local.',
         );
       }
       return createGeminiProvider(undefined, settings.thinkingTier ?? 'standard');

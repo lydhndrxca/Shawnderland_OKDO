@@ -557,6 +557,7 @@ const DESCRIBE_FOR_RESTORE_PROMPT =
   'Write as one continuous, dense image generation prompt. No preamble, no commentary. Be surgically specific.';
 
 function detectAspectRatio(w: number, h: number): string {
+  if (h === 0) return '1:1';
   const ratio = w / h;
   const candidates = [
     { label: '1:1', value: 1 },

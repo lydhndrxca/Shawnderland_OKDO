@@ -9,6 +9,7 @@ import { synthesizeContextLens, hasContextData, type ContextLensInput } from '@/
 import { MULTIMODAL_MODELS } from './modelData';
 import { NODE_TOOLTIPS } from './nodeTooltips';
 import { devLog, devWarn } from '@/lib/devLog';
+import { getGlobalSettings } from '@/lib/globalSettings';
 import './CharacterNodes.css';
 
 interface Props {
@@ -287,6 +288,7 @@ interface HistorySnapshot {
   image: GeneratedImage;
   label: string;
   timestamp: string;
+  prompt?: string;
 }
 
 /** Scans all nodes to find the Main Stage viewer and returns its current image. */
@@ -653,7 +655,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
     initialEntries.length > 0 ? initialEntries[initialEntries.length - 1].image.base64.slice(0, 100) : '',
   );
 
-  const pushHistory = useCallback((img: GeneratedImage, label: string) => {
+  const pushHistory = useCallback((img: GeneratedImage, label: string, prompt?: string) => {
     const sig = img.base64.slice(0, 100);
     if (sig === lastHistSig.current) return;
     lastHistSig.current = sig;
@@ -662,6 +664,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
       image: img,
       label,
       timestamp: new Date().toLocaleTimeString(),
+      prompt: prompt || undefined,
     };
 
     setHistoryEntries((prev) => [...prev, snap]);
@@ -828,6 +831,23 @@ function CharViewNodeInner({ id, data, selected }: Props) {
           ),
         );
         for (const img of gallery) pushHistory(img, `Auto: ${cfg.label}`);
+
+        const outDir = getGlobalSettings().outputDir;
+        if (outDir) {
+          const cName = (data?.characterName as string) || (data?.projectName as string) || 'character';
+          for (const img of gallery) {
+            fetch('/api/character-save', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                base64: img.base64, mimeType: img.mimeType,
+                charName: cName, viewName: viewKey, outputDir: outDir,
+                appKey: 'concept-lab', contentType: 'characters',
+                metadata: { view: viewKey, prompt: `Auto: ${cfg.label}`, model: mmModel, timestamp: new Date().toISOString() },
+              }),
+            }).catch(() => {});
+          }
+        }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (!msg.toLowerCase().includes('cancel') && !msg.toLowerCase().includes('abort')) {
@@ -862,6 +882,31 @@ function CharViewNodeInner({ id, data, selected }: Props) {
     mountedRef.current = true;
     return () => { mountedRef.current = false; clearInterval(editTimerRef.current); };
   }, []);
+
+  const autoSaveViewImage = useCallback((image: GeneratedImage, view: string, prompt: string) => {
+    const outputDir = getGlobalSettings().outputDir;
+    if (!outputDir) return;
+    const charName = (data?.characterName as string) || (data?.projectName as string) || 'character';
+    fetch('/api/character-save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        base64: image.base64,
+        mimeType: image.mimeType,
+        charName,
+        viewName: view,
+        outputDir,
+        appKey: 'concept-lab',
+        contentType: 'characters',
+        metadata: {
+          view,
+          prompt,
+          model: editModel,
+          timestamp: new Date().toISOString(),
+        },
+      }),
+    }).catch((e) => devWarn(`[CharView] auto-save failed: ${e}`));
+  }, [data?.characterName, data?.projectName, editModel]);
 
   const handleEdit = useCallback(async () => {
     const srcImage = viewImage;
@@ -950,7 +995,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         ),
       );
 
-      pushHistory(img, editText.trim().slice(0, 50) || 'Edit');
+      pushHistory(img, editText.trim().slice(0, 50) || 'Edit', editText.trim());
 
       if (isMain) {
         const edges = getEdges();
@@ -975,8 +1020,9 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         }
       }
 
-      setEditText('');
       setTimeout(() => { if (mountedRef.current) setEditStatus(null); }, 3000);
+
+      autoSaveViewImage(img, viewKey, editText.trim());
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       const isCancel = msg.toLowerCase().includes('cancelled') || msg.toLowerCase().includes('abort');
@@ -998,7 +1044,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         setEditElapsed(0);
       }
     }
-  }, [viewImage, editText, editBusy, viewKey, id, isMain, isCustom, customLabel, cfg, getNode, getNodes, getEdges, setNodes, pushHistory, editModel]);
+  }, [viewImage, editText, editBusy, viewKey, id, isMain, isCustom, customLabel, cfg, getNode, getNodes, getEdges, setNodes, pushHistory, editModel, autoSaveViewImage]);
 
   // ── Restore Quality (inline — two-step: describe then regenerate fresh) ──
   const [restoreBusy, setRestoreBusy] = useState(false);
@@ -1035,6 +1081,8 @@ function CharViewNodeInner({ id, data, selected }: Props) {
       );
       pushHistory(restored, `Restore (${elapsed}s)`);
       setTimeout(() => { if (mountedRef.current) setEditStatus(null); }, 4000);
+
+      autoSaveViewImage(restored, viewKey, 'Restore quality');
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (!msg.toLowerCase().includes('cancel') && !msg.toLowerCase().includes('abort')) {
@@ -1051,7 +1099,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         setEditElapsed(0);
       }
     }
-  }, [viewImage, restoreBusy, editBusy, id, setNodes, pushHistory]);
+  }, [viewImage, restoreBusy, editBusy, id, viewKey, setNodes, pushHistory, autoSaveViewImage]);
 
   // ── Standard handlers ──
   const handleResetView = useCallback(() => {
@@ -1061,28 +1109,6 @@ function CharViewNodeInner({ id, data, selected }: Props) {
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.stopPropagation();
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    setZoom((z) => Math.max(0.1, Math.min(10, z + delta)));
-  }, []);
-
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button === 1) {
-      e.preventDefault();
-      isPanning.current = true;
-      lastMouse.current = { x: e.clientX, y: e.clientY };
-    }
-  }, []);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isPanning.current) return;
-    const dx = e.clientX - lastMouse.current.x;
-    const dy = e.clientY - lastMouse.current.y;
-    lastMouse.current = { x: e.clientX, y: e.clientY };
-    setPan((p) => ({ x: p.x + dx, y: p.y + dy }));
-  }, []);
-
-  const handleMouseUp = useCallback((e: React.MouseEvent) => {
-    if (e.button === 1) isPanning.current = false;
   }, []);
 
   const handlePasteImage = useCallback(
@@ -1329,9 +1355,10 @@ function CharViewNodeInner({ id, data, selected }: Props) {
       const histLabel = userEdit
         ? `${viewImage ? 'Regen' : 'Gen'}: ${userEdit.slice(0, 40)}`
         : `${viewImage ? 'Regenerated' : 'Generated'} ${(isCustom ? (customLabel || cfg.label) : cfg.label).toLowerCase()}`;
-      for (const img of gallery) pushHistory(img, histLabel);
-      if (userEdit) setEditText('');
+      for (const img of gallery) pushHistory(img, histLabel, userEdit || undefined);
       setTimeout(() => { if (mountedRef.current) setEditStatus(null); }, 3000);
+
+      for (const img of gallery) autoSaveViewImage(img, viewKey, userEdit || histLabel);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (!msg.toLowerCase().includes('cancel') && !msg.toLowerCase().includes('abort')) {
@@ -1346,7 +1373,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         setEditElapsed(0);
       }
     }
-  }, [isMain, isCustom, genBusy, genCount, id, cfg, customLabel, data, viewKey, viewImage, editText, getNode, getNodes, getEdges, setNodes, pushHistory, persistGallery, editModel, useText, useImage, effectiveAngleRef]);
+  }, [isMain, isCustom, genBusy, genCount, id, cfg, customLabel, data, viewKey, viewImage, editText, getNode, getNodes, getEdges, setNodes, pushHistory, persistGallery, editModel, useText, useImage, effectiveAngleRef, autoSaveViewImage]);
 
   const externalGenerating = (data?.generating as boolean) ?? false;
   const internalBusy = editBusy || genBusy || autoGenBusy || restoreBusy;
@@ -1558,12 +1585,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
       {!compact && <div
         className="char-viewer-canvas nodrag nowheel"
         onWheel={handleWheel}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={() => { isPanning.current = false; }}
-        onDoubleClick={handleResetView}
-        style={{ flex: 1, overflow: 'hidden', cursor: isPanning.current ? 'grabbing' : 'default' }}
+        style={{ flex: 1, overflow: 'hidden' }}
       >
         {viewImage ? (
           <>
@@ -1583,9 +1605,10 @@ function CharViewNodeInner({ id, data, selected }: Props) {
                   setImgRes({ w: img.naturalWidth, h: img.naturalHeight });
                 }}
                 style={{
-                  transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
-                  transition: isPanning.current ? 'none' : 'transform 0.1s',
                   cursor: 'pointer',
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'contain',
                 }}
               />
             </ImageContextMenu>
@@ -1636,9 +1659,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
                 } catch { /* clipboard may be unavailable */ }
               }}>Copy IMG</button>
             )}
-            <button className="char-btn nodrag" onClick={handleResetView}>Reset View</button>
             <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
-            <span className="char-viewer-zoom-info">{Math.round(zoom * 100)}%</span>
           </div>
           {/* ── Generate / Restore row ── */}
           <div className="char-viewer-toolbar" style={{ justifyContent: 'center' }}>
@@ -1761,26 +1782,30 @@ function CharViewNodeInner({ id, data, selected }: Props) {
       {/* ── Inline Edit (all views) ── */}
       {!compact && viewImage && (
         <div style={{ padding: '4px 6px 6px', borderTop: '1px solid #333' }} className="nodrag">
-          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-            <input
-              className="nowheel"
-              type="text"
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !anyBusy) handleEdit(); }}
-              placeholder={isMain ? 'Edit image (e.g. red coat)…' : `Edit ${displayLabel.toLowerCase()} (e.g. switch hands)…`}
-              disabled={anyBusy}
-              style={{
-                flex: 1,
-                padding: '5px 8px',
-                fontSize: 11,
-                background: '#1a1a2e',
-                border: '1px solid #444',
-                borderRadius: 4,
-                color: '#eee',
-                outline: 'none',
-              }}
-            />
+          <textarea
+            className="nowheel"
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !anyBusy) { e.preventDefault(); handleEdit(); } }}
+            placeholder={isMain ? 'Edit image (e.g. red coat)…' : `Edit ${displayLabel.toLowerCase()} (e.g. switch hands)…`}
+            disabled={anyBusy}
+            rows={4}
+            style={{
+              width: '100%',
+              padding: '5px 8px',
+              fontSize: 11,
+              background: '#1a1a2e',
+              border: '1px solid #444',
+              borderRadius: 4,
+              color: '#eee',
+              outline: 'none',
+              resize: 'vertical',
+              fontFamily: 'inherit',
+              lineHeight: 1.4,
+              boxSizing: 'border-box',
+            }}
+          />
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 4 }}>
             <select
               className="nowheel"
               value={editModel}
@@ -1883,8 +1908,20 @@ function CharViewNodeInner({ id, data, selected }: Props) {
                   )}
                   <div className="char-history-info">
                     <span className="char-history-label">{latest.label}</span>
+                    {latest.prompt && (
+                      <span className="char-history-prompt" title={latest.prompt}>{latest.prompt}</span>
+                    )}
                     <span className="char-history-time">{latest.timestamp}</span>
                   </div>
+                  {latest.prompt && (
+                    <button
+                      className="char-history-copy nodrag"
+                      title="Copy prompt to edit box"
+                      onClick={(e) => { e.stopPropagation(); setEditText(latest.prompt!); }}
+                    >
+                      &#x2398;
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -1921,8 +1958,20 @@ function CharViewNodeInner({ id, data, selected }: Props) {
                       )}
                       <div className="char-history-info">
                         <span className="char-history-label">{entry.label}</span>
+                        {entry.prompt && (
+                          <span className="char-history-prompt" title={entry.prompt}>{entry.prompt}</span>
+                        )}
                         <span className="char-history-time">{entry.timestamp}</span>
                       </div>
+                      {entry.prompt && (
+                        <button
+                          className="char-history-copy nodrag"
+                          title="Copy prompt to edit box"
+                          onClick={(e) => { e.stopPropagation(); setEditText(entry.prompt!); }}
+                        >
+                          &#x2398;
+                        </button>
+                      )}
                     </div>
                   );
                 })}

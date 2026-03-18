@@ -99,15 +99,15 @@ export function loadNamedLayout(appKey: string, name: string): LayoutSnapshot | 
 
 export function deleteNamedLayout(appKey: string, name: string): void {
   const layouts = listLayouts(appKey).filter((l) => l.name !== name);
-  localStorage.setItem(storageKey(appKey), JSON.stringify(layouts));
+  try { localStorage.setItem(storageKey(appKey), JSON.stringify(layouts)); } catch { /* quota */ }
   const def = getDefaultLayoutName(appKey);
   if (def === name) {
-    localStorage.removeItem(defaultKey(appKey));
+    try { localStorage.removeItem(defaultKey(appKey)); } catch { /* private browsing */ }
   }
 }
 
 export function setDefaultLayout(appKey: string, name: string): void {
-  localStorage.setItem(defaultKey(appKey), name);
+  try { localStorage.setItem(defaultKey(appKey), name); } catch { /* quota */ }
 }
 
 export function setDefaultFromSnapshot(appKey: string, snapshot: LayoutSnapshot): void {
@@ -117,7 +117,7 @@ export function setDefaultFromSnapshot(appKey: string, snapshot: LayoutSnapshot)
 }
 
 export function getDefaultLayoutName(appKey: string): string | null {
-  return localStorage.getItem(defaultKey(appKey)) ?? null;
+  try { return localStorage.getItem(defaultKey(appKey)) ?? null; } catch { return null; }
 }
 
 export function loadDefaultOrLatest(appKey: string): LayoutSnapshot | null {
@@ -204,7 +204,7 @@ export async function saveSession(appKey: string, name: string, snapshot: Sessio
       const store = tx.objectStore(IDB_STORE);
       store.put(sessions, idbKey(appKey));
       tx.oncomplete = () => {
-        localStorage.setItem(activeSessionKey(appKey), name);
+        try { localStorage.setItem(activeSessionKey(appKey), name); } catch { /* quota */ }
         resolve({ ok: true });
       };
       tx.onerror = () => resolve({ ok: false, error: tx.error?.message ?? 'IndexedDB write failed' });
@@ -228,15 +228,15 @@ export async function deleteSession(appKey: string, name: string): Promise<void>
     tx.objectStore(IDB_STORE).put(sessions, idbKey(appKey));
     const active = getActiveSessionName(appKey);
     if (active === name) {
-      localStorage.removeItem(activeSessionKey(appKey));
+      try { localStorage.removeItem(activeSessionKey(appKey)); } catch { /* private browsing */ }
     }
   } catch { /* best-effort */ }
 }
 
 export function getActiveSessionName(appKey: string): string | null {
-  return localStorage.getItem(activeSessionKey(appKey)) ?? null;
+  try { return localStorage.getItem(activeSessionKey(appKey)) ?? null; } catch { return null; }
 }
 
 export function setActiveSessionName(appKey: string, name: string): void {
-  localStorage.setItem(activeSessionKey(appKey), name);
+  try { localStorage.setItem(activeSessionKey(appKey), name); } catch { /* quota */ }
 }

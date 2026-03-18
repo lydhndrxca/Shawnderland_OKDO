@@ -38,7 +38,21 @@ function loadSessions(): WritingSession[] {
 }
 
 function saveSessions(sessions: WritingSession[]) {
-  localStorage.setItem(LS_SESSIONS, JSON.stringify(sessions));
+  try {
+    localStorage.setItem(LS_SESSIONS, JSON.stringify(sessions));
+  } catch {
+    const trimmed = sessions.map((s, i) => {
+      if (i < sessions.length - 1 && s.chatHistory && s.chatHistory.length > 20) {
+        return { ...s, chatHistory: s.chatHistory.slice(-20) };
+      }
+      return s;
+    });
+    try {
+      localStorage.setItem(LS_SESSIONS, JSON.stringify(trimmed));
+    } catch {
+      try { localStorage.setItem(LS_SESSIONS, JSON.stringify(sessions.slice(-1))); } catch { /* quota unrecoverable */ }
+    }
+  }
 }
 
 /* ─── Default Session ────────────────────────────────── */
@@ -77,7 +91,7 @@ interface StoreState {
 
 let state: StoreState = {
   sessions: typeof window !== "undefined" ? loadSessions() : [],
-  activeSessionId: typeof window !== "undefined" ? localStorage.getItem(LS_ACTIVE) || null : null,
+  activeSessionId: typeof window !== "undefined" ? (() => { try { return localStorage.getItem(LS_ACTIVE) || null; } catch { return null; } })() : null,
   toasts: [],
   generating: false,
   autoRun: false,
@@ -117,14 +131,14 @@ export const storeActions = {
     const session = createBlankSession(name);
     const sessions = [...state.sessions, session];
     update({ sessions, activeSessionId: session.id });
-    localStorage.setItem(LS_ACTIVE, session.id);
+    try { localStorage.setItem(LS_ACTIVE, session.id); } catch { /* quota */ }
     persistSessions();
     return session.id;
   },
 
   openSession(id: string) {
     update({ activeSessionId: id });
-    localStorage.setItem(LS_ACTIVE, id);
+    try { localStorage.setItem(LS_ACTIVE, id); } catch { /* quota */ }
   },
 
   deleteSession(id: string) {
@@ -132,7 +146,7 @@ export const storeActions = {
     const activeSessionId =
       state.activeSessionId === id ? (sessions[0]?.id ?? null) : state.activeSessionId;
     update({ sessions, activeSessionId });
-    localStorage.setItem(LS_ACTIVE, activeSessionId ?? "");
+    try { localStorage.setItem(LS_ACTIVE, activeSessionId ?? ""); } catch { /* quota */ }
     persistSessions();
   },
 
@@ -163,7 +177,7 @@ export const storeActions = {
       imported.updatedAt = Date.now();
       const sessions = [...state.sessions, imported];
       update({ sessions, activeSessionId: imported.id });
-      localStorage.setItem(LS_ACTIVE, imported.id);
+      try { localStorage.setItem(LS_ACTIVE, imported.id); } catch { /* quota */ }
       persistSessions();
       return imported.id;
     } catch {

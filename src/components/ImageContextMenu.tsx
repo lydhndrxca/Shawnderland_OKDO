@@ -96,7 +96,8 @@ export function ImageContextMenu({ image, alt, className, children, onPasteImage
     img.onload = () => {
       canvas.width = img.width;
       canvas.height = img.height;
-      const ctx = canvas.getContext('2d')!;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);

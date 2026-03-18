@@ -23,7 +23,7 @@ import {
   FIELDER_DIRECTOR_PROFILE,
 } from "./persona-profiles.mjs";
 
-const API_KEY = "AIzaSyCjniDpZeAGdrD7l0bJUSKc3CDPmS7y17w";
+const API_KEY = process.env.GEMINI_API_KEY || "";
 const API_HOST = "generativelanguage.googleapis.com";
 const OLLAMA_HOST = "http://127.0.0.1:11434";
 

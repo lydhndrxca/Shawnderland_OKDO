@@ -1,7 +1,7 @@
-﻿const fs = require("fs");
+const fs = require("fs");
 const path = require("path");
 
-const API_KEY = process.env.GEMINI_API_KEY || "AIzaSyCjniDpZeAGdrD7l0bJUSKc3CDPmS7y17w";
+const API_KEY = process.env.GEMINI_API_KEY || "";
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 const RATE_LIMIT_MS = 2000;
 

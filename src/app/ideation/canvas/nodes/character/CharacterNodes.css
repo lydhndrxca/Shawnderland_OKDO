@@ -517,6 +517,35 @@
   color: var(--text-muted);
 }
 
+.char-history-prompt {
+  font-size: 10px;
+  color: #8e99a4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
+  max-width: 100%;
+}
+
+.char-history-copy {
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 3px;
+  color: #aaa;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 5px;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s;
+}
+
+.char-history-copy:hover {
+  background: rgba(0,229,255,0.15);
+  color: #00e5ff;
+  border-color: rgba(0,229,255,0.3);
+}
+
 /* ── XML viewer ── */
 
 .char-xml-content {

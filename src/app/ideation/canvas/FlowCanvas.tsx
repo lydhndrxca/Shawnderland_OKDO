@@ -455,7 +455,7 @@ function FlowCanvasInner() {
               });
             });
           }),
-        );
+        ).catch(() => {});
         return;
       }
 

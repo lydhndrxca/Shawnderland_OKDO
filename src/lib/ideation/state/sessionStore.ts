@@ -40,7 +40,7 @@ export function createNewSession(): Session {
 export async function persistSession(session: Session): Promise<{ bytes: number }> {
   const data = JSON.stringify(session, null, 2);
   const bytes = data.length;
-  localStorage.setItem('shawndermind-session', data);
+  try { localStorage.setItem('shawndermind-session', data); } catch { /* quota exceeded */ }
   return { bytes };
 }
 

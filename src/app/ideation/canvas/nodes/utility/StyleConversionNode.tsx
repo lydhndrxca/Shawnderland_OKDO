@@ -92,7 +92,7 @@ function StyleConversionNodeInner({ id, data, selected }: Props) {
 
   const mountedRef = useRef(true);
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; clearInterval(timerRef.current); }; }, []);
 
   const persist = useCallback(
     (updates: Record<string, unknown>) => {

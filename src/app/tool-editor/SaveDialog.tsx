@@ -24,7 +24,7 @@ function loadSavedList(): SavedEntry[] {
 }
 
 function persistList(entries: SavedEntry[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)); } catch { /* quota */ }
 }
 
 interface Props {

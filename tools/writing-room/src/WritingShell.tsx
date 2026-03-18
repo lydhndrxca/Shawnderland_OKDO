@@ -195,7 +195,7 @@ export default function WritingShell() {
             className="wr-btn wr-btn-ghost wr-btn-sm"
             onClick={() => {
               storeActions.openSession("");
-              localStorage.setItem("writing-room-active-session", "");
+              try { localStorage.setItem("writing-room-active-session", ""); } catch { /* quota */ }
             }}
             title="Back to sessions"
           >

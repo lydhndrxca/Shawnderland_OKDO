@@ -102,6 +102,10 @@ export default function StageWorkspace() {
     setRunError(null);
   }, [activeStageId]);
 
+  useEffect(() => {
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, []);
+
   const flushSeed = useCallback(() => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);

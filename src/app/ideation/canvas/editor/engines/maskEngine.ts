@@ -54,7 +54,8 @@ export async function exportMaskComposite(
   const comp = document.createElement('canvas');
   comp.width = w;
   comp.height = h;
-  const ctx = comp.getContext('2d')!;
+  const ctx = comp.getContext('2d');
+  if (!ctx) throw new Error('Failed to get 2d context for composite canvas');
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const el = new Image();
     el.onload = () => resolve(el);
@@ -62,7 +63,8 @@ export async function exportMaskComposite(
     el.src = `data:${srcImage.mimeType};base64,${srcImage.base64}`;
   });
   ctx.drawImage(img, 0, 0, w, h);
-  const maskCtx = canvas.getContext('2d')!;
+  const maskCtx = canvas.getContext('2d');
+  if (!maskCtx) throw new Error('Failed to get 2d context for mask canvas');
   const maskData = maskCtx.getImageData(0, 0, w, h);
   const compData = ctx.getImageData(0, 0, w, h);
   for (let i = 0; i < maskData.data.length; i += 4) {

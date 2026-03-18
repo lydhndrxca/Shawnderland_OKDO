@@ -9,7 +9,7 @@ const ENV_API_KEY =
 const HOST = "generativelanguage.googleapis.com";
 
 function resolveApiKey(req: NextRequest): string {
-  return ENV_API_KEY || req.headers.get("x-api-key") || "";
+  return req.headers.get("x-api-key") || ENV_API_KEY || "";
 }
 
 function httpsRequest(

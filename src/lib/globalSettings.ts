@@ -46,7 +46,7 @@ export function getGlobalSettings(): GlobalSettings {
 export function setGlobalSettings(partial: Partial<GlobalSettings>): void {
   const current = getGlobalSettings();
   const next = { ...current, ...partial };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* quota or private browsing */ }
   notify();
 }
 

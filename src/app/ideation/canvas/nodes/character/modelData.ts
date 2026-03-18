@@ -106,7 +106,7 @@ export function loadPreset(): PresetData | null {
 }
 
 export function savePreset(data: PresetData) {
-  localStorage.setItem(PRESET_KEY, JSON.stringify(data));
+  try { localStorage.setItem(PRESET_KEY, JSON.stringify(data)); } catch { /* quota */ }
 }
 
 export const ASPECT_RATIOS = [

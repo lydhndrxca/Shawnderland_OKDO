@@ -10,7 +10,7 @@ import https from "node:https";
 import fs from "node:fs";
 import path from "node:path";
 
-const API_KEY = "AIzaSyCjniDpZeAGdrD7l0bJUSKc3CDPmS7y17w";
+const API_KEY = process.env.GEMINI_API_KEY || "";
 const MODEL = "gemini-2.0-flash";
 const API_HOST = "generativelanguage.googleapis.com";
 const API_PATH = `/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`;

@@ -32,7 +32,7 @@ export default function Shell() {
 
   useEffect(() => {
     if (fileMenuOpen) {
-      listSavedSessions().then(setRecentSessions);
+      listSavedSessions().then(setRecentSessions).catch(() => {});
     }
   }, [fileMenuOpen, listSavedSessions]);
 

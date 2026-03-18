@@ -9,7 +9,7 @@ const HOST = "generativelanguage.googleapis.com";
 const MODEL = "gemini-embedding-001";
 
 function resolveApiKey(req: NextRequest): string {
-  return ENV_API_KEY || req.headers.get("x-api-key") || "";
+  return req.headers.get("x-api-key") || ENV_API_KEY || "";
 }
 
 function httpsPost(

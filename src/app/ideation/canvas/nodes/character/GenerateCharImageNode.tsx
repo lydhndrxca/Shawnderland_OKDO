@@ -367,7 +367,7 @@ async function autoSaveImage(
 }
 
 function savePreset(data: PresetData) {
-  localStorage.setItem(PRESET_KEY, JSON.stringify(data));
+  try { localStorage.setItem(PRESET_KEY, JSON.stringify(data)); } catch { /* quota */ }
 }
 
 const selectStyle: React.CSSProperties = {

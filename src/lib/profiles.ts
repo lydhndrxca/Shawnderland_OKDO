@@ -12,11 +12,11 @@ function notify() {
 
 export function getActiveProfile(): ProfileMode {
   if (typeof window === "undefined") return "work";
-  return (localStorage.getItem(LS_KEY) as ProfileMode) || "work";
+  try { return (localStorage.getItem(LS_KEY) as ProfileMode) || "work"; } catch { return "work"; }
 }
 
 export function setActiveProfile(mode: ProfileMode) {
-  localStorage.setItem(LS_KEY, mode);
+  try { localStorage.setItem(LS_KEY, mode); } catch { /* quota */ }
   notify();
 }
 

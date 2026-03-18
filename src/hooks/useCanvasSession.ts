@@ -642,7 +642,7 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
   const saveLayout = useCallback(() => {
     const snapshot = getFlowSnapshot();
     const vp = reactFlow.getViewport();
-    localStorage.setItem(`shawnderland-layout-${appKey}`, JSON.stringify({ ...snapshot, viewport: vp }));
+    try { localStorage.setItem(`shawnderland-layout-${appKey}`, JSON.stringify({ ...snapshot, viewport: vp })); } catch { /* quota */ }
   }, [getFlowSnapshot, reactFlow, appKey]);
 
   const restoreSnapshot = useCallback((saved: LayoutSnapshot): boolean => {
@@ -692,7 +692,8 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
   }, [setNodes, setEdges, reactFlow, validTypes]);
 
   const loadLayout = useCallback((): boolean => {
-    const raw = localStorage.getItem(`shawnderland-layout-${appKey}`);
+    let raw: string | null = null;
+    try { raw = localStorage.getItem(`shawnderland-layout-${appKey}`); } catch { return false; }
     if (!raw) return false;
     try {
       const saved = JSON.parse(raw) as LayoutSnapshot;
@@ -778,7 +779,7 @@ export function useCanvasSession(opts: CanvasSessionOpts): CanvasSessionState {
   const refreshSessionsList = useCallback(() => {
     storeListSessions(appKey).then((all) => {
       setSavedSessionsList(all.map((s) => ({ name: s.name, savedAt: s.savedAt })));
-    });
+    }).catch(() => {});
   }, [appKey]);
 
   useEffect(() => {

@@ -30,7 +30,7 @@ function UpscaleNodeInner({ id, data, selected }: Props) {
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
   const mountedRef = useRef(true);
 
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; clearInterval(timerRef.current); }; }, []);
 
   useEffect(() => {
     setNodes((nds) =>

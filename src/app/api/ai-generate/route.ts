@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 const ENV_API_KEY = process.env.GEMINI_API_KEY ?? process.env.NEXT_PUBLIC_GEMINI_API_KEY ?? '';
 
 function resolveApiKey(req: NextRequest): string {
-  return ENV_API_KEY || req.headers.get('x-api-key') || '';
+  return req.headers.get('x-api-key') || ENV_API_KEY || '';
 }
 const AI_STUDIO_HOST = 'generativelanguage.googleapis.com';
 const AI_STUDIO_BASE_PATH = '/v1beta';

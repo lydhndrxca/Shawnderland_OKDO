@@ -1358,7 +1358,7 @@ function loadCustomPersonas(): AgentPersona[] {
 }
 
 function saveCustomPersonas(personas: AgentPersona[]) {
-  localStorage.setItem(LS_PERSONAS_KEY, JSON.stringify(personas));
+  try { localStorage.setItem(LS_PERSONAS_KEY, JSON.stringify(personas)); } catch { /* quota */ }
 }
 
 export function getAllPersonas(): AgentPersona[] {

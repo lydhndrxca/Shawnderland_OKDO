@@ -27,7 +27,7 @@ function loadCustomTones(): string[] {
 }
 
 function saveCustomTones(tones: string[]) {
-  localStorage.setItem(LS_CUSTOM_TONES, JSON.stringify(tones));
+  try { localStorage.setItem(LS_CUSTOM_TONES, JSON.stringify(tones)); } catch { /* quota */ }
 }
 
 function loadPresets(): PlanningPreset[] {
@@ -38,7 +38,7 @@ function loadPresets(): PlanningPreset[] {
 }
 
 function savePresets(presets: PlanningPreset[]) {
-  localStorage.setItem(LS_PLANNING_PRESETS, JSON.stringify(presets));
+  try { localStorage.setItem(LS_PLANNING_PRESETS, JSON.stringify(presets)); } catch { /* quota */ }
 }
 
 const DEFAULT_AGENT_IDS = [

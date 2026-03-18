@@ -1,0 +1,39 @@
+appId: com.pubgmadison.ai-suite
+productName: PUBG Madison AI Suite
+copyright: Copyright © 2026 PUBG Madison
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - electron/**/*
+  - .next/**/*
+  - "!.next/cache/**"
+  - node_modules/**/*
+  - public/**/*
+  - package.json
+  - next.config.ts
+  - tsconfig.json
+  - .env.local
+
+win:
+  forceCodeSigning: false
+  signAndEditExecutable: false
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+
+portable:
+  artifactName: "${productName}-Portable-${version}.${ext}"
+
+asar: false

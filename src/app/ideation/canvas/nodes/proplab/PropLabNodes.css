@@ -1,0 +1,7 @@
+/* PropLab — ideation canvas node layout helpers */
+
+.react-flow__node-propDescription,
+.react-flow__node-propIdentity,
+.react-flow__node-propAttributes {
+  height: auto !important;
+}

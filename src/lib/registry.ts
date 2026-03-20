@@ -1,7 +1,7 @@
 import type { ToolRegistryEntry } from "./types";
 
 export const TOOLS: ToolRegistryEntry[] = [
-  // ── 1. AI ConceptLab ──────────────────────────────────────────────
+  // ── 1. AI ConceptLab ───────────────────────────────────────────────
   {
     id: "concept-lab",
     name: "AI ConceptLab",
@@ -117,28 +117,27 @@ export const TOOLS: ToolRegistryEntry[] = [
     mode: "web",
     profiles: ["personal"],
   },
-  // ── 6. AI UI Lab (WIP) ──────────────────────────────────────────────
+  // ── 6. AI UILab (sub-app of ConceptLab) ─────────────────────────────
   {
     id: "ui-lab",
-    name: "AI UI Lab",
-    tagline: "UI elements, generated",
+    name: "AI UILab",
+    tagline: "Game UI asset generation",
     description:
-      "Generate game UI assets, extract style specs from images, plan layouts, and remove UI overlays — all powered by Gemini.",
+      "Generate game UI icons, HUD layouts, ROMZ sticker art, and map icons. Extract icon specs, apply style transfer from references, and finalize with chroma key to transparent PNG — all on a node-based canvas.",
     icon: "layout",
-    href: "/ui-lab",
-    baseUrl: process.env.NEXT_PUBLIC_UI_LAB_URL || "http://localhost:4003",
+    href: "/concept-lab/uilab",
+    baseUrl: "",
     accentColor: "var(--color-tool-ui)",
     accentDim: "var(--color-tool-ui-dim)",
     features: [
-      "UI generation",
-      "Spec extraction",
-      "Layout planning",
-      "Overlay removal",
+      "13 generation intents",
+      "Style transfer",
+      "Chroma key finalization",
+      "Icon spec extraction",
     ],
-    startCommand: "cd AI_UI_Lab/service && run.bat",
+    startCommand: "",
     mode: "web",
     profiles: ["work"],
-    status: "wip",
   },
 ];
 

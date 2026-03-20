@@ -140,6 +140,30 @@ import {
 } from '@/app/ideation/canvas/nodes/utility';
 import { WritingRoomNode } from '@/app/ideation/canvas/nodes/utility/WritingRoomNode';
 
+// ── PropLab nodes ─────────────────────────────────────────────────
+import {
+  PropIdentityNode,
+  PropDescriptionNode,
+  PropAttributesNode,
+  PropStyleNode,
+  PropGenerateNode,
+  PropExtractAttrsNode,
+  PropEnhanceDescNode,
+  PropRefCalloutNode,
+  PropViewNode,
+} from '@/app/ideation/canvas/nodes/proplab';
+
+// ── UILab nodes ──────────────────────────────────────────────────
+import {
+  UIConfigNode,
+  UIPromptNode,
+  UIStyleNode,
+  UIGenerateNode,
+  UIMainViewer,
+  UIExtractSpecNode,
+  UIFinalizeNode,
+} from '@/app/ideation/canvas/nodes/uilab';
+
 // ── Tool Editor nodes ───────────────────────────────────────────
 import TEGenericNode from '@/app/tool-editor/nodes/GenericNode';
 import TEWindowNode from '@/app/tool-editor/nodes/WindowNode';
@@ -310,6 +334,30 @@ export const ALL_RAW_NODE_TYPES: NodeTypes = applySleep({
   outputGallery: OutputGalleryNode,
   writingRoomBridge: WritingRoomNode,
 
+  // PropLab
+  propIdentity: PropIdentityNode,
+  propDescription: PropDescriptionNode,
+  propAttributes: PropAttributesNode,
+  propStyle: PropStyleNode,
+  propGenerate: PropGenerateNode,
+  propExtractAttrs: PropExtractAttrsNode,
+  propEnhanceDesc: PropEnhanceDescNode,
+  propRefCallout: PropRefCalloutNode,
+  propMainViewer: PropViewNode,
+  propFrontViewer: PropViewNode,
+  propBackViewer: PropViewNode,
+  propSideViewer: PropViewNode,
+  propTopViewer: PropViewNode,
+
+  // UILab
+  uiConfig: UIConfigNode,
+  uiPrompt: UIPromptNode,
+  uiStyle: UIStyleNode,
+  uiGenerate: UIGenerateNode,
+  uiMainViewer: UIMainViewer,
+  uiExtractSpec: UIExtractSpecNode,
+  uiFinalize: UIFinalizeNode,
+
   // Tool Editor (prefixed with te-)
   teGeneric: TEGenericNode,
   teWindow: TEWindowNode,
@@ -427,6 +475,30 @@ export const NODE_DEFAULTS: Record<string, { style?: { width: number; height: nu
   styleConversion: { style: { width: 400, height: 600 } },
   outputGallery: { style: { width: 600, height: 700 } },
   writingRoomBridge: { style: { width: 320, height: 520 } },
+
+  // PropLab
+  propIdentity: { style: { width: 360, height: 500 } },
+  propDescription: { style: { width: 320, height: 300 } },
+  propAttributes: { style: { width: 400, height: 1200 } },
+  propStyle: { style: { width: 360, height: 500 } },
+  propGenerate: { style: { width: 320, height: 520 } },
+  propExtractAttrs: { style: { width: 320, height: 380 } },
+  propEnhanceDesc: { style: { width: 260, height: 200 } },
+  propRefCallout: { style: { width: 280, height: 240 } },
+  propMainViewer: { style: { width: 600, height: 770 }, data: { viewKey: 'main' } },
+  propFrontViewer: { style: { width: 500, height: 720 }, data: { viewKey: 'front' } },
+  propBackViewer: { style: { width: 500, height: 720 }, data: { viewKey: 'back' } },
+  propSideViewer: { style: { width: 500, height: 720 }, data: { viewKey: 'side' } },
+  propTopViewer: { style: { width: 500, height: 720 }, data: { viewKey: 'top' } },
+
+  // UILab
+  uiConfig: { style: { width: 320, height: 480 } },
+  uiPrompt: { style: { width: 320, height: 280 } },
+  uiStyle: { style: { width: 360, height: 500 } },
+  uiGenerate: { style: { width: 320, height: 360 } },
+  uiMainViewer: { style: { width: 600, height: 770 } },
+  uiExtractSpec: { style: { width: 320, height: 360 } },
+  uiFinalize: { style: { width: 340, height: 500 } },
 };
 
 export interface DockNodeDef {
@@ -614,6 +686,93 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
       { type: 'styleConversion', label: 'Style Conversion', desc: 'Re-render or isolate images in a target style', color: '#7b1fa2' },
       { type: 'outputGallery', label: 'Output Gallery', desc: 'Browse, select, export processed images', color: '#00bfa5' },
       { type: 'writingRoomBridge', label: 'Writing Room Bridge', desc: 'Start an art direction discussion with AI personas', color: '#6366f1' },
+    ],
+  },
+  /* ━━ PropLab ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  {
+    key: 'propDefine',
+    label: 'Prop \u2014 Define',
+    icon: '\u{1F9F1}',
+    items: [
+      { type: 'propIdentity', label: 'Prop Identity', desc: 'Type, setting, condition, scale', color: '#009688' },
+      { type: 'propDescription', label: 'Prop Description', desc: 'Freeform prop description', color: '#5c6bc0' },
+      { type: 'propAttributes', label: 'Prop Attributes', desc: 'Material, finish, wear, color, details', color: '#9c27b0' },
+      { type: 'propStyle', label: 'Prop Style', desc: 'Visual style reference for props', color: '#7b1fa2' },
+    ],
+  },
+  {
+    key: 'propGenerate',
+    label: 'Prop \u2014 Generate',
+    icon: '\u{1F3A8}',
+    items: [
+      { type: 'propGenerate', label: 'Generate Prop', desc: 'Generate prop image with isolation mode', color: '#e91e63' },
+      { type: 'propExtractAttrs', label: 'Extract Prop Attrs', desc: 'AI reads image \u2192 fills prop fields', color: '#ffab40' },
+      { type: 'propEnhanceDesc', label: 'Enhance Prop Desc', desc: 'AI enriches description with env art terms', color: '#66bb6a' },
+      { type: 'propRefCallout', label: 'Prop Ref Callout', desc: 'Annotate reference for prop generation', color: '#26a69a' },
+    ],
+  },
+  {
+    key: 'propView',
+    label: 'Prop \u2014 View',
+    icon: '\u{1F441}',
+    items: [
+      { type: 'propMainViewer', label: 'Prop Main Stage', desc: 'Primary prop image display', color: '#00bfa5' },
+      { type: 'propFrontViewer', label: 'Prop Front View', desc: 'Front orthographic view', color: '#42a5f5' },
+      { type: 'propBackViewer', label: 'Prop Back View', desc: 'Back orthographic view', color: '#ab47bc' },
+      { type: 'propSideViewer', label: 'Prop Side View', desc: 'Side orthographic view', color: '#ff7043' },
+      { type: 'propTopViewer', label: 'Prop Top View', desc: 'Top-down orthographic view', color: '#26a69a' },
+    ],
+  },
+  {
+    key: 'propTools',
+    label: 'Prop \u2014 Tools',
+    icon: '\u{1F528}',
+    items: [
+      { type: 'imageStudio', label: 'Image Studio', desc: 'Full-screen editor with inpainting', color: '#00bcd4' },
+      { type: 'charUpscale', label: 'Upscale Image', desc: 'AI upscale (x2/x3/x4)', color: '#e040fb' },
+      { type: 'charRestore', label: 'Restore Quality', desc: 'AI redraw to remove artifacts', color: '#00c853' },
+      { type: 'charSaveGroup', label: 'Export', desc: 'Save images, download, export', color: '#009688' },
+      { type: 'charSlimStyle', label: 'Slim Style', desc: 'Post-process to target visual style', color: '#7b1fa2' },
+      { type: 'meshyImageTo3D', label: 'Image \u2192 3D (Meshy)', desc: 'Convert to 3D model', color: '#00acc1' },
+      { type: 'hitem3dImageTo3D', label: 'Image \u2192 3D (Hitem3D)', desc: 'High-detail 3D generation', color: '#ff6e40' },
+    ],
+  },
+  /* ━━ UI Lab ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  {
+    key: 'uiConfig',
+    label: 'UI Lab \u2014 Config',
+    icon: '\u{1F3AE}',
+    items: [
+      { type: 'uiConfig', label: 'UI Config', desc: 'Generation intent, resolution, wear level', color: '#1565c0' },
+      { type: 'uiPrompt', label: 'UI Prompt', desc: 'User prompt with refA/B/C tokens', color: '#7b1fa2' },
+      { type: 'uiStyle', label: 'UI Style', desc: 'Style reference images for art DNA', color: '#6a1b9a' },
+    ],
+  },
+  {
+    key: 'uiGenerate',
+    label: 'UI Lab \u2014 Generate',
+    icon: '\u{1F3A8}',
+    items: [
+      { type: 'uiGenerate', label: 'Generate UI Asset', desc: 'Central engine — batch generation with style transfer', color: '#e91e63' },
+    ],
+  },
+  {
+    key: 'uiOutput',
+    label: 'UI Lab \u2014 Output',
+    icon: '\u{1F441}',
+    items: [
+      { type: 'uiMainViewer', label: 'UI Asset Viewer', desc: 'Gallery, edit, history for generated assets', color: '#1565c0' },
+    ],
+  },
+  {
+    key: 'uiTools',
+    label: 'UI Lab \u2014 Tools',
+    icon: '\u{1F528}',
+    items: [
+      { type: 'uiExtractSpec', label: 'Extract Icon Spec', desc: 'AI extracts shape, material, palette as JSON', color: '#ff6f00' },
+      { type: 'uiFinalize', label: 'Finalize (Chroma Key)', desc: 'Remove green background, shrink borders', color: '#00695c' },
+      { type: 'imageStudio', label: 'Image Studio', desc: 'Full-screen editor with inpainting', color: '#00bcd4' },
+      { type: 'charSaveGroup', label: 'Export', desc: 'Save images, download, and export', color: '#009688' },
     ],
   },
   /* ━━ Layout & Dev ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */

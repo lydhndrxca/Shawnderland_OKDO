@@ -256,6 +256,10 @@ function findUpstreamImage(
     const d = src.data as Record<string, unknown>;
     const img = d.generatedImage as GeneratedImage | undefined;
     if (img?.base64) return img;
+    const edited = d.editedImage as GeneratedImage | undefined;
+    if (edited?.base64) return edited;
+    const bulk = d._bulkImages as GeneratedImage[] | undefined;
+    if (bulk && bulk.length > 0 && bulk[0].base64) return bulk[0];
     const b64 = d.imageBase64 as string | undefined;
     if (b64) return { base64: b64, mimeType: (d.mimeType as string) || 'image/png' };
   }

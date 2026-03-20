@@ -33,7 +33,7 @@ const IMAGE_SOURCE_TYPES = new Set([
   'charFrontViewer', 'charBackViewer', 'charSideViewer', 'charCustomView',
   'charGenerate', 'charQuickGen', 'charEditImage',
   'imageOutput', 'imageReference', 'detachedViewer',
-  'videoOutput', 'videoAnalysis',
+  'videoOutput', 'videoAnalysis', 'bulkImageInput',
   'adDirectionResult', 'ldDirectionResult',
   'imageStudio', 'artDirector',
 ]);
@@ -66,6 +66,10 @@ function findUpstreamImage(
     if (IMAGE_SOURCE_TYPES.has(src.type ?? '')) {
       const img = d.generatedImage as GeneratedImage | undefined;
       if (img?.base64) return img;
+      const edited = d.editedImage as GeneratedImage | undefined;
+      if (edited?.base64) return edited;
+      const bulk = d._bulkImages as GeneratedImage[] | undefined;
+      if (bulk && bulk.length > 0 && bulk[0].base64) return bulk[0];
       if (typeof d.imageBase64 === 'string' && d.imageBase64) {
         return { base64: d.imageBase64, mimeType: (d.mimeType as string) || 'image/png' };
       }

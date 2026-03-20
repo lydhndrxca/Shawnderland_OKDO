@@ -186,11 +186,134 @@ const STYLE_CONVERSION_DEFAULT: LayoutSnapshot = {
   ],
 };
 
+const PROPLAB_DEFAULT: LayoutSnapshot = {
+  nodes: [
+    { id: "pl-def-01", position: { x: -800, y: 600 }, type: "propIdentity", style: { width: 360, height: 500 } },
+    { id: "pl-def-02", position: { x: -400, y: 600 }, type: "propDescription", style: { width: 320, height: 300 } },
+    { id: "pl-def-03", position: { x: -800, y: 1200 }, type: "propAttributes", style: { width: 400, height: 1200 } },
+    { id: "pl-def-04", position: { x: -400, y: 1000 }, type: "propStyle", style: { width: 360, height: 500 } },
+    { id: "pl-def-05", position: { x: 80, y: 800 }, type: "propGenerate", style: { width: 320, height: 520 } },
+    { id: "pl-def-06", position: { x: -1200, y: 600 }, type: "propExtractAttrs", style: { width: 320, height: 380 } },
+    { id: "pl-def-07", position: { x: -400, y: 1600 }, type: "propEnhanceDesc", style: { width: 260, height: 200 } },
+    { id: "pl-def-08", position: { x: -400, y: 1900 }, type: "propRefCallout", style: { width: 280, height: 240 } },
+    { id: "pl-def-09", position: { x: 500, y: 800 }, type: "propMainViewer", style: { width: 600, height: 770 } },
+    { id: "pl-def-10", position: { x: 1160, y: 800 }, type: "propFrontViewer", style: { width: 500, height: 720 } },
+    { id: "pl-def-11", position: { x: 1720, y: 800 }, type: "propBackViewer", style: { width: 500, height: 720 } },
+    { id: "pl-def-12", position: { x: 2280, y: 800 }, type: "propSideViewer", style: { width: 500, height: 720 } },
+    { id: "pl-def-13", position: { x: 2840, y: 800 }, type: "propTopViewer", style: { width: 500, height: 720 } },
+    { id: "pl-def-14", position: { x: -1500, y: 600 }, type: "imageInfluence" },
+    { id: "pl-def-15", position: { x: 80, y: 1400 }, type: "imageStudio", style: { width: 320, height: 340 } },
+    { id: "pl-def-16", position: { x: 3400, y: 1200 }, type: "charSaveGroup", style: { width: 280, height: 240 } },
+    { id: "pl-def-17", position: { x: 3400, y: 1600 }, type: "meshyImageTo3D", style: { width: 340, height: 620 } },
+    { id: "pl-def-18", position: { x: -600, y: 1900 }, type: "imageInfluence" },
+  ],
+  edges: [
+    { id: "e-pl-01", source: "pl-def-01", target: "pl-def-05", sourceHandle: "identity-out", targetHandle: "input" },
+    { id: "e-pl-02", source: "pl-def-02", target: "pl-def-05", sourceHandle: "desc-out", targetHandle: "input" },
+    { id: "e-pl-03", source: "pl-def-03", target: "pl-def-05", sourceHandle: "attrs-out", targetHandle: "input" },
+    { id: "e-pl-04", source: "pl-def-04", target: "pl-def-05", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-pl-05", source: "pl-def-05", target: "pl-def-09", sourceHandle: "image-out", targetHandle: "input" },
+    { id: "e-pl-06", source: "pl-def-06", target: "pl-def-01", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-pl-07", source: "pl-def-06", target: "pl-def-03", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-pl-07b", source: "pl-def-06", target: "pl-def-02", sourceHandle: "output", targetHandle: "desc-in" },
+    { id: "e-pl-08", source: "pl-def-14", target: "pl-def-06", targetHandle: "image-in" },
+    { id: "e-pl-09", source: "pl-def-07", target: "pl-def-02", sourceHandle: "output", targetHandle: "desc-in" },
+    { id: "e-pl-10", source: "pl-def-08", target: "pl-def-05", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-pl-11", source: "pl-def-18", target: "pl-def-08", targetHandle: "image-in" },
+    { id: "e-pl-12", source: "pl-def-09", target: "pl-def-15", sourceHandle: "output" },
+    { id: "e-pl-13", source: "pl-def-09", target: "pl-def-16", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-pl-14", source: "pl-def-10", target: "pl-def-16", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-pl-15", source: "pl-def-11", target: "pl-def-16", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-pl-16", source: "pl-def-12", target: "pl-def-16", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-pl-17", source: "pl-def-13", target: "pl-def-16", sourceHandle: "output", targetHandle: "input" },
+    { id: "e-pl-18", source: "pl-def-09", target: "pl-def-17", sourceHandle: "output" },
+    { id: "e-pl-19", source: "pl-def-10", target: "pl-def-17", sourceHandle: "output" },
+    { id: "e-pl-20", source: "pl-def-11", target: "pl-def-17", sourceHandle: "output" },
+    { id: "e-pl-21", source: "pl-def-12", target: "pl-def-17", sourceHandle: "output" },
+    { id: "e-pl-22", source: "pl-def-13", target: "pl-def-17", sourceHandle: "output" },
+  ],
+  nodeData: {
+    "pl-def-05": {
+      imageGenModelId: "imagen4-fast",
+      imageGenApiId: "imagen-4.0-fast-generate-001",
+      multimodalModelId: "nb2-mm",
+      multimodalApiId: "gemini-flash-image",
+      aspectRatio: "1:1",
+      orthoFront: true,
+      orthoBack: true,
+      orthoSide: true,
+      orthoTop: true,
+      isolateMode: false,
+    },
+    "pl-def-09": { viewKey: "main", genCount: 1 },
+    "pl-def-10": { viewKey: "front", genCount: 1 },
+    "pl-def-11": { viewKey: "back", genCount: 1 },
+    "pl-def-12": { viewKey: "side", genCount: 1 },
+    "pl-def-13": { viewKey: "top", genCount: 1 },
+  },
+  viewport: { x: 800, y: 200, zoom: 0.25 },
+};
+
+const UILAB_DEFAULT: LayoutSnapshot = {
+  nodes: [
+    // Input column (x ~ -800)
+    { id: "ul-01", position: { x: -800, y: 100 }, type: "uiConfig", style: { width: 320, height: 480 } },
+    { id: "ul-02", position: { x: -800, y: 650 }, type: "uiPrompt", style: { width: 320, height: 280 } },
+    { id: "ul-03", position: { x: -800, y: 1000 }, type: "uiStyle", style: { width: 360, height: 500 } },
+    // Ref images (x ~ -400)
+    { id: "ul-04", position: { x: -400, y: 100 }, type: "imageInfluence", style: { width: 240, height: 180 } },
+    { id: "ul-05", position: { x: -400, y: 340 }, type: "imageInfluence", style: { width: 240, height: 180 } },
+    // Generation engine (x ~ 0)
+    { id: "ul-06", position: { x: 0, y: 300 }, type: "uiGenerate", style: { width: 320, height: 360 } },
+    // Main viewer (x ~ 400)
+    { id: "ul-07", position: { x: 400, y: 0 }, type: "uiMainViewer", style: { width: 600, height: 770 } },
+    // Tools column (x ~ 1100)
+    { id: "ul-08", position: { x: 1100, y: 0 }, type: "uiFinalize", style: { width: 340, height: 500 } },
+    { id: "ul-09", position: { x: 1100, y: 560 }, type: "uiExtractSpec", style: { width: 320, height: 360 } },
+    { id: "ul-10", position: { x: 1100, y: 980 }, type: "charSaveGroup", style: { width: 300, height: 340 } },
+    // Image Studio (x ~ 1500)
+    { id: "ul-11", position: { x: 1500, y: 200 }, type: "imageStudio", style: { width: 240, height: 220 } },
+  ],
+  edges: [
+    // Config → Generate
+    { id: "e-ul-01", source: "ul-01", target: "ul-06", sourceHandle: "config-out", targetHandle: "input" },
+    // Prompt → Generate
+    { id: "e-ul-02", source: "ul-02", target: "ul-06", sourceHandle: "prompt-out", targetHandle: "input" },
+    // Style → Generate
+    { id: "e-ul-03", source: "ul-03", target: "ul-06", sourceHandle: "output", targetHandle: "input" },
+    // RefA → Generate
+    { id: "e-ul-04", source: "ul-04", target: "ul-06", targetHandle: "input" },
+    // RefB → Generate
+    { id: "e-ul-05", source: "ul-05", target: "ul-06", targetHandle: "input" },
+    // Generate → Main Viewer
+    { id: "e-ul-06", source: "ul-06", target: "ul-07", sourceHandle: "image-out", targetHandle: "input" },
+    // Main Viewer → Finalize
+    { id: "e-ul-07", source: "ul-07", target: "ul-08", sourceHandle: "output", targetHandle: "image-in" },
+    // Main Viewer → Extract Spec
+    { id: "e-ul-08", source: "ul-07", target: "ul-09", sourceHandle: "output", targetHandle: "image-in" },
+    // Extract Spec → Config (pushes spec back)
+    { id: "e-ul-09", source: "ul-09", target: "ul-01", sourceHandle: "spec-out", targetHandle: "spec-in" },
+    // Main Viewer → Save Group
+    { id: "e-ul-10", source: "ul-07", target: "ul-10", sourceHandle: "output" },
+    // Main Viewer → Image Studio
+    { id: "e-ul-11", source: "ul-07", target: "ul-11", sourceHandle: "output" },
+    // Finalize → Save Group
+    { id: "e-ul-12", source: "ul-08", target: "ul-10", sourceHandle: "output" },
+  ],
+  nodeData: {
+    "ul-04": { refLabel: "RefA" },
+    "ul-05": { refLabel: "RefB" },
+  },
+  viewport: { x: 900, y: 200, zoom: 0.3 },
+};
+
 const DEFAULTS: Record<string, LayoutSnapshot> = {
   "concept-lab": CONCEPT_LAB_DEFAULT,
   "concept-lab:upres": UPRES_DEFAULT,
   "concept-lab:restore": RESTORE_DEFAULT,
   "concept-lab:style-conversion": STYLE_CONVERSION_DEFAULT,
+  "concept-lab:proplab": PROPLAB_DEFAULT,
+  "concept-lab:uilab": UILAB_DEFAULT,
   ideation: SHAWNDERMIND_DEFAULT,
 };
 

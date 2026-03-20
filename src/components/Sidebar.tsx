@@ -24,6 +24,7 @@ import {
   WandSparkles,
   Brush,
   PencilRuler,
+  Box,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { TOOLS } from "@/lib/registry";
@@ -71,10 +72,12 @@ function useProfile(): ProfileMode {
 }
 
 const CONCEPT_LAB_SUB_TOOLS = [
-  { label: "AI Concept Lab", href: "/concept-lab", icon: Lightbulb },
-  { label: "AI Upres", href: "/concept-lab/upres", icon: ImageUp },
-  { label: "AI Restore", href: "/concept-lab/restore", icon: WandSparkles },
-  { label: "Style Conversion", href: "/concept-lab/style-conversion", icon: Brush },
+  { label: "AI CharacterLab", href: "/concept-lab", icon: Lightbulb },
+  { label: "AI PropLab", href: "/concept-lab/proplab", icon: Box },
+  { label: "AI UILab", href: "/concept-lab/uilab", icon: Layout },
+  { label: "AI Upres Image", href: "/concept-lab/upres", icon: ImageUp },
+  { label: "AI Restore Image Quality", href: "/concept-lab/restore", icon: WandSparkles },
+  { label: "AI Style Conversion", href: "/concept-lab/style-conversion", icon: Brush },
   { label: "Gemini Editor & Inpainting", href: "/concept-lab/gemini-editor", icon: PencilRuler },
 ];
 

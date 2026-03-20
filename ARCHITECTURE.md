@@ -321,6 +321,7 @@ src/lib/
       conceptlab/
         imageGenApi.ts          Imagen 4 + Gemini image generation helpers
         characterPrompts.ts     Character attribute definitions + prompt builders
+        propPrompts.ts          Prop / environment asset prompts + view builders
         weaponPrompts.ts        Weapon component definitions + prompt builders
       prompts/                  Prompt templates and pack loading
       diverge/                  Diverge stage: lenses, portfolios, dedup, quotas

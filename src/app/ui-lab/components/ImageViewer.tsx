@@ -8,6 +8,9 @@ interface ImageViewerProps {
   alt?: string;
   className?: string;
   downloadName?: string;
+  showGrid?: boolean;
+  gridSize?: { w: number; h: number } | null;
+  drawMode?: boolean;
 }
 
 export default function ImageViewer({
@@ -15,9 +18,13 @@ export default function ImageViewer({
   alt = "Generated image",
   className = "",
   downloadName = "image.png",
+  showGrid = false,
+  gridSize,
+  drawMode = false,
 }: ImageViewerProps) {
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [imgDims, setImgDims] = useState<{ w: number; h: number } | null>(null);
   const dragRef = useRef<{ startX: number; startY: number; ox: number; oy: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -28,12 +35,12 @@ export default function ImageViewer({
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
-      if (e.button === 1 || (e.button === 0 && e.altKey)) {
+      if (e.button === 1 || (e.button === 0 && !drawMode)) {
         e.preventDefault();
         dragRef.current = { startX: e.clientX, startY: e.clientY, ox: offset.x, oy: offset.y };
       }
     },
-    [offset],
+    [offset, drawMode],
   );
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -61,6 +68,11 @@ export default function ImageViewer({
     link.click();
   }, [src, downloadName]);
 
+  const handleImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    setImgDims({ w: img.naturalWidth, h: img.naturalHeight });
+  }, []);
+
   if (!src) {
     return (
       <div
@@ -76,6 +88,7 @@ export default function ImageViewer({
 
   return (
     <div className={`relative flex flex-col ${className}`}>
+      {/* Zoom controls */}
       <div className="absolute top-2 right-2 z-10 flex gap-1">
         <button
           onClick={() => setScale((s) => Math.min(10, s * 1.25))}
@@ -106,12 +119,28 @@ export default function ImageViewer({
           <Download className="h-3.5 w-3.5" />
         </button>
       </div>
+
+      {/* Image dimensions */}
+      {imgDims && (
+        <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded text-[10px] font-mono bg-black/50 text-white/80">
+          {imgDims.w}×{imgDims.h}
+        </div>
+      )}
+
+      {/* Draw mode indicator */}
+      {drawMode && (
+        <div className="absolute top-9 left-2 z-10 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-red-600/80 text-white">
+          Draw Mode
+        </div>
+      )}
+
+      {/* Main image area */}
       <div
         ref={containerRef}
         className="flex-1 overflow-hidden rounded-lg cursor-grab active:cursor-grabbing"
         style={{
           background:
-            "repeating-conic-gradient(var(--color-elevated) 0% 25%, var(--color-bg-base) 0% 50%) 50% / 16px 16px",
+            "repeating-conic-gradient(var(--color-elevated) 0% 25%, var(--color-background) 0% 50%) 50% / 16px 16px",
         }}
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
@@ -126,18 +155,54 @@ export default function ImageViewer({
             transformOrigin: "center center",
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={imgSrc}
-            alt={alt}
-            className="max-w-full max-h-full object-contain"
-            draggable={false}
-          />
+          <div className="relative">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imgSrc}
+              alt={alt}
+              className="max-w-full max-h-full object-contain"
+              style={{ imageRendering: scale > 2 ? "pixelated" : "auto" }}
+              draggable={false}
+              onLoad={handleImageLoad}
+            />
+            {/* Grid overlay (SVG) */}
+            {showGrid && imgDims && (
+              <svg
+                className="absolute inset-0 pointer-events-none"
+                width="100%"
+                height="100%"
+                viewBox={`0 0 ${imgDims.w} ${imgDims.h}`}
+                preserveAspectRatio="none"
+              >
+                {(() => {
+                  const gw = gridSize?.w ?? imgDims.w;
+                  const gh = gridSize?.h ?? imgDims.h;
+                  if (gw > 256 || gh > 256) return null;
+                  const lines = [];
+                  const stepX = imgDims.w / gw;
+                  const stepY = imgDims.h / gh;
+                  for (let i = 0; i <= gw; i++) {
+                    const x = i * stepX;
+                    lines.push(
+                      <line key={`v${i}`} x1={x} y1={0} x2={x} y2={imgDims.h} stroke="rgba(0,0,0,0.3)" strokeWidth={0.5} />,
+                    );
+                  }
+                  for (let j = 0; j <= gh; j++) {
+                    const y = j * stepY;
+                    lines.push(
+                      <line key={`h${j}`} x1={0} y1={y} x2={imgDims.w} y2={y} stroke="rgba(0,0,0,0.3)" strokeWidth={0.5} />,
+                    );
+                  }
+                  return lines;
+                })()}
+              </svg>
+            )}
+          </div>
         </div>
       </div>
-      <div
-        className="absolute bottom-2 left-2 px-2 py-0.5 rounded text-[10px] font-mono bg-black/50 text-white/70"
-      >
+
+      {/* Zoom percentage */}
+      <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded text-[10px] font-mono bg-black/50 text-white/70">
         {Math.round(scale * 100)}%
       </div>
     </div>

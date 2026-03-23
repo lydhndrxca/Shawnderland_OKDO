@@ -3,16 +3,21 @@ import { NextRequest, NextResponse } from 'next/server';
 export const maxDuration = 120;
 export const dynamic = 'force-dynamic';
 
-const API_KEY = process.env.ELEVENLABS_API_KEY ?? '';
+const ENV_KEY = process.env.ELEVENLABS_API_KEY ?? '';
 const BASE = 'https://api.elevenlabs.io';
 
-function authHeaders(extra?: Record<string, string>): Record<string, string> {
-  return { 'xi-api-key': API_KEY, ...extra };
+function resolveKey(req: NextRequest): string {
+  return req.headers.get('x-elevenlabs-key') || ENV_KEY || '';
+}
+
+function authHeaders(key: string, extra?: Record<string, string>): Record<string, string> {
+  return { 'xi-api-key': key, ...extra };
 }
 
 export async function POST(req: NextRequest) {
+  const API_KEY = resolveKey(req);
   if (!API_KEY) {
-    return NextResponse.json({ error: 'ELEVENLABS_API_KEY not configured' }, { status: 500 });
+    return NextResponse.json({ error: 'ElevenLabs API key not configured. Go to Settings and enter your ElevenLabs API key.' }, { status: 500 });
   }
 
   let payload: Record<string, unknown>;
@@ -25,7 +30,7 @@ export async function POST(req: NextRequest) {
 
   /* ── List voices ─────────────────────────────────────────────── */
   if (action === 'list-voices') {
-    const res = await fetch(`${BASE}/v1/voices`, { headers: authHeaders() });
+    const res = await fetch(`${BASE}/v1/voices`, { headers: authHeaders(API_KEY) });
     const data = await res.json();
     if (!res.ok) return NextResponse.json({ error: JSON.stringify(data) }, { status: res.status });
     return NextResponse.json(data);
@@ -33,7 +38,7 @@ export async function POST(req: NextRequest) {
 
   /* ── List models ─────────────────────────────────────────────── */
   if (action === 'list-models') {
-    const res = await fetch(`${BASE}/v1/models`, { headers: authHeaders() });
+    const res = await fetch(`${BASE}/v1/models`, { headers: authHeaders(API_KEY) });
     const data = await res.json();
     if (!res.ok) return NextResponse.json({ error: JSON.stringify(data) }, { status: res.status });
     return NextResponse.json(data);
@@ -63,7 +68,7 @@ export async function POST(req: NextRequest) {
 
     const res = await fetch(url, {
       method: 'POST',
-      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      headers: authHeaders(API_KEY, { 'Content-Type': 'application/json' }),
       body: JSON.stringify(body),
     });
 
@@ -96,7 +101,7 @@ export async function POST(req: NextRequest) {
 
     const res = await fetch(`${BASE}/v1/sound-generation`, {
       method: 'POST',
-      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      headers: authHeaders(API_KEY, { 'Content-Type': 'application/json' }),
       body: JSON.stringify(body),
     });
 
@@ -130,7 +135,7 @@ export async function POST(req: NextRequest) {
 
     const res = await fetch(`${BASE}/v1/voices/add`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: authHeaders(API_KEY),
       body: form,
     });
 
@@ -153,7 +158,7 @@ export async function POST(req: NextRequest) {
 
     const res = await fetch(`${BASE}/v1/audio-isolation`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: authHeaders(API_KEY),
       body: form,
     });
 

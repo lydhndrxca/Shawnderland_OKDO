@@ -19,7 +19,7 @@ export default function RefSlotsPanel() {
   return (
     <div
       className="w-44 shrink-0 border-r overflow-y-auto p-3 space-y-4"
-      style={{ borderColor: "var(--color-border)", background: "var(--color-panel)" }}
+      style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
     >
       <h3
         className="text-[10px] font-bold uppercase tracking-widest"

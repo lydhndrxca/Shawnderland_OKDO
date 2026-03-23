@@ -7,6 +7,26 @@
 const PROXY_URL = "/api/ai-generate";
 const DEFAULT_TIMEOUT_MS = 180_000;
 
+function getStoredApiKey(): string {
+  try {
+    const raw = typeof localStorage !== 'undefined'
+      ? localStorage.getItem('shawnderland-global-settings')
+      : null;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return parsed?.geminiApiKey ?? '';
+    }
+  } catch { /* SSR or corrupt */ }
+  return '';
+}
+
+function apiHeaders(): Record<string, string> {
+  const h: Record<string, string> = { "Content-Type": "application/json" };
+  const key = getStoredApiKey();
+  if (key) h["x-api-key"] = key;
+  return h;
+}
+
 export const GEMINI_FLASH_MODEL = "gemini-2.0-flash";
 export const GEMINI_25_FLASH = "gemini-2.5-flash";
 export const GEMINI_25_PRO = "gemini-2.5-pro";
@@ -107,7 +127,7 @@ async function _generateStructuredInner<T = unknown>(
   try {
     const res = await fetch(PROXY_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: apiHeaders(),
       body,
       signal: ac.signal,
     });
@@ -201,7 +221,7 @@ async function _generateTextInner(
   try {
     const res = await fetch(PROXY_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: apiHeaders(),
       body,
       signal: ac.signal,
     });

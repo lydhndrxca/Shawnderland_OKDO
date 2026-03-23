@@ -40,7 +40,6 @@ export function WritingRoom() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const autoRunRef = useRef(false);
-  const consecutiveErrors = useRef(0);
   autoRunRef.current = autoRun;
 
   const scrollToBottom = useCallback(() => {
@@ -113,8 +112,6 @@ export function WritingRoom() {
         actions.addChatMessage(msg);
         actions.bumpTurnsSinceSpoke(agent.personaId);
         actions.incrementRoundTurns();
-        consecutiveErrors.current = 0;
-
         if (result.agentStatePatch) {
           actions.updateAgentState(agent.personaId, result.agentStatePatch);
         }
@@ -136,12 +133,7 @@ export function WritingRoom() {
         }
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
-        consecutiveErrors.current++;
         actions.addToast("Agent error: " + (err instanceof Error ? err.message : "unknown"), "error");
-        if (consecutiveErrors.current >= 3) {
-          actions.setAutoRun(false);
-          actions.addToast("Too many errors — auto-run paused", "warning");
-        }
       } finally {
         actions.setGenerating(false);
         actions.setCurrentSpeaker(null);

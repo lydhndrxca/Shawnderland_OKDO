@@ -101,9 +101,9 @@ export const AGENT_ROLES: { id: AgentRole; label: string; icon: string }[] = [
 export type ModelTier = "quick" | "standard" | "deep";
 
 export const MODEL_TIER_OPTIONS: { id: ModelTier; label: string; description: string; model: string }[] = [
-  { id: "quick", label: "Quick", description: "Fast responses, less nuanced", model: "gemini-2.0-flash-lite" },
-  { id: "standard", label: "Standard", description: "Balanced speed and quality", model: "gemini-2.0-flash" },
-  { id: "deep", label: "Deep", description: "Slower but more thoughtful", model: "gemini-2.0-flash-thinking-exp" },
+  { id: "quick", label: "Quick", description: "Fast responses, less nuanced", model: "gemini-2.5-flash" },
+  { id: "standard", label: "Standard", description: "Balanced speed and quality", model: "gemini-2.5-flash" },
+  { id: "deep", label: "Deep", description: "Slower but deepest reasoning", model: "gemini-2.5-pro" },
 ];
 
 export function tierToModel(tier?: ModelTier): string | undefined {

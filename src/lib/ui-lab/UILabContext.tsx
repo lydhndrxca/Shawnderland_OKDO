@@ -10,6 +10,8 @@ import React, {
 import type {
   AspectRatio,
   GenerationMode,
+  ImageTabKey,
+  SessionBlend,
   SlotImage,
   UILabTab,
 } from "./types";
@@ -18,6 +20,7 @@ import type {
 
 export interface UILabState {
   activeTab: UILabTab;
+  activeImageTab: ImageTabKey;
   prompt: string;
   mode: GenerationMode;
   aspectRatio: AspectRatio;
@@ -27,10 +30,16 @@ export interface UILabState {
   styleGuidance: string;
   batchCount: number;
 
+  projectStyle: string | null;
+  sessionStyleName: string | null;
+  sessionStyleBlend: SessionBlend;
+
   styleSlot: SlotImage | null;
   refA: SlotImage | null;
   refB: SlotImage | null;
   refC: SlotImage | null;
+  extractSlot: SlotImage | null;
+  extractBGSlot: SlotImage | null;
 
   generatedImages: string[];
   currentVariantIndex: number;
@@ -38,6 +47,7 @@ export interface UILabState {
   isGenerating: boolean;
   isExtracting: boolean;
   error: string | null;
+  statusMessage: string;
 
   extractedAttributes: string | null;
   extractedSpec: Record<string, unknown> | null;
@@ -48,6 +58,7 @@ export interface UILabState {
 
 const initialState: UILabState = {
   activeTab: "generate",
+  activeImageTab: "Mainstage",
   prompt: "",
   mode: "FREEFORM",
   aspectRatio: "1:1",
@@ -56,15 +67,21 @@ const initialState: UILabState = {
   styleText: "",
   styleGuidance: "",
   batchCount: 1,
+  projectStyle: null,
+  sessionStyleName: null,
+  sessionStyleBlend: 0,
   styleSlot: null,
   refA: null,
   refB: null,
   refC: null,
+  extractSlot: null,
+  extractBGSlot: null,
   generatedImages: [],
   currentVariantIndex: 0,
   isGenerating: false,
   isExtracting: false,
   error: null,
+  statusMessage: "Ready",
   extractedAttributes: null,
   extractedSpec: null,
   removedUIImage: null,
@@ -75,6 +92,8 @@ const initialState: UILabState = {
 
 type Action =
   | { type: "SET_TAB"; tab: UILabTab }
+  | { type: "SET_IMAGE_TAB"; tab: ImageTabKey }
+  | { type: "SET_STATUS"; message: string }
   | { type: "SET_PROMPT"; value: string }
   | { type: "SET_MODE"; value: GenerationMode }
   | { type: "SET_ASPECT_RATIO"; value: AspectRatio }
@@ -82,7 +101,15 @@ type Action =
   | { type: "SET_STYLE_TEXT"; value: string }
   | { type: "SET_STYLE_GUIDANCE"; value: string }
   | { type: "SET_BATCH_COUNT"; value: number }
-  | { type: "SET_SLOT"; slot: "styleSlot" | "refA" | "refB" | "refC"; image: SlotImage | null }
+  | { type: "SET_PROJECT_STYLE"; value: string | null }
+  | { type: "SET_SESSION_STYLE_NAME"; value: string | null }
+  | { type: "SET_SESSION_BLEND"; value: SessionBlend }
+  | {
+      type: "SET_SLOT";
+      slot: "styleSlot" | "refA" | "refB" | "refC" | "extractSlot" | "extractBGSlot";
+      image: SlotImage | null;
+    }
+  | { type: "RESET_SESSION" }
   | { type: "ADD_GENERATED_IMAGE"; image: string }
   | { type: "CLEAR_GENERATED_IMAGES" }
   | { type: "SET_VARIANT_INDEX"; index: number }
@@ -98,6 +125,10 @@ function reducer(state: UILabState, action: Action): UILabState {
   switch (action.type) {
     case "SET_TAB":
       return { ...state, activeTab: action.tab, error: null };
+    case "SET_IMAGE_TAB":
+      return { ...state, activeImageTab: action.tab };
+    case "SET_STATUS":
+      return { ...state, statusMessage: action.message };
     case "SET_PROMPT":
       return { ...state, prompt: action.value };
     case "SET_MODE":
@@ -112,8 +143,16 @@ function reducer(state: UILabState, action: Action): UILabState {
       return { ...state, styleGuidance: action.value };
     case "SET_BATCH_COUNT":
       return { ...state, batchCount: action.value };
+    case "SET_PROJECT_STYLE":
+      return { ...state, projectStyle: action.value };
+    case "SET_SESSION_STYLE_NAME":
+      return { ...state, sessionStyleName: action.value };
+    case "SET_SESSION_BLEND":
+      return { ...state, sessionStyleBlend: action.value };
     case "SET_SLOT":
       return { ...state, [action.slot]: action.image };
+    case "RESET_SESSION":
+      return { ...initialState, serviceOnline: state.serviceOnline };
     case "ADD_GENERATED_IMAGE":
       return {
         ...state,
@@ -179,6 +218,9 @@ export function useUILabActions() {
 
   return {
     setTab: useCallback((tab: UILabTab) => dispatch({ type: "SET_TAB", tab }), [dispatch]),
+    setImageTab: useCallback((tab: ImageTabKey) => dispatch({ type: "SET_IMAGE_TAB", tab }), [dispatch]),
+    setStatus: useCallback((message: string) => dispatch({ type: "SET_STATUS", message }), [dispatch]),
+    resetSession: useCallback(() => dispatch({ type: "RESET_SESSION" }), [dispatch]),
     setPrompt: useCallback((value: string) => dispatch({ type: "SET_PROMPT", value }), [dispatch]),
     setMode: useCallback((value: GenerationMode) => dispatch({ type: "SET_MODE", value }), [dispatch]),
     setAspectRatio: useCallback((value: AspectRatio) => dispatch({ type: "SET_ASPECT_RATIO", value }), [dispatch]),
@@ -186,9 +228,23 @@ export function useUILabActions() {
     setStyleText: useCallback((value: string) => dispatch({ type: "SET_STYLE_TEXT", value }), [dispatch]),
     setStyleGuidance: useCallback((value: string) => dispatch({ type: "SET_STYLE_GUIDANCE", value }), [dispatch]),
     setBatchCount: useCallback((value: number) => dispatch({ type: "SET_BATCH_COUNT", value }), [dispatch]),
+    setProjectStyle: useCallback(
+      (value: string | null) => dispatch({ type: "SET_PROJECT_STYLE", value }),
+      [dispatch],
+    ),
+    setSessionStyleName: useCallback(
+      (value: string | null) => dispatch({ type: "SET_SESSION_STYLE_NAME", value }),
+      [dispatch],
+    ),
+    setSessionBlend: useCallback(
+      (value: SessionBlend) => dispatch({ type: "SET_SESSION_BLEND", value }),
+      [dispatch],
+    ),
     setSlot: useCallback(
-      (slot: "styleSlot" | "refA" | "refB" | "refC", image: SlotImage | null) =>
-        dispatch({ type: "SET_SLOT", slot, image }),
+      (
+        slot: "styleSlot" | "refA" | "refB" | "refC" | "extractSlot" | "extractBGSlot",
+        image: SlotImage | null,
+      ) => dispatch({ type: "SET_SLOT", slot, image }),
       [dispatch],
     ),
     addGeneratedImage: useCallback((image: string) => dispatch({ type: "ADD_GENERATED_IMAGE", image }), [dispatch]),

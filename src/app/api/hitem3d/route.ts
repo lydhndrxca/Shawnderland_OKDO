@@ -3,15 +3,17 @@ import { NextRequest, NextResponse } from 'next/server';
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
-const ACCESS_KEY = process.env.HITEM3D_ACCESS_KEY ?? '';
-const SECRET_KEY = process.env.HITEM3D_SECRET_KEY ?? '';
+const ENV_ACCESS = process.env.HITEM3D_ACCESS_KEY ?? '';
+const ENV_SECRET = process.env.HITEM3D_SECRET_KEY ?? '';
 const BASE = 'https://api.hitem3d.ai';
 
 const ALLOWED_PROXY_HOSTS = new Set(['api.hitem3d.ai', 'cdn.hitem3d.ai', 'assets.hitem3d.ai']);
 
 export async function POST(req: NextRequest) {
+  const ACCESS_KEY = req.headers.get('x-hitem3d-access') || ENV_ACCESS || '';
+  const SECRET_KEY = req.headers.get('x-hitem3d-secret') || ENV_SECRET || '';
   if (!ACCESS_KEY) {
-    return NextResponse.json({ error: 'HITEM3D_ACCESS_KEY not configured' }, { status: 500 });
+    return NextResponse.json({ error: 'Hitem 3D access key not configured. Go to Settings and enter your Hitem 3D keys.' }, { status: 500 });
   }
 
   let payload: Record<string, unknown>;

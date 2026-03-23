@@ -10,7 +10,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
 
 export async function checkHealth(): Promise<boolean> {
   try {
-    const res = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(3000) });
+    const res = await fetch(`/api/tools/ui-lab/health`, { signal: AbortSignal.timeout(2500) });
     return res.ok;
   } catch {
     return false;

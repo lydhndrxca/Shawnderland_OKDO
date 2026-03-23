@@ -3,6 +3,15 @@
  * Calls go through /api/meshy to keep the API key server-side.
  */
 
+import { getGlobalSettings } from '@/lib/globalSettings';
+
+function meshyHeaders(): Record<string, string> {
+  const h: Record<string, string> = { 'Content-Type': 'application/json' };
+  const key = getGlobalSettings().meshyApiKey;
+  if (key) h['x-meshy-key'] = key;
+  return h;
+}
+
 export interface MeshyTaskResult {
   id: string;
   type: string;
@@ -52,7 +61,7 @@ export async function createImageTo3D(
   const dataUri = `data:${mimeType};base64,${imageBase64}`;
   const res = await fetch('/api/meshy', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: meshyHeaders(),
     body: JSON.stringify({
       action: 'create-image-to-3d',
       image_url: dataUri,
@@ -73,7 +82,7 @@ export async function createMultiImageTo3D(
   );
   const res = await fetch('/api/meshy', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: meshyHeaders(),
     body: JSON.stringify({
       action: 'create-multi-image-to-3d',
       image_urls: imageUrls,
@@ -91,7 +100,7 @@ export async function pollTask(
 ): Promise<MeshyTaskResult> {
   const res = await fetch('/api/meshy', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: meshyHeaders(),
     body: JSON.stringify({ action: 'poll-image-to-3d', taskId, isMulti }),
   });
   const json = await res.json();

@@ -76,9 +76,12 @@ async function fetchGlbViaProxy(remoteUrl: string): Promise<string> {
   const cached = blobCache.get(remoteUrl);
   if (cached) return cached;
 
+  const h: Record<string, string> = { 'Content-Type': 'application/json' };
+  const meshyKey = getGlobalSettings().meshyApiKey;
+  if (meshyKey) h['x-meshy-key'] = meshyKey;
   const res = await fetch('/api/meshy', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: h,
     body: JSON.stringify({ action: 'proxy-model', url: remoteUrl }),
   });
   if (!res.ok) {

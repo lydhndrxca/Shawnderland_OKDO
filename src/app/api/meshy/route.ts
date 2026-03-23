@@ -3,10 +3,15 @@ import { NextRequest, NextResponse } from 'next/server';
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
-const MESHY_KEY = process.env.MESHY_API_KEY ?? '';
+const ENV_MESHY_KEY = process.env.MESHY_API_KEY ?? '';
 const MESHY_BASE = 'https://api.meshy.ai';
 
+function resolveMeshyKey(req: NextRequest): string {
+  return req.headers.get('x-meshy-key') || ENV_MESHY_KEY || '';
+}
+
 async function meshyFetch(
+  apiKey: string,
   path: string,
   method: 'GET' | 'POST' | 'DELETE' = 'GET',
   body?: unknown,
@@ -14,7 +19,7 @@ async function meshyFetch(
   const opts: RequestInit = {
     method,
     headers: {
-      Authorization: `Bearer ${MESHY_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
   };
@@ -34,8 +39,9 @@ async function meshyFetch(
 const ALLOWED_PROXY_HOSTS = new Set(['assets.meshy.ai', 'cdn.meshy.ai', 'api.meshy.ai']);
 
 export async function POST(req: NextRequest) {
+  const MESHY_KEY = resolveMeshyKey(req);
   if (!MESHY_KEY) {
-    return NextResponse.json({ error: 'MESHY_API_KEY not configured' }, { status: 500 });
+    return NextResponse.json({ error: 'Meshy API key not configured. Go to Settings and enter your Meshy API key.' }, { status: 500 });
   }
 
   let payload: Record<string, unknown>;
@@ -47,12 +53,12 @@ export async function POST(req: NextRequest) {
   const { action, ...params } = payload;
 
   if (action === 'create-image-to-3d') {
-    const { status, data } = await meshyFetch('/openapi/v1/image-to-3d', 'POST', params);
+    const { status, data } = await meshyFetch(MESHY_KEY, '/openapi/v1/image-to-3d', 'POST', params);
     return NextResponse.json(data, { status });
   }
 
   if (action === 'create-multi-image-to-3d') {
-    const { status, data } = await meshyFetch('/openapi/v1/multi-image-to-3d', 'POST', params);
+    const { status, data } = await meshyFetch(MESHY_KEY, '/openapi/v1/multi-image-to-3d', 'POST', params);
     return NextResponse.json(data, { status });
   }
 
@@ -60,7 +66,7 @@ export async function POST(req: NextRequest) {
     const taskId = params.taskId as string;
     const isMulti = params.isMulti as boolean;
     const prefix = isMulti ? '/openapi/v1/multi-image-to-3d' : '/openapi/v1/image-to-3d';
-    const { status, data } = await meshyFetch(`${prefix}/${taskId}`);
+    const { status, data } = await meshyFetch(MESHY_KEY, `${prefix}/${taskId}`);
     return NextResponse.json(data, { status });
   }
 

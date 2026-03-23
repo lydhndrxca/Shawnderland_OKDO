@@ -10,6 +10,10 @@ export interface GlobalSettings {
   outputDir: string;
   threeDExportDir: string;
   geminiApiKey: string;
+  meshyApiKey: string;
+  hitem3dAccessKey: string;
+  hitem3dSecretKey: string;
+  elevenLabsApiKey: string;
 }
 
 const STORAGE_KEY = 'shawnderland-global-settings';
@@ -18,6 +22,10 @@ const DEFAULTS: GlobalSettings = {
   outputDir: '',
   threeDExportDir: '',
   geminiApiKey: '',
+  meshyApiKey: '',
+  hitem3dAccessKey: '',
+  hitem3dSecretKey: '',
+  elevenLabsApiKey: '',
 };
 
 const listeners = new Set<() => void>();

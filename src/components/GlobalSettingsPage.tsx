@@ -221,6 +221,77 @@ export default function GlobalSettingsPage() {
         </section>
 
         <section className="gsp-section">
+          <h2 className="gsp-section-title">Meshy API Key</h2>
+          <p className="gsp-section-desc">
+            Required for 3D model generation. Get a key from{' '}
+            <a href="https://www.meshy.ai" target="_blank" rel="noopener noreferrer" className="gsp-link">
+              meshy.ai
+            </a>.
+          </p>
+          <div className="gsp-field-row">
+            <input
+              className="gsp-input gsp-input-key"
+              type="password"
+              value={settings.meshyApiKey}
+              onChange={(e) => setGlobalSettings({ meshyApiKey: e.target.value.trim() })}
+              placeholder="msy_..."
+              spellCheck={false}
+              autoComplete="off"
+            />
+          </div>
+        </section>
+
+        <section className="gsp-section">
+          <h2 className="gsp-section-title">Hitem 3D Keys</h2>
+          <p className="gsp-section-desc">
+            Access and secret keys for Hitem 3D API.
+          </p>
+          <div className="gsp-field-row">
+            <input
+              className="gsp-input gsp-input-key"
+              type="password"
+              value={settings.hitem3dAccessKey}
+              onChange={(e) => setGlobalSettings({ hitem3dAccessKey: e.target.value.trim() })}
+              placeholder="Access Key"
+              spellCheck={false}
+              autoComplete="off"
+            />
+          </div>
+          <div className="gsp-field-row" style={{ marginTop: 8 }}>
+            <input
+              className="gsp-input gsp-input-key"
+              type="password"
+              value={settings.hitem3dSecretKey}
+              onChange={(e) => setGlobalSettings({ hitem3dSecretKey: e.target.value.trim() })}
+              placeholder="Secret Key"
+              spellCheck={false}
+              autoComplete="off"
+            />
+          </div>
+        </section>
+
+        <section className="gsp-section">
+          <h2 className="gsp-section-title">ElevenLabs API Key</h2>
+          <p className="gsp-section-desc">
+            Required for AI voice generation. Get a key from{' '}
+            <a href="https://elevenlabs.io" target="_blank" rel="noopener noreferrer" className="gsp-link">
+              elevenlabs.io
+            </a>.
+          </p>
+          <div className="gsp-field-row">
+            <input
+              className="gsp-input gsp-input-key"
+              type="password"
+              value={settings.elevenLabsApiKey}
+              onChange={(e) => setGlobalSettings({ elevenLabsApiKey: e.target.value.trim() })}
+              placeholder="sk_..."
+              spellCheck={false}
+              autoComplete="off"
+            />
+          </div>
+        </section>
+
+        <section className="gsp-section">
           <h2 className="gsp-section-title">Output Directory</h2>
           <p className="gsp-section-desc">
             Root folder where all generated files are saved. Each application creates its own subfolder automatically.

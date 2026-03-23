@@ -72,10 +72,23 @@ export const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
 
 /* ── API Calls ──────────────────────────────────────────────────── */
 
+function elHeaders(): Record<string, string> {
+  const h: Record<string, string> = { 'Content-Type': 'application/json' };
+  try {
+    const raw = typeof localStorage !== 'undefined'
+      ? localStorage.getItem('shawnderland-global-settings') : null;
+    if (raw) {
+      const key = JSON.parse(raw)?.elevenLabsApiKey;
+      if (key) h['x-elevenlabs-key'] = key;
+    }
+  } catch { /* SSR */ }
+  return h;
+}
+
 async function elPost(body: Record<string, unknown>): Promise<Record<string, unknown>> {
   const res = await fetch('/api/elevenlabs', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: elHeaders(),
     body: JSON.stringify(body),
   });
   const json = await res.json();

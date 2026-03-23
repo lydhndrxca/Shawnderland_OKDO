@@ -694,7 +694,7 @@ export default function DimensionPlanner() {
       {/* Toolbar */}
       <div
         className="shrink-0 flex items-center gap-2 px-3 py-2 border-b flex-wrap"
-        style={{ borderColor: "var(--color-border)", background: "var(--color-panel)" }}
+        style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
       >
         <div className="flex items-center gap-1">
           <LayoutGrid className="h-3.5 w-3.5" style={{ color: "var(--color-tool-ui)" }} />
@@ -790,7 +790,7 @@ export default function DimensionPlanner() {
         {selectedBox && !dp.cleanView && (
           <div
             className="w-56 shrink-0 border-l overflow-y-auto p-3 space-y-3"
-            style={{ borderColor: "var(--color-border)", background: "var(--color-panel)" }}
+            style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
           >
             <h4
               className="text-[10px] font-bold uppercase tracking-widest"

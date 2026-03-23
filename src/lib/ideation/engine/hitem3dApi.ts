@@ -3,6 +3,16 @@
  * Calls go through /api/hitem3d to keep API keys server-side.
  */
 
+import { getGlobalSettings } from '@/lib/globalSettings';
+
+function hitemHeaders(): Record<string, string> {
+  const h: Record<string, string> = { 'Content-Type': 'application/json' };
+  const s = getGlobalSettings();
+  if (s.hitem3dAccessKey) h['x-hitem3d-access'] = s.hitem3dAccessKey;
+  if (s.hitem3dSecretKey) h['x-hitem3d-secret'] = s.hitem3dSecretKey;
+  return h;
+}
+
 /* ── Types ──────────────────────────────────────────────────────── */
 
 export type Hitem3DRequestType = 1 | 2 | 3;
@@ -125,7 +135,7 @@ export async function submitTask(
 
   const res = await fetch('/api/hitem3d', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: hitemHeaders(),
     body: JSON.stringify(body),
   });
   const json = await res.json();
@@ -140,7 +150,7 @@ export async function submitTask(
 export async function queryTask(taskId: string): Promise<Hitem3DTaskResult> {
   const res = await fetch('/api/hitem3d', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: hitemHeaders(),
     body: JSON.stringify({ action: 'query-task', task_id: taskId }),
   });
   const json = await res.json();
@@ -152,7 +162,7 @@ export async function queryTask(taskId: string): Promise<Hitem3DTaskResult> {
 export async function proxyModelDownload(remoteUrl: string): Promise<string> {
   const res = await fetch('/api/hitem3d', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: hitemHeaders(),
     body: JSON.stringify({ action: 'proxy-model', url: remoteUrl }),
   });
   if (!res.ok) {

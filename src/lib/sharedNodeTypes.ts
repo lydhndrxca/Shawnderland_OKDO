@@ -115,6 +115,8 @@ import ImageViewHubNode from '@/app/ideation/canvas/nodes/character/ImageViewHub
 import MeshyImageTo3DNode from '@/app/ideation/canvas/nodes/threedgen/MeshyImageTo3DNode';
 import MeshyModelViewerNode from '@/app/ideation/canvas/nodes/threedgen/MeshyModelViewerNode';
 import Hitem3DImageTo3DNode from '@/app/ideation/canvas/nodes/threedgen/Hitem3DImageTo3DNode';
+import DesignSpecNode from '@/app/ideation/canvas/nodes/threedgen/DesignSpecNode';
+import UE3DViewerNode from '@/app/ideation/canvas/nodes/threedgen/UE3DViewerNode';
 
 // ── Audio AI nodes (ElevenLabs) ─────────────────────────────────
 import ElevenLabsTTSNode from '@/app/ideation/canvas/nodes/audio/ElevenLabsTTSNode';
@@ -297,6 +299,8 @@ export const ALL_RAW_NODE_TYPES: NodeTypes = applySleep({
   meshyImageTo3D: MeshyImageTo3DNode,
   meshyModelViewer: MeshyModelViewerNode,
   hitem3dImageTo3D: Hitem3DImageTo3DNode,
+  designSpec: DesignSpecNode,
+  ue3dViewer: UE3DViewerNode,
 
   // Audio AI (ElevenLabs + Gemini)
   elTTS: ElevenLabsTTSNode,
@@ -442,6 +446,8 @@ export const NODE_DEFAULTS: Record<string, { style?: { width: number; height: nu
   meshyImageTo3D: { style: { width: 340, height: 620 } },
   meshyModelViewer: { style: { width: 780, height: 720 } },
   hitem3dImageTo3D: { style: { width: 340, height: 640 } },
+  designSpec: { style: { width: 320, height: 480 } },
+  ue3dViewer: { style: { width: 800, height: 780 } },
   elTTS: { style: { width: 340, height: 560 } },
   elSFX: { style: { width: 320, height: 420 } },
   elVoiceClone: { style: { width: 340, height: 520 } },
@@ -621,9 +627,11 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
     label: '3D Generation',
     icon: '\u{1F4A0}',
     items: [
+      { type: 'designSpec', label: 'Design Spec', desc: 'UE5 dimension presets + notes for 3D gen pipeline', color: '#ff3d00' },
       { type: 'meshyImageTo3D', label: 'Image → 3D (Meshy)', desc: 'Convert character images to 3D model via Meshy', color: '#00acc1' },
       { type: 'hitem3dImageTo3D', label: 'Image → 3D (Hitem3D)', desc: 'High-detail 3D with portrait models & fine controls', color: '#ff6e40' },
       { type: 'meshyModelViewer', label: '3D Model Viewer', desc: 'View, inspect & export 3D models', color: '#8e24aa' },
+      { type: 'ue3dViewer', label: 'UE5 3D Viewer', desc: 'Dimension-aware viewer with Blender scaling & collision', color: '#ff6e40' },
     ],
   },
   /* ━━ Audio AI ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
@@ -705,8 +713,10 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
       { type: 'charRestore', label: 'Restore Quality', desc: 'AI redraw to remove artifacts', color: '#00c853' },
       { type: 'charSaveGroup', label: 'Export', desc: 'Save images, download, export', color: '#009688' },
       { type: 'charSlimStyle', label: 'Slim Style', desc: 'Post-process to target visual style', color: '#7b1fa2' },
+      { type: 'designSpec', label: 'Design Spec', desc: 'UE5 dimension constraints for 3D pipeline', color: '#ff3d00' },
       { type: 'meshyImageTo3D', label: 'Image \u2192 3D (Meshy)', desc: 'Convert to 3D model', color: '#00acc1' },
       { type: 'hitem3dImageTo3D', label: 'Image \u2192 3D (Hitem3D)', desc: 'High-detail 3D generation', color: '#ff6e40' },
+      { type: 'ue3dViewer', label: 'UE5 3D Viewer', desc: 'View with dimension guides & Blender tools', color: '#ff6e40' },
     ],
   },
   /* ━━ Layout & Dev ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */

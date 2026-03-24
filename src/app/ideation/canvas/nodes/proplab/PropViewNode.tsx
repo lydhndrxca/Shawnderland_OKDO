@@ -439,6 +439,12 @@ function PropViewNodeInner({ id, data, selected }: Props) {
     pushHistory(img, 'Opened / pasted image');
   }, [id, setNodes, pushHistory]);
 
+  const handleClearImage = useCallback(() => {
+    setLocalImage(null);
+    setEditedImage(null);
+    setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, generatedImage: null, localImage: null, editedImage: null } } : n));
+  }, [id, setNodes]);
+
   const handleResize = useCallback((_: unknown, params: { width: number; height: number }) => {
     setNodes((nds) => nds.map((n) => n.id === id ? { ...n, style: { ...n.style, width: params.width, height: params.height } } : n));
   }, [id, setNodes]);
@@ -494,7 +500,7 @@ function PropViewNodeInner({ id, data, selected }: Props) {
         <div className="char-viewer-canvas nodrag nowheel" style={{ flex: 1, overflow: 'hidden' }}>
           {viewImage ? (
             <>
-              <ImageContextMenu image={viewImage} alt={cfg.label} onPasteImage={handlePasteImage}>
+              <ImageContextMenu image={viewImage} alt={cfg.label} onPasteImage={handlePasteImage} onClearImage={handleClearImage}>
                 <img
                   src={`data:${viewImage.mimeType};base64,${viewImage.base64}`}
                   alt={cfg.label}

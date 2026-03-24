@@ -37,6 +37,21 @@ const POSE_MODES: Array<{ value: '' | 't-pose' | 'a-pose'; label: string }> = [
 ];
 const POLY_PRESETS = [10_000, 30_000, 50_000, 100_000];
 const POLL_INTERVAL_MS = 3000;
+const PARAM_NODE_TYPES = new Set(['designSpec']);
+const MESHY_MAX_IMAGES = 4;
+
+const VIEW_LABEL: Record<string, string> = {
+  front: 'Front', back: 'Back', side: 'Side', left: 'Left', right: 'Right',
+  top: 'Top', main: 'Main', custom: 'Custom',
+  propMainViewer: 'Main', propFrontViewer: 'Front', propBackViewer: 'Back',
+  propSideViewer: 'Side', propTopViewer: 'Top',
+};
+const VIEW_COLOR: Record<string, string> = {
+  front: '#42a5f5', back: '#ab47bc', side: '#ff7043', left: '#ff7043',
+  right: '#ff7043', top: '#26a69a', main: '#66bb6a',
+  propMainViewer: '#66bb6a', propFrontViewer: '#42a5f5', propBackViewer: '#ab47bc',
+  propSideViewer: '#ff7043', propTopViewer: '#26a69a',
+};
 
 function MeshyImageTo3DNodeInner({ id, data, selected }: Props) {
   const { setNodes, getNode } = useReactFlow();
@@ -119,6 +134,7 @@ function MeshyImageTo3DNodeInner({ id, data, selected }: Props) {
       if (e.target !== id) continue;
       const peer = getNode(e.source);
       if (!peer?.data) continue;
+      if (PARAM_NODE_TYPES.has(peer.type ?? '')) continue;
       const d = peer.data as Record<string, unknown>;
       const img = d.generatedImage as { base64?: string; mimeType?: string } | undefined;
       if (img?.base64) {
@@ -132,23 +148,56 @@ function MeshyImageTo3DNodeInner({ id, data, selected }: Props) {
     return images;
   }, [id, getNode]);
 
-  const connectedCountSelector = useCallback(
+  /* ── Forward designSpec from upstream ── */
+  const designSpecSigSelector = useCallback(
     (state: {
       nodes: Array<{ id: string; data: Record<string, unknown> }>;
       edges: Array<{ source: string; target: string }>;
     }) => {
-      let count = 0;
       for (const e of state.edges) {
         if (e.target !== id) continue;
         const peer = state.nodes.find((n) => n.id === e.source);
-        const img = (peer?.data as Record<string, unknown> | undefined)?.generatedImage as { base64: string } | undefined;
-        if (img?.base64) count++;
+        const ds = (peer?.data as Record<string, unknown> | undefined)?.designSpec;
+        if (ds) return JSON.stringify(ds);
       }
-      return count;
+      return '';
     },
     [id],
   );
-  const sourceCount = useStore(connectedCountSelector);
+  const designSpecSig = useStore(designSpecSigSelector);
+
+  useEffect(() => {
+    if (!designSpecSig) return;
+    try {
+      const ds = JSON.parse(designSpecSig);
+      persistData({ designSpec: ds });
+    } catch { /* ignore */ }
+  }, [designSpecSig, persistData]);
+
+  const connectedViewsSelector = useCallback(
+    (state: {
+      nodes: Array<{ id: string; type?: string; data: Record<string, unknown> }>;
+      edges: Array<{ source: string; target: string }>;
+    }) => {
+      const views: string[] = [];
+      for (const e of state.edges) {
+        if (e.target !== id) continue;
+        const peer = state.nodes.find((n) => n.id === e.source);
+        if (!peer || PARAM_NODE_TYPES.has(peer.type ?? '')) continue;
+        const d = peer.data as Record<string, unknown>;
+        const img = d.generatedImage as { base64: string } | undefined;
+        if (img?.base64) {
+          const vk = (d.viewKey as string) ?? peer.type ?? 'image';
+          views.push(vk);
+        }
+      }
+      return views.sort().join(',');
+    },
+    [id],
+  );
+  const connectedViewsSig = useStore(connectedViewsSelector);
+  const connectedViews = connectedViewsSig ? connectedViewsSig.split(',') : [];
+  const sourceCount = connectedViews.length;
 
   const handleGenerate = useCallback(async () => {
     if (busy) return;
@@ -184,7 +233,12 @@ function MeshyImageTo3DNodeInner({ id, data, selected }: Props) {
       remove_lighting: removeLighting,
     };
     if (poseMode) params.pose_mode = poseMode;
-    if (texturePrompt.trim()) params.texture_prompt = texturePrompt.trim();
+    if (texturePrompt.trim()) {
+      params.texture_prompt = texturePrompt.trim();
+    } else {
+      const ds = data.designSpec as { notes?: string } | undefined;
+      if (ds?.notes?.trim()) params.texture_prompt = ds.notes.trim();
+    }
 
     try {
       let taskId: string;
@@ -204,12 +258,15 @@ function MeshyImageTo3DNodeInner({ id, data, selected }: Props) {
       setStatus(`Task created: ${taskId.slice(0, 8)}... Polling...`);
 
       await new Promise<void>((resolve, reject) => {
+        let polling = false;
         pollRef.current = setInterval(async () => {
+          if (polling) return;
           if (!mountedRef.current || cancelledRef.current) {
             clearInterval(pollRef.current);
             resolve();
             return;
           }
+          polling = true;
           try {
             const result = await pollTask(taskId, isMulti);
             if (!mountedRef.current || cancelledRef.current) {
@@ -238,6 +295,8 @@ function MeshyImageTo3DNodeInner({ id, data, selected }: Props) {
           } catch (err) {
             clearInterval(pollRef.current);
             reject(err);
+          } finally {
+            polling = false;
           }
         }, POLL_INTERVAL_MS);
       });
@@ -295,8 +354,19 @@ function MeshyImageTo3DNodeInner({ id, data, selected }: Props) {
 
       <div className="threed-node-body" style={{ flex: 1, overflow: 'auto' }}>
         {hasSource && (
-          <div style={{ fontSize: 10, color: '#69f0ae', textAlign: 'center', padding: '4px 0' }}>
-            {sourceCount} source image{sourceCount > 1 ? 's' : ''} connected
+          <div style={{ textAlign: 'center', padding: '4px 0' }}>
+            <div style={{ display: 'flex', gap: 4, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 2 }}>
+              {connectedViews.map((v, i) => (
+                <span key={i} style={{
+                  fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 3,
+                  background: VIEW_COLOR[v] ?? '#555', color: '#fff',
+                }}>{VIEW_LABEL[v] ?? v}</span>
+              ))}
+            </div>
+            <div style={{ fontSize: 10, color: sourceCount > MESHY_MAX_IMAGES ? '#ff5252' : '#69f0ae' }}>
+              {sourceCount} source image{sourceCount > 1 ? 's' : ''} connected
+              {sourceCount > MESHY_MAX_IMAGES && ` (max ${MESHY_MAX_IMAGES})`}
+            </div>
           </div>
         )}
 
@@ -372,7 +442,7 @@ function MeshyImageTo3DNodeInner({ id, data, selected }: Props) {
           <button
             className="threed-btn primary nodrag nopan"
             onClick={(e) => { e.stopPropagation(); handleGenerate(); }}
-            disabled={!hasSource}
+            disabled={!hasSource || sourceCount > MESHY_MAX_IMAGES}
             style={{ width: '100%', padding: '8px 0', fontSize: 12, fontWeight: 700 }}
           >
             Generate 3D Model
@@ -396,9 +466,15 @@ function MeshyImageTo3DNodeInner({ id, data, selected }: Props) {
         {status && <div className="threed-status">{status}</div>}
         {error && <div className="threed-error">{error}</div>}
 
+        {sourceCount > MESHY_MAX_IMAGES && !busy && (
+          <div style={{ fontSize: 10, color: '#ff5252', textAlign: 'center', padding: '4px 0' }}>
+            Meshy supports 1–{MESHY_MAX_IMAGES} images. Disconnect {sourceCount - MESHY_MAX_IMAGES} view{sourceCount - MESHY_MAX_IMAGES > 1 ? 's' : ''} to continue.
+          </div>
+        )}
+
         {!hasSource && !error && !busy && (
           <div style={{ fontSize: 10, color: '#666', textAlign: 'center', padding: '4px 0' }}>
-            Connect character image viewers (Main Stage, Front, Back, Side) to generate a 3D model.
+            Connect image viewers (Front, Back, Side, Top — max {MESHY_MAX_IMAGES}) to generate a 3D model.
           </div>
         )}
 

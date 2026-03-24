@@ -125,8 +125,16 @@ export default function GlobalSettingsPage() {
   const settings = useGlobalSettings();
   const [showBrowser, setShowBrowser] = useState(false);
   const [showBrowser3D, setShowBrowser3D] = useState(false);
+  const [showBrowserBlender, setShowBrowserBlender] = useState(false);
   const [keyVisible, setKeyVisible] = useState(false);
+  const [blenderDetecting, setBlenderDetecting] = useState(false);
   const [keyTestStatus, setKeyTestStatus] = useState<'idle' | 'testing' | 'ok' | 'fail'>('idle');
+  const [meshyTestStatus, setMeshyTestStatus] = useState<'idle' | 'testing' | 'ok' | 'fail'>('idle');
+  const [meshyTestError, setMeshyTestError] = useState('');
+  const [hitemTestStatus, setHitemTestStatus] = useState<'idle' | 'testing' | 'ok' | 'fail'>('idle');
+  const [hitemTestError, setHitemTestError] = useState('');
+  const [elTestStatus, setElTestStatus] = useState<'idle' | 'testing' | 'ok' | 'fail'>('idle');
+  const [elTestError, setElTestError] = useState('');
 
   const handleApiKeyChange = useCallback((val: string) => {
     setGlobalSettings({ geminiApiKey: val.trim() });
@@ -149,6 +157,79 @@ export default function GlobalSettingsPage() {
     }
   }, [settings.geminiApiKey]);
 
+  const handleTestMeshy = useCallback(async () => {
+    if (!settings.meshyApiKey) return;
+    setMeshyTestStatus('testing');
+    setMeshyTestError('');
+    try {
+      const res = await fetch('/api/meshy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-meshy-key': settings.meshyApiKey },
+        body: JSON.stringify({ action: 'test-connection' }),
+      });
+      if (res.ok) {
+        setMeshyTestStatus('ok');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setMeshyTestError(data.error || `Failed (${res.status})`);
+        setMeshyTestStatus('fail');
+      }
+    } catch {
+      setMeshyTestError('Network error');
+      setMeshyTestStatus('fail');
+    }
+  }, [settings.meshyApiKey]);
+
+  const handleTestHitem = useCallback(async () => {
+    if (!settings.hitem3dAccessKey || !settings.hitem3dSecretKey) return;
+    setHitemTestStatus('testing');
+    setHitemTestError('');
+    try {
+      const res = await fetch('/api/hitem3d', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-hitem3d-access': settings.hitem3dAccessKey,
+          'x-hitem3d-secret': settings.hitem3dSecretKey,
+        },
+        body: JSON.stringify({ action: 'test-connection' }),
+      });
+      if (res.ok) {
+        setHitemTestStatus('ok');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setHitemTestError(data.error || `Failed (${res.status})`);
+        setHitemTestStatus('fail');
+      }
+    } catch {
+      setHitemTestError('Network error');
+      setHitemTestStatus('fail');
+    }
+  }, [settings.hitem3dAccessKey, settings.hitem3dSecretKey]);
+
+  const handleTestElevenLabs = useCallback(async () => {
+    if (!settings.elevenLabsApiKey) return;
+    setElTestStatus('testing');
+    setElTestError('');
+    try {
+      const res = await fetch('/api/elevenlabs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-elevenlabs-key': settings.elevenLabsApiKey },
+        body: JSON.stringify({ action: 'test-connection' }),
+      });
+      if (res.ok) {
+        setElTestStatus('ok');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setElTestError(data.error || `Failed (${res.status})`);
+        setElTestStatus('fail');
+      }
+    } catch {
+      setElTestError('Network error');
+      setElTestStatus('fail');
+    }
+  }, [settings.elevenLabsApiKey]);
+
   const handleOutputDirChange = useCallback((val: string) => {
     setGlobalSettings({ outputDir: val });
   }, []);
@@ -165,6 +246,39 @@ export default function GlobalSettingsPage() {
   const handleBrowse3DSelect = useCallback((selectedPath: string) => {
     setGlobalSettings({ threeDExportDir: selectedPath });
     setShowBrowser3D(false);
+  }, []);
+
+  const handleBlenderPathChange = useCallback((val: string) => {
+    setGlobalSettings({ blenderPath: val });
+  }, []);
+
+  const handleBrowseBlenderSelect = useCallback((selectedPath: string) => {
+    setGlobalSettings({ blenderPath: selectedPath });
+    setShowBrowserBlender(false);
+  }, []);
+
+  const handleDetectBlender = useCallback(async () => {
+    setBlenderDetecting(true);
+    const candidates = [
+      'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe',
+      'C:\\Program Files\\Blender Foundation\\Blender 5.0\\blender.exe',
+      'C:\\Program Files\\Blender Foundation\\Blender 4.4\\blender.exe',
+      'C:\\Program Files\\Blender Foundation\\Blender 4.3\\blender.exe',
+      'C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe',
+      'C:\\Program Files\\Blender Foundation\\Blender 4.1\\blender.exe',
+      'C:\\Program Files\\Blender Foundation\\Blender 4.0\\blender.exe',
+      'C:\\Program Files\\Blender Foundation\\Blender 3.6\\blender.exe',
+    ];
+    for (const p of candidates) {
+      try {
+        const res = await fetch(`/api/list-dirs?path=${encodeURIComponent(p.replace(/\\blender\.exe$/, ''))}`);
+        if (res.ok) {
+          setGlobalSettings({ blenderPath: p });
+          break;
+        }
+      } catch { /* skip */ }
+    }
+    setBlenderDetecting(false);
   }, []);
 
   const dirPreview = settings.outputDir || 'Not set';
@@ -233,26 +347,36 @@ export default function GlobalSettingsPage() {
               className="gsp-input gsp-input-key"
               type="password"
               value={settings.meshyApiKey}
-              onChange={(e) => setGlobalSettings({ meshyApiKey: e.target.value.trim() })}
+              onChange={(e) => { setGlobalSettings({ meshyApiKey: e.target.value.trim() }); setMeshyTestStatus('idle'); }}
               placeholder="msy_..."
               spellCheck={false}
               autoComplete="off"
             />
+            <button
+              type="button"
+              className="gsp-btn gsp-btn-primary gsp-btn-sm"
+              onClick={handleTestMeshy}
+              disabled={!settings.meshyApiKey || meshyTestStatus === 'testing'}
+            >
+              {meshyTestStatus === 'testing' ? 'Testing...' : 'Test Key'}
+            </button>
           </div>
+          {meshyTestStatus === 'ok' && <div className="gsp-key-status gsp-key-ok">Meshy API key is valid.</div>}
+          {meshyTestStatus === 'fail' && <div className="gsp-key-status gsp-key-fail">{meshyTestError || 'Key test failed.'}</div>}
         </section>
 
         <section className="gsp-section">
           <h2 className="gsp-section-title">Hitem 3D Keys</h2>
           <p className="gsp-section-desc">
-            Access and secret keys for Hitem 3D API.
+            Access key (client_id) and secret key (client_secret) for Hitem 3D API. Both are required.
           </p>
           <div className="gsp-field-row">
             <input
               className="gsp-input gsp-input-key"
               type="password"
               value={settings.hitem3dAccessKey}
-              onChange={(e) => setGlobalSettings({ hitem3dAccessKey: e.target.value.trim() })}
-              placeholder="Access Key"
+              onChange={(e) => { setGlobalSettings({ hitem3dAccessKey: e.target.value.trim() }); setHitemTestStatus('idle'); }}
+              placeholder="Access Key (ak_...)"
               spellCheck={false}
               autoComplete="off"
             />
@@ -262,12 +386,22 @@ export default function GlobalSettingsPage() {
               className="gsp-input gsp-input-key"
               type="password"
               value={settings.hitem3dSecretKey}
-              onChange={(e) => setGlobalSettings({ hitem3dSecretKey: e.target.value.trim() })}
+              onChange={(e) => { setGlobalSettings({ hitem3dSecretKey: e.target.value.trim() }); setHitemTestStatus('idle'); }}
               placeholder="Secret Key"
               spellCheck={false}
               autoComplete="off"
             />
+            <button
+              type="button"
+              className="gsp-btn gsp-btn-primary gsp-btn-sm"
+              onClick={handleTestHitem}
+              disabled={!settings.hitem3dAccessKey || !settings.hitem3dSecretKey || hitemTestStatus === 'testing'}
+            >
+              {hitemTestStatus === 'testing' ? 'Testing...' : 'Test Keys'}
+            </button>
           </div>
+          {hitemTestStatus === 'ok' && <div className="gsp-key-status gsp-key-ok">Hitem3D credentials are valid.</div>}
+          {hitemTestStatus === 'fail' && <div className="gsp-key-status gsp-key-fail">{hitemTestError || 'Key test failed.'}</div>}
         </section>
 
         <section className="gsp-section">
@@ -283,12 +417,22 @@ export default function GlobalSettingsPage() {
               className="gsp-input gsp-input-key"
               type="password"
               value={settings.elevenLabsApiKey}
-              onChange={(e) => setGlobalSettings({ elevenLabsApiKey: e.target.value.trim() })}
+              onChange={(e) => { setGlobalSettings({ elevenLabsApiKey: e.target.value.trim() }); setElTestStatus('idle'); }}
               placeholder="sk_..."
               spellCheck={false}
               autoComplete="off"
             />
+            <button
+              type="button"
+              className="gsp-btn gsp-btn-primary gsp-btn-sm"
+              onClick={handleTestElevenLabs}
+              disabled={!settings.elevenLabsApiKey || elTestStatus === 'testing'}
+            >
+              {elTestStatus === 'testing' ? 'Testing...' : 'Test Key'}
+            </button>
           </div>
+          {elTestStatus === 'ok' && <div className="gsp-key-status gsp-key-ok">ElevenLabs API key is valid.</div>}
+          {elTestStatus === 'fail' && <div className="gsp-key-status gsp-key-fail">{elTestError || 'Key test failed.'}</div>}
         </section>
 
         <section className="gsp-section">
@@ -376,6 +520,45 @@ export default function GlobalSettingsPage() {
             </div>
           )}
         </section>
+
+        <section className="gsp-section">
+          <h2 className="gsp-section-title">Blender Executable</h2>
+          <p className="gsp-section-desc">
+            Path to the Blender executable for headless model processing (scaling, collision generation).
+            Required for the UE5 3D Viewer node in PropLab.
+          </p>
+
+          <div className="gsp-field-row">
+            <input
+              className="gsp-input"
+              value={settings.blenderPath}
+              onChange={(e) => handleBlenderPathChange(e.target.value)}
+              placeholder="e.g., C:\Program Files\Blender Foundation\Blender 4.3\blender.exe"
+            />
+            <button
+              type="button"
+              className="gsp-btn"
+              onClick={() => setShowBrowserBlender(true)}
+            >
+              Browse
+            </button>
+            <button
+              type="button"
+              className="gsp-btn"
+              onClick={handleDetectBlender}
+              disabled={blenderDetecting}
+            >
+              {blenderDetecting ? 'Detecting...' : 'Detect'}
+            </button>
+          </div>
+
+          {settings.blenderPath && (
+            <div className="gsp-preview">
+              <div className="gsp-preview-title">Blender path</div>
+              <pre className="gsp-tree">{settings.blenderPath}</pre>
+            </div>
+          )}
+        </section>
       </div>
 
       {showBrowser && (
@@ -389,6 +572,13 @@ export default function GlobalSettingsPage() {
         <FolderBrowser
           onSelect={handleBrowse3DSelect}
           onCancel={() => setShowBrowser3D(false)}
+        />
+      )}
+
+      {showBrowserBlender && (
+        <FolderBrowser
+          onSelect={handleBrowseBlenderSelect}
+          onCancel={() => setShowBrowserBlender(false)}
         />
       )}
     </div>

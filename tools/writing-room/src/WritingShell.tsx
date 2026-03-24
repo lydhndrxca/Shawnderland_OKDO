@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useWritingStore, storeActions } from "./store";
-import { setUsageCallback } from "@shawnderland/ai";
+import { setUsageCallback, setApiKey } from "@shawnderland/ai";
+import { useGlobalSettings } from "@/lib/globalSettings";
 import {
   setActiveApp,
   recordUsage,
@@ -25,12 +26,17 @@ export default function WritingShell() {
   const [showFileMenu, setShowFileMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileMenuRef = useRef<HTMLDivElement>(null);
+  const globalSettings = useGlobalSettings();
 
   useEffect(() => {
     setActiveApp("writing-room");
     setUsageCallback((usage, model) => recordUsage(usage, model));
     return () => setUsageCallback(null);
   }, []);
+
+  useEffect(() => {
+    setApiKey(globalSettings.geminiApiKey || null);
+  }, [globalSettings.geminiApiKey]);
 
   useEffect(() => {
     if (!showFileMenu) return;
@@ -269,6 +275,17 @@ export default function WritingShell() {
               </span>
             </button>
           ))}
+        </div>
+      )}
+
+      {!globalSettings.geminiApiKey && (
+        <div style={{
+          background: 'rgba(244, 67, 54, 0.12)', border: '1px solid rgba(244, 67, 54, 0.3)',
+          borderRadius: 6, padding: '8px 14px', margin: '8px 16px 0', fontSize: 12,
+          color: '#f44336', display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{ fontSize: 16 }}>⚠</span>
+          <span>No Gemini API key configured. Enter your key in <strong>Settings</strong> (gear icon in the sidebar) for the Writing Room to work.</span>
         </div>
       )}
 

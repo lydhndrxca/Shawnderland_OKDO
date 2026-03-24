@@ -113,18 +113,40 @@ export async function submitTask(
   };
 
   if (multiImages && multiImages.length > 0) {
-    const viewOrder = ['front', 'back', 'left', 'right'];
-    const sorted = [...multiImages].sort(
-      (a, b) => viewOrder.indexOf(a.viewKey) - viewOrder.indexOf(b.viewKey),
-    );
-    const bit = viewOrder.map((v) => sorted.some((img) => img.viewKey === v) ? '1' : '0').join('');
+    const VIEW_SLOT_ORDER = ['front', 'back', 'left', 'right'] as const;
+    const VIEW_ALIAS: Record<string, string> = {
+      front: 'front', back: 'back', left: 'left', right: 'right',
+      side: 'left', top: 'front',
+    };
 
-    body.multi_images = sorted.map((img, i) => ({
+    const mapped = multiImages.map((img) => ({
+      ...img,
+      slot: VIEW_ALIAS[img.viewKey] ?? img.viewKey,
+    }));
+
+    const slotBuckets = new Map<string, typeof mapped[number]>();
+    for (const img of mapped) {
+      if (!slotBuckets.has(img.slot)) slotBuckets.set(img.slot, img);
+    }
+
+    const orderedImages: typeof mapped = [];
+    const bitChars: string[] = [];
+    for (const slot of VIEW_SLOT_ORDER) {
+      const img = slotBuckets.get(slot);
+      if (img) {
+        orderedImages.push(img);
+        bitChars.push('1');
+      } else {
+        bitChars.push('0');
+      }
+    }
+
+    body.multi_images = orderedImages.map((img, i) => ({
       base64: img.base64,
       mimeType: img.mimeType,
       name: `view_${i}.${img.mimeType.split('/')[1] || 'png'}`,
     }));
-    body.multi_images_bit = bit;
+    body.multi_images_bit = bitChars.join('');
   } else if (singleImage) {
     body.images = {
       base64: singleImage.base64,

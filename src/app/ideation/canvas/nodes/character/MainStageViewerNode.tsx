@@ -10,7 +10,30 @@ import {
 import type { GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import { NODE_TOOLTIPS } from './nodeTooltips';
 import { devWarn } from '@/lib/devLog';
+import { getGlobalSettings } from '@/lib/globalSettings';
 import './CharacterNodes.css';
+
+async function autoSaveImage(
+  image: GeneratedImage,
+  viewName: string,
+): Promise<void> {
+  const { outputDir } = getGlobalSettings();
+  if (!outputDir) return;
+  try {
+    const res = await fetch('/api/character-save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        base64: image.base64, mimeType: image.mimeType,
+        charName: 'character', viewName, outputDir,
+        appKey: 'concept-lab', contentType: 'characters',
+      }),
+    });
+    if (!res.ok) devWarn('[auto-save MainStage]', `HTTP ${res.status}`);
+  } catch (e) {
+    devWarn('[auto-save MainStage]', e);
+  }
+}
 
 interface Props {
   id: string;
@@ -88,15 +111,24 @@ function MainStageViewerNodeInner({ id, data, selected }: Props) {
 
   const upstreamImage = getUpstreamImage(id, getNode, getEdges);
   const pushedImage = (data?.generatedImage as GeneratedImage | undefined) ?? null;
-  const displayImage = upstreamImage ?? pushedImage ?? localImage;
+  const pastedOverride = !!(data?.pastedOverride);
+  const prevUpstreamRef = useRef<string | null>(null);
+
+  const displayImage = (pastedOverride ? null : upstreamImage) ?? pushedImage ?? localImage;
 
   useEffect(() => {
-    if (upstreamImage && upstreamImage.base64 !== (data?.generatedImage as GeneratedImage)?.base64) {
+    if (!upstreamImage) return;
+    const upSig = upstreamImage.base64.slice(0, 40);
+    const curSig = (data?.generatedImage as GeneratedImage)?.base64?.slice(0, 40) ?? '';
+    const isNewUpstream = upSig !== curSig && upSig !== prevUpstreamRef.current;
+    if (isNewUpstream) {
+      prevUpstreamRef.current = upSig;
       setNodes((nds) =>
         nds.map((n) =>
-          n.id === id ? { ...n, data: { ...n.data, generatedImage: upstreamImage } } : n,
+          n.id === id ? { ...n, data: { ...n.data, generatedImage: upstreamImage, pastedOverride: false } } : n,
         ),
       );
+      autoSaveImage(upstreamImage, 'main_stage');
     }
   }, [upstreamImage, id, data?.generatedImage, setNodes]);
 
@@ -225,13 +257,24 @@ function MainStageViewerNodeInner({ id, data, selected }: Props) {
       setNodes((nds) =>
         nds.map((n) =>
           n.id === id
-            ? { ...n, data: { ...n.data, localImage: img, generatedImage: img } }
+            ? { ...n, data: { ...n.data, localImage: img, generatedImage: img, pastedOverride: true } }
             : n,
         ),
       );
     },
     [id, setNodes],
   );
+
+  const handleClearImage = useCallback(() => {
+    setLocalImage(null);
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === id
+          ? { ...n, data: { ...n.data, localImage: null, generatedImage: null, pastedOverride: false } }
+          : n,
+      ),
+    );
+  }, [id, setNodes]);
 
   const handleOpenImage = useCallback(() => {
     fileRef.current?.click();
@@ -350,6 +393,7 @@ function MainStageViewerNodeInner({ id, data, selected }: Props) {
               alt={label}
               onPasteImage={handlePasteImage}
               onResetView={handleResetView}
+              onClearImage={handleClearImage}
             >
               <img
                 src={`data:${displayImage.mimeType};base64,${displayImage.base64}`}

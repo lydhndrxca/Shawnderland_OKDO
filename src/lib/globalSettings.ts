@@ -14,6 +14,7 @@ export interface GlobalSettings {
   hitem3dAccessKey: string;
   hitem3dSecretKey: string;
   elevenLabsApiKey: string;
+  blenderPath: string;
 }
 
 const STORAGE_KEY = 'shawnderland-global-settings';
@@ -26,6 +27,7 @@ const DEFAULTS: GlobalSettings = {
   hitem3dAccessKey: '',
   hitem3dSecretKey: '',
   elevenLabsApiKey: '',
+  blenderPath: '',
 };
 
 const listeners = new Set<() => void>();

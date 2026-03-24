@@ -46,6 +46,14 @@
   background: #2a2a3c;
 }
 
+.icm-item--danger {
+  color: #f44336;
+}
+
+.icm-item--danger:hover {
+  background: rgba(244, 67, 54, 0.12);
+}
+
 .icm-icon {
   width: 18px;
   text-align: center;

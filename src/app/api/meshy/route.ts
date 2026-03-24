@@ -52,6 +52,14 @@ export async function POST(req: NextRequest) {
   }
   const { action, ...params } = payload;
 
+  if (action === 'test-connection') {
+    const { status, data } = await meshyFetch(MESHY_KEY, '/openapi/v1/image-to-3d?limit=1');
+    if (status >= 200 && status < 300) {
+      return NextResponse.json({ ok: true, message: 'Meshy API key is valid.' });
+    }
+    return NextResponse.json({ ok: false, error: typeof data === 'object' && data ? JSON.stringify(data) : `Status ${status}` }, { status });
+  }
+
   if (action === 'create-image-to-3d') {
     const { status, data } = await meshyFetch(MESHY_KEY, '/openapi/v1/image-to-3d', 'POST', params);
     return NextResponse.json(data, { status });

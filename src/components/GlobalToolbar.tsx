@@ -122,6 +122,7 @@ export default function GlobalToolbar({
   const [saveName, setSaveName] = useState('');
   const [sessionSavePrompt, setSessionSavePrompt] = useState(false);
   const [sessionSaveName, setSessionSaveName] = useState('');
+  const [confirmDialog, setConfirmDialog] = useState<'clear' | 'reset' | null>(null);
   const layoutRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<HTMLDivElement>(null);
@@ -488,19 +489,51 @@ export default function GlobalToolbar({
         )}
 
         {onResetNodes && (
-          <button className="global-toolbar-btn" onClick={onResetNodes} title="Reset all node data (keep layout &amp; connections)">
+          <button className="global-toolbar-btn" onClick={() => setConfirmDialog('reset')} title="Reset all node data (keep layout &amp; connections)">
             <RotateCcw size={14} />
-            <span>Reset Data</span>
+            <span>Reset Node Data</span>
           </button>
         )}
 
         {onClear && (
-          <button className="global-toolbar-btn" onClick={onClear} title="Clear canvas">
+          <button
+            className="global-toolbar-btn global-toolbar-btn--danger"
+            onClick={() => setConfirmDialog('clear')}
+            title="Clear entire canvas — removes all nodes and data"
+          >
             <Trash2 size={14} />
-            <span>Clear</span>
+            <span>Clear Entire Canvas</span>
           </button>
         )}
       </div>
+
+      {confirmDialog && (
+        <div className="gt-confirm-overlay" onClick={() => setConfirmDialog(null)}>
+          <div className="gt-confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3 className="gt-confirm-title">
+              {confirmDialog === 'clear' ? 'Clear Entire Canvas?' : 'Reset Node Data?'}
+            </h3>
+            <p className="gt-confirm-message">
+              {confirmDialog === 'clear'
+                ? 'This will remove ALL nodes and ALL data from this session. This cannot be undone. If you just want to reset node data back to defaults (keeping layout and connections), use "Reset Node Data" instead.'
+                : 'This will reset all nodes back to their default values. Your layout and connections will be preserved.'}
+            </p>
+            <div className="gt-confirm-actions">
+              <button className="gt-confirm-btn gt-confirm-cancel" onClick={() => setConfirmDialog(null)}>Cancel</button>
+              <button
+                className={`gt-confirm-btn ${confirmDialog === 'clear' ? 'gt-confirm-danger' : 'gt-confirm-primary'}`}
+                onClick={() => {
+                  if (confirmDialog === 'clear') onClear?.();
+                  else onResetNodes?.();
+                  setConfirmDialog(null);
+                }}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

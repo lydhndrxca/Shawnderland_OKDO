@@ -11,11 +11,13 @@
 ## Run Entrypoint
 
 ```
-run.bat
+run-desktop.bat
 ```
 
-Checks for Node.js, installs dependencies if needed, clears port 3000,
-starts `npm run dev`, waits for server, opens browser.
+Desktop-only mode via Electron. Checks for Node.js, installs dependencies
+if needed, starts `npm run dev` and launches the Electron shell.
+`npm run dev` / `npm run build` still work for development (Electron uses
+them internally).
 
 ## Environment Variables
 
@@ -32,6 +34,7 @@ See `.env.example` for all required/optional variables.
 | `HITEM3D_ACCESS_KEY` | No | Hitem3D 3D generation access key |
 | `HITEM3D_SECRET_KEY` | No | Hitem3D 3D generation secret key |
 | `ELEVENLABS_API_KEY` | No | ElevenLabs TTS, SFX, voice cloning |
+| `BLENDER_PATH` | No | Path to Blender executable for headless 3D processing |
 | `SESSIONS_DIR` | No | Filesystem session storage (default: `saved-sessions/`) |
 | `CHARACTER_OUTPUT_DIR` | No | Character image output (default: `character-output/`) |
 | `OLLAMA_HOST` | No | Ollama server URL for local LoRA models (default: `http://localhost:11434`) |
@@ -103,6 +106,12 @@ packages/
   pera/                         @shawnderland/pera — Joe Pera writer agent
     (same structure as serling/)
   training-env/                 Shared Python venv (Unsloth, transformers, torch, PEFT)
+
+scripts/
+  blender/
+    scale_model.py              Blender headless: scale GLB to target UE dimensions
+    gen_collision.py            Blender headless: generate UE5 collision (UCX_ convex hulls)
+    scale_surface.py            Blender headless: scale selected face region to target height
 
 src/app/
   page.tsx                      Root page (App Router)
@@ -184,6 +193,8 @@ src/app/
         MeshyImageTo3DNode.tsx          Meshy image-to-3D (single/multi-image)
         MeshyModelViewerNode.tsx        3D viewer (Three.js/R3F) with proxy GLB loading
         Hitem3DImageTo3DNode.tsx        Hitem3D image-to-3D with full parameter control
+        DesignSpecNode.tsx              UE5 dimension presets + designer notes (PropLab)
+        UE3DViewerNode.tsx              Dimension-aware 3D viewer with Blender tools (PropLab)
         ThreeDNodes.css                 Shared 3D node styles
         index.ts                        Barrel export
       nodes/audio/                      Audio generation nodes
@@ -246,8 +257,9 @@ src/app/
     UILabShell.tsx              Lab shell with tool tabs
     components/                 Generate, extract, remove, plan panels
 
-  api/                          Next.js API routes (18 routes)
+  api/                          Next.js API routes (19 routes)
     ai-embed/route.ts           Gemini embedding proxy (gemini-embedding-001)
+    blender-process/route.ts    Blender headless processing (scale, collision, surface scaling)
     ai-generate/route.ts        Server-side proxy for Google AI Studio / Vertex AI
     ai-local/route.ts           Ollama local model proxy (GET models, POST generate)
     ai-status/route.ts          API key availability check
@@ -507,6 +519,25 @@ The 3D viewer (`MeshyModelViewerNode`) uses Three.js / React Three Fiber /
 Drei with a `ViewerErrorBoundary` for graceful error handling. GLB models are
 fetched through the server proxy and rendered from local `blob:` URLs to
 bypass CORS and signed URL expiration.
+
+### PropLab UE5 3D Pipeline
+
+PropLab includes a dimension-aware 3D pipeline for level design props:
+
+| Node | Purpose |
+|------|---------|
+| Design Spec (`DesignSpecNode`) | UE5 dimension presets (standing cover, crouch cover, etc.), H/W/D inputs, designer notes |
+| UE5 3D Viewer (`UE3DViewerNode`) | Dimension-aware viewer with grid, target box overlay, face painting, Blender scaling & collision |
+
+The pipeline flow: PropView → DesignSpec → Meshy/Hitem3D → UE5 3D Viewer.
+
+Blender headless integration (`/api/blender-process`) provides:
+- **Scale**: Resize model to exact UE dimensions
+- **Collision**: Generate UE5-compatible convex collision (UCX_ prefix, ≤256 verts per hull)
+- **Scale Surface**: Adjust selected face regions to a target height
+
+Blender Python scripts live in `scripts/blender/`. The Blender executable
+path is configured in Global Settings (`blenderPath`).
 
 ## Audio Generation Subsystem
 

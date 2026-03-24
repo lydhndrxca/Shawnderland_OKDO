@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore, useCallback } from "react";
+import { useState, useEffect, useSyncExternalStore, useCallback } from "react";
 import {
   Palette,
   Brain,
@@ -89,6 +89,12 @@ export function Sidebar({
   const { activePath } = useWorkspace();
   const [filesOpen, setFilesOpen] = useState(false);
   const [conceptLabOpen, setConceptLabOpen] = useState(() => activePath.startsWith("/concept-lab"));
+
+  useEffect(() => {
+    if (activePath.startsWith("/concept-lab") && !conceptLabOpen) {
+      setConceptLabOpen(true);
+    }
+  }, [activePath]); // eslint-disable-line react-hooks/exhaustive-deps
   const profile = useProfile();
   const visibleTools = getVisibleTools(TOOLS, profile);
 

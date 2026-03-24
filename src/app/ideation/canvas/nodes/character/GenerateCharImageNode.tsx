@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useCallback, useState, useRef, useEffect } from 'react';
-import { Handle, Position, useReactFlow } from '@xyflow/react';
+import { Handle, Position, useReactFlow, useStore } from '@xyflow/react';
 import {
   buildCharacterDescription,
   buildCharacterViewPrompt,
@@ -48,6 +48,7 @@ const ASPECT_RATIOS = [
 interface ContentRef {
   image: GeneratedImage;
   callout: string;
+  refLetter?: string;
 }
 
 function buildCostumeBriefFromData(d: Record<string, unknown>): string {
@@ -186,8 +187,9 @@ function gatherInputs(
       if (useImgs && hasImgs) styleImages.push(...imgs!);
     } else if (src.type === 'charRefCallout') {
       const callout = (d.calloutText as string) || 'incorporate this item';
+      const letter = (d.refLetter as string) || undefined;
       const refEdges = edges.filter((re) => re.target === src.id);
-      devLog(`[gatherInputs] RefCallout "${callout}" — ${refEdges.length} incoming edges to callout node`);
+      devLog(`[gatherInputs] RefCallout "${callout}" (Ref ${letter ?? '?'}) — ${refEdges.length} incoming edges to callout node`);
       let foundImage: GeneratedImage | null = null;
       for (const re of refEdges) {
         const refSrc = getNode(re.source);
@@ -203,7 +205,7 @@ function gatherInputs(
       }
       if (foundImage) {
         devLog(`[gatherInputs]   ✓ RefCallout image found (${(foundImage.base64.length / 1024).toFixed(0)}KB), callout="${callout}"`);
-        contentRefs.push({ image: foundImage, callout });
+        contentRefs.push({ image: foundImage, callout, refLetter: letter });
       } else {
         devWarn(`[gatherInputs]   ✗ RefCallout image NOT found for "${callout}"`);
       }
@@ -409,6 +411,23 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
     side: (data?.orthoSide as boolean) ?? true,
   });
 
+  const [refToggles, setRefToggles] = useState<Record<string, boolean>>(
+    (data?.refToggles as Record<string, boolean>) ?? {},
+  );
+
+  const connectedRefLetters = useStore((state) => {
+    const edges = state.edges.filter((e) => e.target === id);
+    const letters: string[] = [];
+    for (const e of edges) {
+      const src = state.nodes.find((n) => n.id === e.source);
+      if (src?.type === 'charRefCallout' || src?.type === 'propRefCallout') {
+        const letter = (src.data as Record<string, unknown>)?.refLetter as string;
+        if (letter) letters.push(letter);
+      }
+    }
+    return letters.sort();
+  });
+
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
@@ -419,6 +438,25 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
       nds.map((n) => n.id === id ? { ...n, data: { ...n.data, ...updates } } : n),
     );
   }, [id, setNodes]);
+
+  useEffect(() => {
+    if (connectedRefLetters.length === 0) return;
+    setRefToggles((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const l of connectedRefLetters) {
+        if (next[l] === undefined) { next[l] = true; changed = true; }
+      }
+      for (const k of Object.keys(next)) {
+        if (!connectedRefLetters.includes(k)) { delete next[k]; changed = true; }
+      }
+      return changed ? next : prev;
+    });
+  }, [connectedRefLetters]);
+
+  useEffect(() => {
+    persist({ refToggles: refToggles });
+  }, [refToggles, persist]);
 
   useEffect(() => {
     persist({
@@ -447,9 +485,13 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
       anim.markEdgesFrom(id, true);
 
       const inputs = gatherInputs(id, getNode, getEdges);
-      const { identity, attributes, styleText, styleImages, contentRefs, projectName, outputDir, bibleContext, lockConstraints, costumeBrief, fusionBrief, envBrief } = inputs;
+      const { identity, attributes, styleText, styleImages, projectName, outputDir, bibleContext, lockConstraints, costumeBrief, fusionBrief, envBrief } = inputs;
       let { description, pose } = inputs;
 
+      const contentRefs = inputs.contentRefs.filter((r) => {
+        if (!r.refLetter) return true;
+        return refToggles[r.refLetter] !== false;
+      });
       const refImages = contentRefs.map((r) => r.image);
       const callouts = contentRefs.map((r) => r.callout);
 
@@ -600,11 +642,16 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
         const settled = await Promise.allSettled(
           Array.from({ length: count }, (_, i) => doGenerate(i)),
         );
-        gallery = settled
-          .filter((r): r is PromiseFulfilledResult<GeneratedImage[]> => r.status === 'fulfilled')
-          .map((r) => r.value[0])
-          .filter(Boolean);
+        const succeeded = settled.filter((r): r is PromiseFulfilledResult<GeneratedImage[]> => r.status === 'fulfilled');
+        const failed = settled.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+        if (failed.length > 0) {
+          console.warn(`[Generate] ${failed.length}/${count} batch calls failed:`, failed.map(f => f.reason));
+        }
+        gallery = succeeded
+          .map((r) => r.value?.[0])
+          .filter((img): img is GeneratedImage => !!img?.base64);
         if (gallery.length === 0) throw new Error('All generation attempts failed');
+        console.log(`%c[Generate] Batch complete: ${gallery.length}/${count} succeeded`, 'color: #4caf50; font-weight: bold');
       } else {
         const result = await doGenerate();
         gallery = result.slice(0, 1);
@@ -630,8 +677,11 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
         }),
       );
 
-      autoSaveImage(mainImage, 'main_stage', projectName, outputDir || undefined)
-        .then((r) => { if (!r.ok) devWarn('[auto-save]', r.error); });
+      gallery.forEach((img, idx) => {
+        const viewName = gallery.length > 1 ? `main_stage_v${idx + 1}` : 'main_stage';
+        autoSaveImage(img, viewName, projectName, outputDir || undefined)
+          .then((r) => { if (!r.ok) devWarn('[auto-save]', r.error); });
+      });
 
       const { mainViewerIds, viewHubToggles: hubToggles } = findDownstreamViewersAndHub(id, getNode, getEdges);
       const mergedToggles: ViewHubToggles = {
@@ -686,7 +736,7 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
       );
       anim.clearAll();
     }
-  }, [id, getNode, getEdges, setNodes, setEdges, imgDef, mmDef, aspectRatio, orthoToggles]);
+  }, [id, getNode, getEdges, setNodes, setEdges, imgDef, mmDef, aspectRatio, orthoToggles, refToggles]);
 
   return (
     <div className={`char-node ${selected ? 'selected' : ''} ${generating ? 'char-node-processing' : ''}`}
@@ -804,6 +854,39 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
             );
           })}
         </div>
+
+        {connectedRefLetters.length > 0 && (
+          <div style={{ display: 'flex', gap: 4, justifyContent: 'center', flexWrap: 'wrap' }}>
+            {connectedRefLetters.map((letter) => {
+              const active = refToggles[letter] !== false;
+              return (
+                <button
+                  key={letter}
+                  type="button"
+                  className="nodrag"
+                  disabled={generating}
+                  onClick={() => {
+                    const next = { ...refToggles, [letter]: !active };
+                    setRefToggles(next);
+                    persist({ refToggles: next });
+                  }}
+                  style={{
+                    flex: '0 0 auto', minWidth: 40, height: 24, padding: '0 8px', fontSize: 9, fontWeight: 600,
+                    background: active ? '#26a69a' : 'transparent',
+                    border: `1px solid ${active ? '#26a69a' : '#555'}`,
+                    borderRadius: 3,
+                    color: active ? '#000' : '#777',
+                    cursor: generating ? 'default' : 'pointer',
+                    opacity: generating ? 0.5 : 1,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  Ref {letter}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {generating && <div className="char-progress">{progress || 'Creating character...'}</div>}
         {error && <div className="char-error">{error}</div>}

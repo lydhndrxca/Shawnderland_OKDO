@@ -1,10 +1,13 @@
 "use client";
 
-import { memo, useCallback, useState } from 'react';
-import { Handle, Position, useReactFlow } from '@xyflow/react';
+import { memo, useCallback, useState, useEffect } from 'react';
+import { Handle, Position, useReactFlow, useStore } from '@xyflow/react';
 import type { GeneratedImage } from '@/lib/ideation/engine/conceptlab/imageGenApi';
 import '../character/CharacterNodes.css';
 import './PropLabNodes.css';
+
+const REF_TYPES = new Set(['charRefCallout', 'propRefCallout']);
+const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 interface Props {
   id: string;
@@ -15,6 +18,30 @@ interface Props {
 function PropRefCalloutNodeInner({ id, data, selected }: Props) {
   const { setNodes, getNode, getEdges } = useReactFlow();
   const [calloutText, setCalloutText] = useState((data?.calloutText as string) ?? '');
+
+  useEffect(() => {
+    const external = (data?.calloutText as string) ?? '';
+    if (external !== calloutText) setCalloutText(external);
+  }, [data?.calloutText]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const refLetter = useStore((state) => {
+    const refNodes = state.nodes
+      .filter((n) => REF_TYPES.has(n.type ?? ''))
+      .sort((a, b) => {
+        if (a.position.y !== b.position.y) return a.position.y - b.position.y;
+        return a.position.x - b.position.x;
+      });
+    const idx = refNodes.findIndex((n) => n.id === id);
+    return idx >= 0 ? LETTERS[idx % LETTERS.length] : 'A';
+  });
+
+  useEffect(() => {
+    if (data?.refLetter !== refLetter) {
+      setNodes((nds) =>
+        nds.map((n) => n.id === id ? { ...n, data: { ...n.data, refLetter } } : n),
+      );
+    }
+  }, [refLetter, id, data?.refLetter, setNodes]);
 
   const persist = useCallback(
     (updates: Record<string, unknown>) => {
@@ -41,7 +68,7 @@ function PropRefCalloutNodeInner({ id, data, selected }: Props) {
   return (
     <div className={`char-node ${selected ? 'selected' : ''}`}>
       <div className="char-node-header" style={{ background: '#26a69a' }}>
-        Prop Reference Callout
+        Prop Reference Callout {refLetter}
       </div>
       <div className="char-node-body">
         <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0 }}>

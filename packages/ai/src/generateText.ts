@@ -7,7 +7,20 @@
 const PROXY_URL = "/api/ai-generate";
 const DEFAULT_TIMEOUT_MS = 180_000;
 
+let _overrideApiKey: string | null = null;
+
+/**
+ * Explicitly set the API key used for all Gemini requests from this package.
+ * Call this from host apps that have their own settings management (e.g.
+ * WritingShell subscribing to useGlobalSettings) to keep the key in sync
+ * without relying solely on the localStorage read.
+ */
+export function setApiKey(key: string | null) {
+  _overrideApiKey = key || null;
+}
+
 function getStoredApiKey(): string {
+  if (_overrideApiKey) return _overrideApiKey;
   try {
     const raw = typeof localStorage !== 'undefined'
       ? localStorage.getItem('shawnderland-global-settings')

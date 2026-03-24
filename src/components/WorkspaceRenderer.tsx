@@ -40,6 +40,7 @@ const GenerateImageShell = dynamic(
   { ssr: false }
 );
 
+
 function HomeContent() {
   return <HomePage />;
 }

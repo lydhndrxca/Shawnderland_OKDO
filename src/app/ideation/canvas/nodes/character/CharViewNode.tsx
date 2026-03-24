@@ -729,7 +729,10 @@ function CharViewNodeInner({ id, data, selected }: Props) {
     [isMain, id],
   );
   const orthoTriggerRaw = useStore(orthoTriggerSelector);
-  const orthoTriggerParsed = orthoTriggerRaw ? JSON.parse(orthoTriggerRaw) as { t: number; h: Record<string, boolean> | null } : null;
+  let orthoTriggerParsed: { t: number; h: Record<string, boolean> | null } | null = null;
+  if (orthoTriggerRaw) {
+    try { orthoTriggerParsed = JSON.parse(orthoTriggerRaw); } catch { /* corrupt data — ignore */ }
+  }
   const orthoTrigger = orthoTriggerParsed?.t ?? null;
   const viewHubToggles = orthoTriggerParsed?.h ?? null;
 
@@ -867,6 +870,10 @@ function CharViewNodeInner({ id, data, selected }: Props) {
   const [editStatus, setEditStatus] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [editElapsed, setEditElapsed] = useState(0);
+  const [editRefImages, setEditRefImages] = useState<GeneratedImage[]>(
+    (data?.editRefImages as GeneratedImage[]) ?? [],
+  );
+  const editRefFileRef = useRef<HTMLInputElement>(null);
   const graphModel: GeminiImageModel = getMultimodalModelFromGraph(getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>) ?? 'gemini-flash-image';
   const [editModel, setEditModel] = useState<GeminiImageModel>(
     (data?.editModel as GeminiImageModel) ?? graphModel,
@@ -877,6 +884,53 @@ function CharViewNodeInner({ id, data, selected }: Props) {
   const editModelDef = MULTIMODAL_MODELS.find((m) => m.apiId === editModel) ?? MULTIMODAL_MODELS[0];
   const displayAspect = getAspectRatioFromGraph(getNodes as () => Array<{ id: string; type?: string; data: Record<string, unknown> }>);
   const editTimerRef = useRef<ReturnType<typeof setInterval>>(undefined);
+
+  const addEditRef = useCallback((img: GeneratedImage) => {
+    setEditRefImages((prev) => {
+      const next = [...prev, img];
+      setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, editRefImages: next } } : n));
+      return next;
+    });
+  }, [id, setNodes]);
+
+  const removeEditRef = useCallback((idx: number) => {
+    setEditRefImages((prev) => {
+      const next = prev.filter((_, i) => i !== idx);
+      setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, editRefImages: next } } : n));
+      return next;
+    });
+  }, [id, setNodes]);
+
+  const handleEditRefFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(',')[1];
+      addEditRef({ base64, mimeType: file.type || 'image/png' });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  }, [addEditRef]);
+
+  const handlePasteEditRef = useCallback(async () => {
+    try {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const imgType = item.types.find((t) => t.startsWith('image/'));
+        if (imgType) {
+          const blob = await item.getType(imgType);
+          const reader = new FileReader();
+          reader.onload = () => {
+            const b64 = (reader.result as string).split(',')[1];
+            addEditRef({ base64: b64, mimeType: imgType });
+          };
+          reader.readAsDataURL(blob);
+          return;
+        }
+      }
+    } catch { /* clipboard unavailable */ }
+  }, [addEditRef]);
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
@@ -949,10 +1003,22 @@ function CharViewNodeInner({ id, data, selected }: Props) {
           : base.length === 1 ? base[0] : base;
       }
 
+      if (editRefImages.length > 0) {
+        const arr = Array.isArray(refImages) ? refImages : [refImages];
+        refImages = [...arr, ...editRefImages];
+      }
+
       if (upstreamCtx.styleImages.length > 0) {
-        const charCount = Array.isArray(refImages) ? refImages.length - upstreamCtx.styleImages.length : 1;
+        const charCount = Array.isArray(refImages) ? refImages.length - upstreamCtx.styleImages.length - editRefImages.length : 1;
         const styleStart = charCount + 1;
         prompt += `\n\nIMAGE LAYOUT: Images 1–${charCount} are CHARACTER REFERENCES (edit these). Images ${styleStart}–${charCount + upstreamCtx.styleImages.length} are STYLE REFERENCES — maintain this visual style. Do NOT copy characters/scenes from style refs.`;
+      }
+
+      if (editRefImages.length > 0) {
+        const totalImgs = Array.isArray(refImages) ? refImages.length : 1;
+        const editStart = totalImgs - editRefImages.length + 1;
+        const editEnd = totalImgs;
+        prompt += `\n\nEDIT REFERENCE IMAGES: Images ${editStart}–${editEnd} are EDIT REFERENCES. Use them as visual context for the requested edit. They show the target look, object, or detail to incorporate.`;
       }
 
       if (upstreamCtx.text) {
@@ -961,7 +1027,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
 
       prompt += '\n\nFINAL REMINDER: Output must have the IDENTICAL zoom level, camera distance, and field of view as the source image. Do NOT zoom in. Do NOT crop tighter. If the source shows full body head-to-toe, the output MUST also show full body head-to-toe.';
 
-      console.log(`%c[CharView:${viewKey}] Edit: ${Array.isArray(refImages) ? refImages.length : 1} ref imgs (${upstreamCtx.styleImages.length} style)`, 'color: #ff9800; font-weight: bold');
+      console.log(`%c[CharView:${viewKey}] Edit: ${Array.isArray(refImages) ? refImages.length : 1} ref imgs (${upstreamCtx.styleImages.length} style, ${editRefImages.length} edit refs)`, 'color: #ff9800; font-weight: bold');
       devLog(`[CharView:${viewKey}] editing image (${Array.isArray(refImages) ? refImages.length + ' images' : (srcImage.base64.length / 1024).toFixed(0) + 'KB'})...`);
 
       const modelLabel = GEMINI_IMAGE_MODELS[editModel]?.label ?? editModel;
@@ -1044,10 +1110,11 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         setEditElapsed(0);
       }
     }
-  }, [viewImage, editText, editBusy, viewKey, id, isMain, isCustom, customLabel, cfg, getNode, getNodes, getEdges, setNodes, pushHistory, editModel, autoSaveViewImage]);
+  }, [viewImage, editText, editBusy, editRefImages, viewKey, id, isMain, isCustom, customLabel, cfg, getNode, getNodes, getEdges, setNodes, pushHistory, editModel, autoSaveViewImage]);
 
   // ── Restore Quality (inline — two-step: describe then regenerate fresh) ──
   const [restoreBusy, setRestoreBusy] = useState(false);
+  const [restoreCount, setRestoreCount] = useState<number>((data?.restoreCount as number) ?? 1);
   const handleRestore = useCallback(async () => {
     const srcImage = viewImage;
     if (!srcImage || restoreBusy || editBusy) return;
@@ -1064,25 +1131,62 @@ function CharViewNodeInner({ id, data, selected }: Props) {
     const session = registerRequest();
 
     try {
-      const { image: restored } = await restoreImageQuality(srcImage, {
-        onStatus: (msg) => { if (mountedRef.current) setEditStatus(msg); },
-      });
+      const contextHint = editText.trim() || undefined;
+      const count = Math.max(1, restoreCount);
 
-      if (!mountedRef.current || session.signal.aborted) return;
+      if (count > 1) {
+        setEditStatus(`Restoring ${count} images…`);
+        const settled = await Promise.allSettled(
+          Array.from({ length: count }, () =>
+            restoreImageQuality(srcImage, {
+              context: contextHint,
+              onStatus: (msg) => { if (mountedRef.current) setEditStatus(msg); },
+            }),
+          ),
+        );
+        if (!mountedRef.current || session.signal.aborted) return;
+        const gallery = settled
+          .filter((r): r is PromiseFulfilledResult<{ image: GeneratedImage }> => r.status === 'fulfilled')
+          .map((r) => r.value.image)
+          .filter((img) => !!img?.base64);
+        if (gallery.length === 0) throw new Error('All restore attempts failed');
 
-      const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
-      setEditStatus(`Restored fresh in ${elapsed}s \u2713`);
+        const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+        setEditStatus(`Restored ${gallery.length} in ${elapsed}s \u2713`);
 
-      setEditedImage(restored);
-      setNodes((nds) =>
-        nds.map((n) =>
-          n.id === id ? { ...n, data: { ...n.data, generatedImage: restored } } : n,
-        ),
-      );
-      pushHistory(restored, `Restore (${elapsed}s)`);
+        setEditedImage(gallery[0]);
+        persistGallery(gallery, 0);
+        setNodes((nds) =>
+          nds.map((n) =>
+            n.id === id ? { ...n, data: { ...n.data, generatedImage: gallery[0] } } : n,
+          ),
+        );
+        for (const img of gallery) {
+          pushHistory(img, `Restore (${elapsed}s)${contextHint ? ` — ${contextHint.slice(0, 30)}` : ''}`);
+          autoSaveViewImage(img, viewKey, 'Restore quality');
+        }
+      } else {
+        const { image: restored } = await restoreImageQuality(srcImage, {
+          context: contextHint,
+          onStatus: (msg) => { if (mountedRef.current) setEditStatus(msg); },
+        });
+
+        if (!mountedRef.current || session.signal.aborted) return;
+
+        const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+        setEditStatus(`Restored fresh in ${elapsed}s \u2713`);
+
+        setEditedImage(restored);
+        setNodes((nds) =>
+          nds.map((n) =>
+            n.id === id ? { ...n, data: { ...n.data, generatedImage: restored } } : n,
+          ),
+        );
+        pushHistory(restored, `Restore (${elapsed}s)${contextHint ? ` — ${contextHint.slice(0, 30)}` : ''}`);
+        autoSaveViewImage(restored, viewKey, 'Restore quality');
+      }
+
       setTimeout(() => { if (mountedRef.current) setEditStatus(null); }, 4000);
-
-      autoSaveViewImage(restored, viewKey, 'Restore quality');
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (!msg.toLowerCase().includes('cancel') && !msg.toLowerCase().includes('abort')) {
@@ -1099,7 +1203,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
         setEditElapsed(0);
       }
     }
-  }, [viewImage, restoreBusy, editBusy, id, viewKey, setNodes, pushHistory, autoSaveViewImage]);
+  }, [viewImage, restoreBusy, editBusy, editText, restoreCount, id, viewKey, setNodes, pushHistory, autoSaveViewImage, persistGallery]);
 
   // ── Standard handlers ──
   const handleResetView = useCallback(() => {
@@ -1126,6 +1230,18 @@ function CharViewNodeInner({ id, data, selected }: Props) {
     },
     [id, setNodes, pushHistory],
   );
+
+  const handleClearImage = useCallback(() => {
+    setLocalImage(null);
+    setEditedImage(null);
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === id
+          ? { ...n, data: { ...n.data, generatedImage: null, localImage: null, editedImage: null } }
+          : n,
+      ),
+    );
+  }, [id, setNodes]);
 
   const handleOpenImage = useCallback(() => {
     fileRef.current?.click();
@@ -1594,6 +1710,7 @@ function CharViewNodeInner({ id, data, selected }: Props) {
               alt={displayLabel}
               onPasteImage={handlePasteImage}
               onResetView={handleResetView}
+              onClearImage={handleClearImage}
             >
               <img
                 key={viewImage.base64.slice(-40)}
@@ -1708,9 +1825,34 @@ function CharViewNodeInner({ id, data, selected }: Props) {
                   fontWeight: 600,
                   fontSize: 10,
                   flex: 1,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3,
                 }}
               >
-                {restoreBusy ? `${editElapsed}s\u2026` : 'Restore'}
+                {restoreBusy ? `${editElapsed}s\u2026` : (
+                  <>
+                    Restore{' '}
+                    <input
+                      type="number"
+                      min={1}
+                      value={restoreCount}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        const v = Math.max(1, parseInt(e.target.value) || 1);
+                        setRestoreCount(v);
+                        setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, restoreCount: v } } : n));
+                      }}
+                      className="nodrag"
+                      disabled={anyBusy}
+                      style={{
+                        width: 28, textAlign: 'center', padding: '0 2px', fontSize: 11, fontWeight: 700,
+                        background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(0,0,0,0.3)',
+                        borderRadius: 3, color: '#000', outline: 'none', lineHeight: '16px',
+                      }}
+                    />
+                    {' '}Image{restoreCount !== 1 ? 's' : ''}
+                  </>
+                )}
               </button>
             )}
           </div>
@@ -1852,6 +1994,70 @@ function CharViewNodeInner({ id, data, selected }: Props) {
               {editBusy ? `${editElapsed}s` : 'Enter'}
             </button>
           </div>
+          {/* ── Edit Reference Images ── */}
+          <div style={{ marginTop: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
+              <span style={{ fontSize: 9, color: '#888', fontWeight: 600 }}>Edit References</span>
+              <button
+                type="button"
+                className="nodrag"
+                onClick={() => editRefFileRef.current?.click()}
+                disabled={anyBusy}
+                style={{
+                  padding: '1px 6px', fontSize: 9, background: '#2a2a3c', border: '1px solid #555',
+                  borderRadius: 3, color: '#aaa', cursor: 'pointer',
+                }}
+              >
+                + Open
+              </button>
+              <button
+                type="button"
+                className="nodrag"
+                onClick={handlePasteEditRef}
+                disabled={anyBusy}
+                style={{
+                  padding: '1px 6px', fontSize: 9, background: '#2a2a3c', border: '1px solid #555',
+                  borderRadius: 3, color: '#aaa', cursor: 'pointer',
+                }}
+              >
+                Paste
+              </button>
+              <input ref={editRefFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleEditRefFile} />
+            </div>
+            {editRefImages.length > 0 && (
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {editRefImages.map((img, idx) => (
+                  <div key={idx} style={{ position: 'relative', width: 40, height: 40 }}>
+                    <img
+                      src={`data:${img.mimeType};base64,${img.base64}`}
+                      alt={`R${idx + 1}`}
+                      style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 3, border: '1px solid #555' }}
+                    />
+                    <span style={{
+                      position: 'absolute', bottom: 0, left: 0, right: 0,
+                      background: 'rgba(0,0,0,0.7)', fontSize: 8, color: '#fff',
+                      textAlign: 'center', borderRadius: '0 0 3px 3px', lineHeight: '14px',
+                    }}>
+                      R{idx + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeEditRef(idx)}
+                      style={{
+                        position: 'absolute', top: -4, right: -4, width: 14, height: 14,
+                        borderRadius: '50%', background: '#f44336', border: 'none',
+                        color: '#fff', fontSize: 8, lineHeight: '14px', textAlign: 'center',
+                        cursor: 'pointer', padding: 0,
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {!isMain && !mainStageImage && (
             <div style={{ fontSize: 9, color: '#ff9800', marginTop: 2, opacity: 0.8 }}>
               Edits will work without Main Stage context, but results are better with one.

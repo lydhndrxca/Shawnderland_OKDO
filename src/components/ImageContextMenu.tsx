@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { getGlobalSettings } from '@/lib/globalSettings';
 import './ImageContextMenu.css';
@@ -17,6 +17,7 @@ interface ImageContextMenuProps {
   children?: React.ReactNode;
   onPasteImage?: (img: ImageData) => void;
   onResetView?: () => void;
+  onClearImage?: () => void;
 }
 
 interface MenuPosition {
@@ -42,14 +43,20 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function ImageContextMenu({ image, alt, className, children, onPasteImage, onResetView }: ImageContextMenuProps) {
+export function ImageContextMenu({ image, alt, className, children, onPasteImage, onResetView, onClearImage }: ImageContextMenuProps) {
   const [menu, setMenu] = useState<MenuPosition | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined) as MutableRefObject<ReturnType<typeof setTimeout> | undefined>;
+
+  useEffect(() => {
+    return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
+  }, []);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
-    setTimeout(() => setToast(null), 2000);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 2000);
   }, []);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -74,8 +81,21 @@ export function ImageContextMenu({ image, alt, className, children, onPasteImage
   const copyToClipboard = useCallback(async () => {
     setMenu(null);
     try {
-      const blob = dataUrlToBlob(image.base64, 'image/png');
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      const img = new Image();
+      const pngBlob = await new Promise<Blob>((resolve, reject) => {
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return reject(new Error('No 2d context'));
+          ctx.drawImage(img, 0, 0);
+          canvas.toBlob((b) => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/png');
+        };
+        img.onerror = reject;
+        img.src = `data:${image.mimeType};base64,${image.base64}`;
+      });
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
       showToast('Copied to clipboard');
     } catch {
       showToast('Copy failed — browser may not support clipboard write');
@@ -194,6 +214,11 @@ export function ImageContextMenu({ image, alt, className, children, onPasteImage
     onResetView?.();
   }, [onResetView]);
 
+  const clearImage = useCallback(() => {
+    setMenu(null);
+    onClearImage?.();
+  }, [onClearImage]);
+
   return (
     <div className={`icm-wrapper ${className ?? ''}`} onContextMenu={handleContextMenu}>
       {children ?? (
@@ -211,6 +236,14 @@ export function ImageContextMenu({ image, alt, className, children, onPasteImage
           style={{ position: 'fixed', left: menu.x, top: menu.y }}
           onClick={(e) => e.stopPropagation()}
         >
+          {onClearImage && (
+            <>
+              <button className="icm-item icm-item--danger" onClick={clearImage}>
+                <span className="icm-icon">🗑</span> Clear Image
+              </button>
+              <div className="icm-sep" />
+            </>
+          )}
           <button className="icm-item" onClick={copyToClipboard}>
             <span className="icm-icon">📋</span> Copy to Clipboard
           </button>

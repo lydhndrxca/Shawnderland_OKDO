@@ -28,6 +28,16 @@ export async function POST(req: NextRequest) {
   }
   const { action } = payload as { action: string };
 
+  /* ── Test connection ────────────────────────────────────────── */
+  if (action === 'test-connection') {
+    const res = await fetch(`${BASE}/v1/user`, { headers: authHeaders(API_KEY) });
+    if (res.ok) {
+      return NextResponse.json({ ok: true, message: 'ElevenLabs API key is valid.' });
+    }
+    const text = await res.text().catch(() => '');
+    return NextResponse.json({ ok: false, error: `ElevenLabs ${res.status}: ${text.slice(0, 200)}` }, { status: res.status });
+  }
+
   /* ── List voices ─────────────────────────────────────────────── */
   if (action === 'list-voices') {
     const res = await fetch(`${BASE}/v1/voices`, { headers: authHeaders(API_KEY) });

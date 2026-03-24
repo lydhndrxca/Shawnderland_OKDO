@@ -415,7 +415,7 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
     (data?.refToggles as Record<string, boolean>) ?? {},
   );
 
-  const connectedRefLetters = useStore((state) => {
+  const connectedRefLettersSig = useStore((state) => {
     const edges = state.edges.filter((e) => e.target === id);
     const letters: string[] = [];
     for (const e of edges) {
@@ -425,8 +425,9 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
         if (letter) letters.push(letter);
       }
     }
-    return letters.sort();
+    return letters.sort().join(',');
   });
+  const connectedRefLetters = connectedRefLettersSig ? connectedRefLettersSig.split(',') : [];
 
   useEffect(() => {
     mountedRef.current = true;
@@ -440,19 +441,20 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
   }, [id, setNodes]);
 
   useEffect(() => {
-    if (connectedRefLetters.length === 0) return;
+    if (!connectedRefLettersSig) return;
+    const letters = connectedRefLettersSig.split(',');
     setRefToggles((prev) => {
       const next = { ...prev };
       let changed = false;
-      for (const l of connectedRefLetters) {
+      for (const l of letters) {
         if (next[l] === undefined) { next[l] = true; changed = true; }
       }
       for (const k of Object.keys(next)) {
-        if (!connectedRefLetters.includes(k)) { delete next[k]; changed = true; }
+        if (!letters.includes(k)) { delete next[k]; changed = true; }
       }
       return changed ? next : prev;
     });
-  }, [connectedRefLetters]);
+  }, [connectedRefLettersSig]);
 
   useEffect(() => {
     persist({ refToggles: refToggles });

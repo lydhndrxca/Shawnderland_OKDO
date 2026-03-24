@@ -38,6 +38,7 @@ function RestoreStandaloneNodeInner({ id, data, selected }: Props) {
   const { getNode, setNodes, getEdges } = useReactFlow();
 
   const [busy, setBusy] = useState(false);
+  const [context, setContext] = useState<string>((data._restoreContext as string) ?? '');
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [examined, setExamined] = useState(false);
@@ -106,9 +107,11 @@ function RestoreStandaloneNodeInner({ id, data, selected }: Props) {
       let done = 0;
       setStatus(`Restoring 0/${inputImages.length}…`);
 
+      const trimmedCtx = context.trim();
       const settled = await Promise.allSettled(
         inputImages.map((img, i) =>
           restoreImageQuality(img, {
+            context: trimmedCtx || undefined,
             onStatus: (msg) => {
               if (mountedRef.current) setStatus(`[${i + 1}] ${msg} (${done}/${inputImages.length} done)`);
             },
@@ -159,7 +162,7 @@ function RestoreStandaloneNodeInner({ id, data, selected }: Props) {
       setBusy(false);
       setElapsed(0);
     }
-  }, [busy, id, getNode, getEdges, setNodes]);
+  }, [busy, context, id, getNode, getEdges, setNodes]);
 
   return (
     <div className={`util-node ${selected ? 'selected' : ''} ${busy ? 'util-node-processing' : ''}`}>
@@ -202,6 +205,23 @@ function RestoreStandaloneNodeInner({ id, data, selected }: Props) {
             <div style={{ fontSize: 11, color: '#ccc', textAlign: 'center' }}>
               {inputCount} image{inputCount !== 1 ? 's' : ''} — describe & regenerate pipeline
             </div>
+
+            <textarea
+              className="nodrag nopan nowheel"
+              value={context}
+              onChange={(e) => {
+                setContext(e.target.value);
+                setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, _restoreContext: e.target.value } } : n));
+              }}
+              placeholder="Context (e.g. &quot;Pixel art icons&quot;, &quot;16-bit game sprites&quot;)..."
+              rows={2}
+              style={{
+                width: '100%', padding: '5px 8px', fontSize: 11,
+                background: '#1a1a2e', border: '1px solid #444', borderRadius: 4,
+                color: '#eee', outline: 'none', resize: 'vertical', fontFamily: 'inherit',
+                minHeight: 36,
+              }}
+            />
 
             <button
               type="button"

@@ -584,6 +584,7 @@ export async function restoreImageQuality(
   opts: {
     imageWidth?: number;
     imageHeight?: number;
+    context?: string;
     onStatus?: (msg: string) => void;
   } = {},
 ): Promise<RestoreResult> {
@@ -597,27 +598,31 @@ export async function restoreImageQuality(
     ? detectAspectRatio(opts.imageWidth, opts.imageHeight)
     : '3:4';
 
+  const userContext = opts.context?.trim();
+  const contextBlock = userContext
+    ? `\nIMPORTANT CONTEXT: The source is "${userContext}". You MUST preserve this art style exactly — ` +
+      'if these are pixel art, keep hard pixel edges and limited palette; if these are game UI icons, keep flat colors and sharp silhouettes; ' +
+      'if these are screenshots, restore to the native rendering style. Do NOT smooth, anti-alias, or photorealize stylistic features that are intentional.\n\n'
+    : '';
+
   const prompt =
-    'QUALITY RESTORATION — RECREATE THIS EXACT CHARACTER AT MAXIMUM FIDELITY.\n\n' +
+    'QUALITY RESTORATION — RECREATE THIS EXACT IMAGE AT MAXIMUM FIDELITY.\n\n' +
     'The reference image has suffered quality degradation (blur, artifacts, noise, compression). ' +
-    'Your job: recreate this SAME EXACT PERSON in the SAME EXACT POSE with the SAME EXACT OUTFIT — but rendered fresh with full resolution detail.\n\n' +
+    'Your job: recreate this SAME EXACT subject in the SAME EXACT composition — but rendered fresh with full resolution detail.\n\n' +
+    contextBlock +
     'WHAT MUST STAY IDENTICAL:\n' +
-    '• Same person — same face, same expression, same skin tone, same hair\n' +
-    '• Same pose — same weight distribution, same arm/hand/leg positions, same head tilt, same gaze\n' +
-    '• Same outfit — same garments, same colors, same layering, same fit\n' +
-    '• Same accessories — same items in same positions\n' +
+    '• Same subject — same content, same composition, same colors\n' +
+    '• Same pose / layout — same spatial arrangement, same framing\n' +
+    '• Same art style — same rendering technique, same visual language\n' +
     '• Same camera angle and framing\n' +
-    '• Same proportions and body type\n\n' +
+    '• Same proportions\n\n' +
     'WHAT MUST BE FRESHLY RENDERED AT FULL QUALITY:\n' +
-    '• SKIN: Natural pores, subsurface scattering, clean tone — no muddy patches or blotchy areas\n' +
-    '• MATERIALS: Leather shows real grain and sheen. Metal is properly reflective. Fabric has visible weave and natural drape. Everything has correct specular response\n' +
     '• EDGES: All edges crisp and clean — no blur halos, no ringing, no smearing\n' +
-    '• HAIR: Individual strand definition, natural flow, proper highlights\n' +
-    '• BACKGROUND: Clean solid neutral grey — smooth gradient-free, no artifacts from the original\n' +
-    '• LIGHTING: Proper studio lighting — soft key, gentle fill, subtle rim light for depth\n' +
+    '• MATERIALS: Proper surface detail appropriate to the art style\n' +
+    '• BACKGROUND: Clean — no artifacts from the original\n' +
     '• ZERO artifacts, noise, banding, blur, or compression anywhere in the image\n' +
     '• ZERO TEXT — do NOT render any text, letters, numbers, hex codes, color codes, logos, labels, or watermarks anywhere in the image\n\n' +
-    'DETAILED CHARACTER DESCRIPTION (recreate this exactly):\n' + description;
+    'DETAILED DESCRIPTION (recreate this exactly):\n' + description;
 
   onStatus?.('Recreating at max quality (Nano Banana 2)…');
   const results = await generateWithGeminiRef(

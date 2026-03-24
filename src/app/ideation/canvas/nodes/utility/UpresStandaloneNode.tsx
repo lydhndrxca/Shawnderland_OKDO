@@ -41,6 +41,7 @@ function UpresStandaloneNodeInner({ id, data, selected }: Props) {
   const [factor, setFactor] = useState<UpscaleFactor>(
     (data._upresFactor as UpscaleFactor) ?? 'x2',
   );
+  const [context, setContext] = useState<string>((data._upresContext as string) ?? '');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -117,9 +118,14 @@ function UpresStandaloneNodeInner({ id, data, selected }: Props) {
       let done = 0;
       setStatus(`Upscaling 0/${inputImages.length}…`);
 
+      const trimmedCtx = context.trim();
+      const contextPrompt = trimmedCtx
+        ? `Reproduce this exact image at higher resolution. CONTEXT: These are "${trimmedCtx}". Preserve the original art style, pixel density, and visual characteristics exactly — only increase clarity and detail fidelity. Do not smooth, blur, or anti-alias stylistic features that are intentional (e.g. hard pixel edges in pixel art). Preserve every detail, color, texture, and composition exactly as-is.`
+        : '';
+
       const settled = await Promise.allSettled(
         inputImages.map((img) =>
-          upscaleWithImagen(img, factor).then((result) => {
+          upscaleWithImagen(img, factor, contextPrompt).then((result) => {
             done++;
             if (mountedRef.current) setStatus(`Upscaled ${done}/${inputImages.length}…`);
             return result;
@@ -166,7 +172,7 @@ function UpresStandaloneNodeInner({ id, data, selected }: Props) {
       setBusy(false);
       setElapsed(0);
     }
-  }, [busy, factor, id, getNode, getEdges, setNodes]);
+  }, [busy, factor, context, id, getNode, getEdges, setNodes]);
 
   return (
     <div className={`util-node ${selected ? 'selected' : ''} ${busy ? 'util-node-processing' : ''}`}>
@@ -220,6 +226,23 @@ function UpresStandaloneNodeInner({ id, data, selected }: Props) {
               {factor === 'x3' && 'Up to ~9 MP output'}
               {factor === 'x4' && 'Up to 17 MP output'}
             </div>
+
+            <textarea
+              className="nodrag nopan nowheel"
+              value={context}
+              onChange={(e) => {
+                setContext(e.target.value);
+                setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, _upresContext: e.target.value } } : n));
+              }}
+              placeholder="Context (e.g. &quot;Pixel art icons&quot;, &quot;Game UI screenshots&quot;)..."
+              rows={2}
+              style={{
+                width: '100%', padding: '5px 8px', fontSize: 11,
+                background: '#1a1a2e', border: '1px solid #444', borderRadius: 4,
+                color: '#eee', outline: 'none', resize: 'vertical', fontFamily: 'inherit',
+                minHeight: 36,
+              }}
+            />
 
             <button
               type="button"

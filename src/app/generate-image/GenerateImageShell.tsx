@@ -64,6 +64,9 @@ export default function GenerateImageShell() {
   const [viewIndex, setViewIndex] = useState(0);
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState("");
+  const [completedCount, setCompletedCount] = useState(0);
+  const [genStartTime, setGenStartTime] = useState<number | null>(null);
+  const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -76,6 +79,14 @@ export default function GenerateImageShell() {
     ? `${customW}\u00d7${customH}`
     : selectedModel.maxRes[aspectPreset] ?? "—";
 
+  /* ── Elapsed timer ── */
+
+  useEffect(() => {
+    if (!genStartTime) return;
+    const tick = setInterval(() => setElapsed(Date.now() - genStartTime), 250);
+    return () => clearInterval(tick);
+  }, [genStartTime]);
+
   /* ── Generate ── */
 
   const handleGenerate = useCallback(async () => {
@@ -85,6 +96,9 @@ export default function GenerateImageShell() {
     }
     setGenerating(true);
     setError(null);
+    setCompletedCount(0);
+    setGenStartTime(Date.now());
+    setElapsed(0);
     setProgress(`Generating 0 of ${batchCount}...`);
 
     const newImages: string[] = [];
@@ -116,6 +130,7 @@ export default function GenerateImageShell() {
         setError((prev) => (prev ? `${prev}\n${msg}` : msg));
       } finally {
         completed++;
+        setCompletedCount(completed);
         setProgress(`Generating ${completed} of ${batchCount}...`);
       }
     });
@@ -131,6 +146,7 @@ export default function GenerateImageShell() {
     }
 
     setGenerating(false);
+    setGenStartTime(null);
     setProgress(newImages.length > 0 ? `Done \u2014 ${newImages.length} image(s)` : "No images returned");
   }, [prompt, batchCount, selectedModel, effectiveAspect]);
 
@@ -454,6 +470,16 @@ export default function GenerateImageShell() {
             />
           )}
         </div>
+
+        {/* Status bar */}
+        {generating && (
+          <StatusBar
+            completedCount={completedCount}
+            totalCount={batchCount}
+            elapsed={elapsed}
+            modelLabel={selectedModel.label}
+          />
+        )}
       </div>
     </div>
   );
@@ -563,6 +589,77 @@ function ToolbarSep() {
       className="h-4 w-px mx-0.5 shrink-0"
       style={{ background: "var(--color-border)" }}
     />
+  );
+}
+
+function StatusBar({
+  completedCount,
+  totalCount,
+  elapsed,
+  modelLabel,
+}: {
+  completedCount: number;
+  totalCount: number;
+  elapsed: number;
+  modelLabel: string;
+}) {
+  const pct = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+  const secs = Math.floor(elapsed / 1000);
+  const mins = Math.floor(secs / 60);
+  const timeStr = mins > 0 ? `${mins}m ${secs % 60}s` : `${secs}s`;
+
+  return (
+    <div
+      className="shrink-0 border-t px-3 py-1.5 flex items-center gap-3"
+      style={{
+        borderColor: "var(--color-border)",
+        background: "var(--color-surface)",
+      }}
+    >
+      {/* Animated spinner */}
+      <div className="relative h-3.5 w-3.5 shrink-0">
+        <div
+          className="absolute inset-0 rounded-full"
+          style={{
+            border: "2px solid var(--color-border)",
+            borderTopColor: "var(--color-tool-concept)",
+            animation: "spin 0.8s linear infinite",
+          }}
+        />
+      </div>
+
+      {/* Progress bar */}
+      <div
+        className="flex-1 h-1.5 rounded-full overflow-hidden"
+        style={{ background: "var(--color-elevated)" }}
+      >
+        <div
+          className="h-full rounded-full transition-[width] duration-300"
+          style={{
+            width: `${pct}%`,
+            background: "var(--color-tool-concept)",
+            boxShadow: "0 0 6px var(--color-tool-concept)",
+          }}
+        />
+      </div>
+
+      {/* Stats */}
+      <span className="text-[10px] font-mono shrink-0" style={{ color: "var(--color-text-muted)" }}>
+        {completedCount}/{totalCount}
+      </span>
+      <span className="text-[10px] font-mono shrink-0" style={{ color: "var(--color-text-muted)" }}>
+        {timeStr}
+      </span>
+      <span className="text-[10px] shrink-0 truncate max-w-[10rem]" style={{ color: "var(--color-text-muted)" }}>
+        {modelLabel}
+      </span>
+
+      <style jsx>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>
   );
 }
 

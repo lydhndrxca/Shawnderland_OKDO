@@ -115,8 +115,10 @@ export function WorkspaceRenderer() {
             key={key}
             className="absolute inset-0"
             style={{
-              display: isActive ? "block" : "none",
-              overflowY: "auto",
+              visibility: isActive ? "visible" : "hidden",
+              pointerEvents: isActive ? "auto" : "none",
+              zIndex: isActive ? 1 : 0,
+              overflowY: isActive ? "auto" : "hidden",
             }}
           >
             {resolveRoute(path)}

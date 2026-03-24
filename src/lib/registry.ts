@@ -117,27 +117,27 @@ export const TOOLS: ToolRegistryEntry[] = [
     mode: "web",
     profiles: ["personal"],
   },
-  // ── 6. AI UILab (sub-app of ConceptLab) ─────────────────────────────
+  // ── 6. AI Generate Image (sub-app of ConceptLab) ───────────────────
   {
-    id: "ui-lab",
-    name: "AI UILab",
-    tagline: "Game UI asset generation",
+    id: "generate-image",
+    name: "AI Generate Image",
+    tagline: "Raw Gemini & Imagen image generation",
     description:
-      "Generate game UI icons, HUD layouts, ROMZ sticker art, and map icons. Extract icon specs, apply style transfer from references, and finalize with chroma key to transparent PNG — all on a node-based canvas.",
-    icon: "layout",
-    href: "/concept-lab/uilab",
+      "Generate images with all available Gemini and Imagen models. Choose dimensions, batch-generate concurrently, and browse results with full zoom/pan viewer.",
+    icon: "sparkles",
+    href: "/concept-lab/generate-image",
     baseUrl: "",
-    accentColor: "var(--color-tool-ui)",
-    accentDim: "var(--color-tool-ui-dim)",
+    accentColor: "var(--color-tool-concept)",
+    accentDim: "var(--color-tool-concept-dim)",
     features: [
-      "13 generation intents",
-      "Style transfer",
-      "Chroma key finalization",
-      "Icon spec extraction",
+      "All Gemini & Imagen models",
+      "Batch generation",
+      "Dimension presets",
+      "Zoom/pan viewer",
     ],
     startCommand: "",
     mode: "web",
-    profiles: ["work"],
+    profiles: ["work", "personal"],
   },
 ];
 

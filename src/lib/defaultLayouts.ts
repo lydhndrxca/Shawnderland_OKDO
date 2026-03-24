@@ -254,66 +254,12 @@ const PROPLAB_DEFAULT: LayoutSnapshot = {
   viewport: { x: 800, y: 200, zoom: 0.25 },
 };
 
-const UILAB_DEFAULT: LayoutSnapshot = {
-  nodes: [
-    // Input column (x ~ -800)
-    { id: "ul-01", position: { x: -800, y: 100 }, type: "uiConfig", style: { width: 320, height: 480 } },
-    { id: "ul-02", position: { x: -800, y: 650 }, type: "uiPrompt", style: { width: 320, height: 280 } },
-    { id: "ul-03", position: { x: -800, y: 1000 }, type: "uiStyle", style: { width: 360, height: 500 } },
-    // Ref images (x ~ -400)
-    { id: "ul-04", position: { x: -400, y: 100 }, type: "imageInfluence", style: { width: 240, height: 180 } },
-    { id: "ul-05", position: { x: -400, y: 340 }, type: "imageInfluence", style: { width: 240, height: 180 } },
-    // Generation engine (x ~ 0)
-    { id: "ul-06", position: { x: 0, y: 300 }, type: "uiGenerate", style: { width: 320, height: 360 } },
-    // Main viewer (x ~ 400)
-    { id: "ul-07", position: { x: 400, y: 0 }, type: "uiMainViewer", style: { width: 600, height: 770 } },
-    // Tools column (x ~ 1100)
-    { id: "ul-08", position: { x: 1100, y: 0 }, type: "uiFinalize", style: { width: 340, height: 500 } },
-    { id: "ul-09", position: { x: 1100, y: 560 }, type: "uiExtractSpec", style: { width: 320, height: 360 } },
-    { id: "ul-10", position: { x: 1100, y: 980 }, type: "charSaveGroup", style: { width: 300, height: 340 } },
-    // Image Studio (x ~ 1500)
-    { id: "ul-11", position: { x: 1500, y: 200 }, type: "imageStudio", style: { width: 240, height: 220 } },
-  ],
-  edges: [
-    // Config → Generate
-    { id: "e-ul-01", source: "ul-01", target: "ul-06", sourceHandle: "config-out", targetHandle: "input" },
-    // Prompt → Generate
-    { id: "e-ul-02", source: "ul-02", target: "ul-06", sourceHandle: "prompt-out", targetHandle: "input" },
-    // Style → Generate
-    { id: "e-ul-03", source: "ul-03", target: "ul-06", sourceHandle: "output", targetHandle: "input" },
-    // RefA → Generate
-    { id: "e-ul-04", source: "ul-04", target: "ul-06", targetHandle: "input" },
-    // RefB → Generate
-    { id: "e-ul-05", source: "ul-05", target: "ul-06", targetHandle: "input" },
-    // Generate → Main Viewer
-    { id: "e-ul-06", source: "ul-06", target: "ul-07", sourceHandle: "image-out", targetHandle: "input" },
-    // Main Viewer → Finalize
-    { id: "e-ul-07", source: "ul-07", target: "ul-08", sourceHandle: "output", targetHandle: "image-in" },
-    // Main Viewer → Extract Spec
-    { id: "e-ul-08", source: "ul-07", target: "ul-09", sourceHandle: "output", targetHandle: "image-in" },
-    // Extract Spec → Config (pushes spec back)
-    { id: "e-ul-09", source: "ul-09", target: "ul-01", sourceHandle: "spec-out", targetHandle: "spec-in" },
-    // Main Viewer → Save Group
-    { id: "e-ul-10", source: "ul-07", target: "ul-10", sourceHandle: "output" },
-    // Main Viewer → Image Studio
-    { id: "e-ul-11", source: "ul-07", target: "ul-11", sourceHandle: "output" },
-    // Finalize → Save Group
-    { id: "e-ul-12", source: "ul-08", target: "ul-10", sourceHandle: "output" },
-  ],
-  nodeData: {
-    "ul-04": { refLabel: "RefA" },
-    "ul-05": { refLabel: "RefB" },
-  },
-  viewport: { x: 900, y: 200, zoom: 0.3 },
-};
-
 const DEFAULTS: Record<string, LayoutSnapshot> = {
   "concept-lab": CONCEPT_LAB_DEFAULT,
   "concept-lab:upres": UPRES_DEFAULT,
   "concept-lab:restore": RESTORE_DEFAULT,
   "concept-lab:style-conversion": STYLE_CONVERSION_DEFAULT,
   "concept-lab:proplab": PROPLAB_DEFAULT,
-  "concept-lab:uilab": UILAB_DEFAULT,
   ideation: SHAWNDERMIND_DEFAULT,
 };
 

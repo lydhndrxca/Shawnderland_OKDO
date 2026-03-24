@@ -28,7 +28,6 @@ const edgeTypes = {
 const LAYOUT: Record<string, { x: number; y: number }> = {
   "sprite-lab": { x: 80, y: 40 },
   ideation: { x: 80, y: 340 },
-  "ui-lab": { x: 500, y: 40 },
   "concept-lab": { x: 500, y: 340 },
   walter: { x: 290, y: 620 },
 };
@@ -97,16 +96,6 @@ export function HubCanvas() {
         type: "pipeline",
         data: {
           sourceColor: "var(--color-tool-sprite)",
-          isComplete: false,
-        },
-      },
-      {
-        id: "concept-to-uilab",
-        source: "concept-lab",
-        target: "ui-lab",
-        type: "pipeline",
-        data: {
-          sourceColor: "var(--color-tool-concept)",
           isComplete: false,
         },
       },

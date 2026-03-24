@@ -88,7 +88,6 @@ export default function ImageViewer({
 
   return (
     <div className={`relative flex flex-col ${className}`}>
-      {/* Zoom controls */}
       <div className="absolute top-2 right-2 z-10 flex gap-1">
         <button
           onClick={() => setScale((s) => Math.min(10, s * 1.25))}
@@ -120,21 +119,18 @@ export default function ImageViewer({
         </button>
       </div>
 
-      {/* Image dimensions */}
       {imgDims && (
         <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded text-[10px] font-mono bg-black/50 text-white/80">
-          {imgDims.w}×{imgDims.h}
+          {imgDims.w}\u00d7{imgDims.h}
         </div>
       )}
 
-      {/* Draw mode indicator */}
       {drawMode && (
         <div className="absolute top-9 left-2 z-10 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-red-600/80 text-white">
           Draw Mode
         </div>
       )}
 
-      {/* Main image area */}
       <div
         ref={containerRef}
         className="flex-1 overflow-hidden rounded-lg cursor-grab active:cursor-grabbing"
@@ -165,7 +161,6 @@ export default function ImageViewer({
               draggable={false}
               onLoad={handleImageLoad}
             />
-            {/* Grid overlay (SVG) */}
             {showGrid && imgDims && (
               <svg
                 className="absolute inset-0 pointer-events-none"
@@ -201,7 +196,6 @@ export default function ImageViewer({
         </div>
       </div>
 
-      {/* Zoom percentage */}
       <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded text-[10px] font-mono bg-black/50 text-white/70">
         {Math.round(scale * 100)}%
       </div>

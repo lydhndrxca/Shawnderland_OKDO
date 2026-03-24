@@ -9,7 +9,6 @@ const APP_LABELS: Record<string, string> = {
   'concept-lab': 'AI ConceptLab',
   shawndermind: 'AI Ideation Pipeline',
   'gemini-studio': 'Gemini Studio',
-  'ui-lab': 'UI Lab',
   'tool-editor': 'Tool Editor',
 };
 

@@ -35,23 +35,10 @@ const GlobalSettingsPage = dynamic(
   { ssr: false }
 );
 
-const UILabShell = dynamic(
-  () => import("@/app/ui-lab/UILabShell"),
+const GenerateImageShell = dynamic(
+  () => import("@/app/generate-image/GenerateImageShell"),
   { ssr: false }
 );
-
-const UILabProviderDynamic = dynamic(
-  () => import("@/lib/ui-lab/UILabContext").then((m) => ({ default: m.UILabProvider })),
-  { ssr: false }
-);
-
-function UILabRoute() {
-  return (
-    <UILabProviderDynamic>
-      <UILabShell />
-    </UILabProviderDynamic>
-  );
-}
 
 function HomeContent() {
   return <HomePage />;
@@ -107,7 +94,7 @@ function resolveRoute(path: string): React.ReactNode {
   if (path === "/concept-lab/style-conversion") return <ConceptLabShell appKey="concept-lab:style-conversion" />;
   if (path === "/concept-lab/gemini-editor") return <WipPlaceholder />;
   if (path === "/concept-lab/proplab") return <ConceptLabShell appKey="concept-lab:proplab" />;
-  if (path === "/concept-lab/uilab") return <UILabRoute />;
+  if (path === "/concept-lab/generate-image") return <GenerateImageShell />;
   if (path === "/walter") return <WalterShell />;
   if (path === "/writing-room") return <WritingRoomShell />;
   return <div className="p-8 text-muted-foreground">Page not found</div>;

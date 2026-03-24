@@ -153,17 +153,6 @@ import {
   PropViewNode,
 } from '@/app/ideation/canvas/nodes/proplab';
 
-// ── UILab nodes ──────────────────────────────────────────────────
-import {
-  UIConfigNode,
-  UIPromptNode,
-  UIStyleNode,
-  UIGenerateNode,
-  UIMainViewer,
-  UIExtractSpecNode,
-  UIFinalizeNode,
-} from '@/app/ideation/canvas/nodes/uilab';
-
 // ── Tool Editor nodes ───────────────────────────────────────────
 import TEGenericNode from '@/app/tool-editor/nodes/GenericNode';
 import TEWindowNode from '@/app/tool-editor/nodes/WindowNode';
@@ -349,15 +338,6 @@ export const ALL_RAW_NODE_TYPES: NodeTypes = applySleep({
   propSideViewer: PropViewNode,
   propTopViewer: PropViewNode,
 
-  // UILab
-  uiConfig: UIConfigNode,
-  uiPrompt: UIPromptNode,
-  uiStyle: UIStyleNode,
-  uiGenerate: UIGenerateNode,
-  uiMainViewer: UIMainViewer,
-  uiExtractSpec: UIExtractSpecNode,
-  uiFinalize: UIFinalizeNode,
-
   // Tool Editor (prefixed with te-)
   teGeneric: TEGenericNode,
   teWindow: TEWindowNode,
@@ -491,14 +471,6 @@ export const NODE_DEFAULTS: Record<string, { style?: { width: number; height: nu
   propSideViewer: { style: { width: 500, height: 720 }, data: { viewKey: 'side' } },
   propTopViewer: { style: { width: 500, height: 720 }, data: { viewKey: 'top' } },
 
-  // UILab
-  uiConfig: { style: { width: 320, height: 480 } },
-  uiPrompt: { style: { width: 320, height: 280 } },
-  uiStyle: { style: { width: 360, height: 500 } },
-  uiGenerate: { style: { width: 320, height: 360 } },
-  uiMainViewer: { style: { width: 600, height: 770 } },
-  uiExtractSpec: { style: { width: 320, height: 360 } },
-  uiFinalize: { style: { width: 340, height: 500 } },
 };
 
 export interface DockNodeDef {
@@ -735,44 +707,6 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
       { type: 'charSlimStyle', label: 'Slim Style', desc: 'Post-process to target visual style', color: '#7b1fa2' },
       { type: 'meshyImageTo3D', label: 'Image \u2192 3D (Meshy)', desc: 'Convert to 3D model', color: '#00acc1' },
       { type: 'hitem3dImageTo3D', label: 'Image \u2192 3D (Hitem3D)', desc: 'High-detail 3D generation', color: '#ff6e40' },
-    ],
-  },
-  /* ━━ UI Lab ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-  {
-    key: 'uiConfig',
-    label: 'UI Lab \u2014 Config',
-    icon: '\u{1F3AE}',
-    items: [
-      { type: 'uiConfig', label: 'UI Config', desc: 'Generation intent, resolution, wear level', color: '#1565c0' },
-      { type: 'uiPrompt', label: 'UI Prompt', desc: 'User prompt with refA/B/C tokens', color: '#7b1fa2' },
-      { type: 'uiStyle', label: 'UI Style', desc: 'Style reference images for art DNA', color: '#6a1b9a' },
-    ],
-  },
-  {
-    key: 'uiGenerate',
-    label: 'UI Lab \u2014 Generate',
-    icon: '\u{1F3A8}',
-    items: [
-      { type: 'uiGenerate', label: 'Generate UI Asset', desc: 'Central engine — batch generation with style transfer', color: '#e91e63' },
-    ],
-  },
-  {
-    key: 'uiOutput',
-    label: 'UI Lab \u2014 Output',
-    icon: '\u{1F441}',
-    items: [
-      { type: 'uiMainViewer', label: 'UI Asset Viewer', desc: 'Gallery, edit, history for generated assets', color: '#1565c0' },
-    ],
-  },
-  {
-    key: 'uiTools',
-    label: 'UI Lab \u2014 Tools',
-    icon: '\u{1F528}',
-    items: [
-      { type: 'uiExtractSpec', label: 'Extract Icon Spec', desc: 'AI extracts shape, material, palette as JSON', color: '#ff6f00' },
-      { type: 'uiFinalize', label: 'Finalize (Chroma Key)', desc: 'Remove green background, shrink borders', color: '#00695c' },
-      { type: 'imageStudio', label: 'Image Studio', desc: 'Full-screen editor with inpainting', color: '#00bcd4' },
-      { type: 'charSaveGroup', label: 'Export', desc: 'Save images, download, and export', color: '#009688' },
     ],
   },
   /* ━━ Layout & Dev ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */

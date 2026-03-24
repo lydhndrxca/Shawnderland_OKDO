@@ -10,7 +10,6 @@ import './Home.css';
 
 const TOOL_ICONS: Record<string, string> = {
   ideation: '\u{1F9E0}',
-  'ui-lab': '\u{1F5BC}',
   'concept-lab': '\u{1F4A1}',
   'tool-editor': '\u{1F527}',
   walter: '\u{1F3AC}',

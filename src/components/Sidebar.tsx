@@ -25,6 +25,7 @@ import {
   Brush,
   PencilRuler,
   Box,
+  Image,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { TOOLS } from "@/lib/registry";
@@ -72,9 +73,9 @@ function useProfile(): ProfileMode {
 }
 
 const CONCEPT_LAB_SUB_TOOLS = [
+  { label: "AI Generate Image", href: "/concept-lab/generate-image", icon: Image },
   { label: "AI CharacterLab", href: "/concept-lab", icon: Lightbulb },
   { label: "AI PropLab", href: "/concept-lab/proplab", icon: Box },
-  { label: "AI UILab", href: "/concept-lab/uilab", icon: Layout },
   { label: "AI Upres Image", href: "/concept-lab/upres", icon: ImageUp },
   { label: "AI Restore Image Quality", href: "/concept-lab/restore", icon: WandSparkles },
   { label: "AI Style Conversion", href: "/concept-lab/style-conversion", icon: Brush },

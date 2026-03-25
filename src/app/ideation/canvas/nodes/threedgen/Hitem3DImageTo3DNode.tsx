@@ -14,6 +14,7 @@ import {
   type Hitem3DFormat,
   type Hitem3DTaskResult,
 } from '@/lib/ideation/engine/hitem3dApi';
+import { autoSaveModel } from '@/lib/ideation/engine/modelAutoSave';
 import './ThreeDNodes.css';
 
 interface Props {
@@ -261,6 +262,12 @@ function Hitem3DImageTo3DNodeInner({ id, data, selected }: Props) {
               persistData({ hitem3dResult: result });
               setStatus('Complete!');
               setProgress(null);
+              if (result.url) {
+                autoSaveModel(result.url, `hitem3d_${result.task_id || Date.now()}`, {
+                  source: 'hitem3d',
+                  taskId: result.task_id,
+                }).catch(() => {});
+              }
               resolve();
             } else if (st === 'failed') {
               clearInterval(pollRef.current);

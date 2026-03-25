@@ -8,15 +8,15 @@
     "tools/*"
   ],
   "scripts": {
-    "postinstall": "node scripts/patch-glob-eperm.js",
-    "dev": "node scripts/kill-stale-dev.js && next dev",
-    "build": "node scripts/patch-glob-eperm.js && next build",
+    "postinstall": "node scripts/utils/patch-glob-eperm.js",
+    "dev": "node scripts/utils/kill-stale-dev.js && next dev",
+    "build": "node scripts/utils/patch-glob-eperm.js && next build",
     "start": "next start",
     "lint": "npx eslint .",
     "typecheck": "tsc --noEmit",
     "electron:dev": "electron . --dev",
     "electron:start": "electron .",
-    "electron:build": "node scripts/patch-glob-eperm.js && next build && npx electron-builder --win --config electron-builder.yml"
+    "electron:build": "node scripts/utils/patch-glob-eperm.js && next build && npx electron-builder --win --config electron-builder.yml"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",

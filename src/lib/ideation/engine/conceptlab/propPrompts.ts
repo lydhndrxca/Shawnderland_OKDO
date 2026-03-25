@@ -232,10 +232,18 @@ export const LOCK_DESIGN_BLOCK = `DESIGN LOCK - MANDATORY:
 
 /* ── Prompt Builders ── */
 
+export interface TargetDimensions {
+  presetId: string;
+  height: number;
+  width: number;
+  depth: number;
+}
+
 export function buildPropDescription(
   identity: PropIdentity,
   attributes: PropAttributes,
   userDescription: string,
+  targetDimensions?: TargetDimensions | null,
 ): string {
   const parts: string[] = [];
 
@@ -260,6 +268,11 @@ export function buildPropDescription(
     parts.push('');
     parts.push('ATTRIBUTES:');
     parts.push(attrLines.join('\n'));
+  }
+
+  if (targetDimensions && targetDimensions.height > 0) {
+    parts.push('');
+    parts.push(`TARGET DIMENSIONS: ${targetDimensions.height}H × ${targetDimensions.width}W × ${targetDimensions.depth}D UU (Unreal Units, 1 UU = 1 cm). The object should appear proportional to these dimensions.`);
   }
 
   return parts.join('\n');

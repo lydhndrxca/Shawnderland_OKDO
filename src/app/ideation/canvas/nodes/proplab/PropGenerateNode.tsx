@@ -7,6 +7,7 @@ import {
   buildPropViewPrompt,
   type PropIdentity,
   type PropAttributes,
+  type TargetDimensions,
 } from '@/lib/ideation/engine/conceptlab/propPrompts';
 import {
   generateWithGeminiRef,
@@ -54,6 +55,7 @@ function gatherPropInputs(
   const styleImages: GeneratedImage[] = [];
   const contentRefs: ContentRef[] = [];
   let isolateSubject = '';
+  let targetDimensions: TargetDimensions | null = null;
 
   for (const e of incoming) {
     const src = getNode(e.source);
@@ -67,6 +69,7 @@ function gatherPropInputs(
       if (d.name) description = `${d.name as string}: ${description}`;
     } else if (src.type === 'propDescription') {
       if (d.description) description += (d.description as string);
+      if (d.targetDimensions) targetDimensions = d.targetDimensions as TargetDimensions;
     } else if (src.type === 'propAttributes') {
       if (d.attributes) attributes = { ...attributes, ...(d.attributes as PropAttributes) };
     } else if (src.type === 'propStyle') {
@@ -99,7 +102,7 @@ function gatherPropInputs(
     }
   }
 
-  return { identity, description, attributes, styleText, styleImages, contentRefs, isolateSubject };
+  return { identity, description, attributes, styleText, styleImages, contentRefs, isolateSubject, targetDimensions };
 }
 
 const PROP_VIEWER_TYPES = new Set(['propMainViewer', 'propFrontViewer', 'propBackViewer', 'propSideViewer', 'propTopViewer']);
@@ -189,7 +192,7 @@ function PropGenerateNodeInner({ id, data, selected }: Props) {
       anim.markEdgesFrom(id, true);
 
       const inputs = gatherPropInputs(id, getNode, getEdges);
-      const { identity, attributes, styleText, styleImages, contentRefs } = inputs;
+      const { identity, attributes, styleText, styleImages, contentRefs, targetDimensions } = inputs;
       let { description } = inputs;
 
       const hasStyleOverride = styleText.length > 0 || styleImages.length > 0;
@@ -199,7 +202,7 @@ function PropGenerateNodeInner({ id, data, selected }: Props) {
         description = `ISOLATION MODE: Isolate "${isolateSubject.trim()}" from the reference image. Remove the background entirely. Place the isolated subject on a neutral grey background. Then render it as specified below.\n\n${description}`;
       }
 
-      const desc = buildPropDescription(identity, attributes, description);
+      const desc = buildPropDescription(identity, attributes, description, targetDimensions);
       const fullPrompt = buildPropViewPrompt('main', desc, hasStyleOverride ? effectiveStyleText : undefined);
 
       const mainStageMMApiId = (IMG_TO_MULTIMODAL_API[imgDef.apiId] ?? 'gemini-flash-image') as GeminiImageModel;

@@ -24,6 +24,9 @@ import { ToastContainer, showToast } from '@/components/Toast';
 import CostWidget from '@/components/CostWidget';
 import GeminiEditorOverlay from '@/app/ideation/canvas/GeminiEditorOverlay';
 import { registerEditorOpener, unregisterEditorOpener } from '@/app/ideation/canvas/geminiEditorBridge';
+import dynamic from 'next/dynamic';
+import { registerModelEditorOpener, unregisterModelEditorOpener } from '@/app/ideation/canvas/modelEditorBridge';
+const Model3DEditorOverlay = dynamic(() => import('@/app/ideation/canvas/editor/Model3DEditorOverlay'), { ssr: false });
 import { useCanvasSession, type CutLine } from '@/hooks/useCanvasSession';
 import { ALL_RAW_NODE_TYPES, ALL_DOCK_CATEGORIES, ALL_CTX_CATEGORIES, NODE_DEFAULTS, NO_SLEEP } from '@/lib/sharedNodeTypes';
 import { applyResizeToAll } from '@/components/nodes/withNodeResize';
@@ -71,11 +74,17 @@ function ConceptLabCanvas({ appKey = 'concept-lab' }: { appKey?: string }) {
 
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
   const [editorNodeId, setEditorNodeId] = useState<string | null>(null);
+  const [modelEditorNodeId, setModelEditorNodeId] = useState<string | null>(null);
 
   // Register opener for GeminiEditor button clicks
   useEffect(() => {
     registerEditorOpener((nodeId: string) => setEditorNodeId(nodeId));
     return () => unregisterEditorOpener();
+  }, []);
+
+  useEffect(() => {
+    registerModelEditorOpener((nodeId: string) => setModelEditorNodeId(nodeId));
+    return () => unregisterModelEditorOpener();
   }, []);
 
   const handleFitView = useCallback(() => {
@@ -425,6 +434,12 @@ function ConceptLabCanvas({ appKey = 'concept-lab' }: { appKey?: string }) {
             <GeminiEditorOverlay
               editorNodeId={editorNodeId}
               onClose={() => setEditorNodeId(null)}
+            />
+          )}
+          {modelEditorNodeId && (
+            <Model3DEditorOverlay
+              editorNodeId={modelEditorNodeId}
+              onClose={() => setModelEditorNodeId(null)}
             />
           )}
         </div>

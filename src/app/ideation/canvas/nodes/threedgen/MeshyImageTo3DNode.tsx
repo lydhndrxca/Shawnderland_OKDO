@@ -9,6 +9,7 @@ import {
   type MeshyCreateParams,
   type MeshyTaskResult,
 } from '@/lib/ideation/engine/meshyApi';
+import { autoSaveModel } from '@/lib/ideation/engine/modelAutoSave';
 import './ThreeDNodes.css';
 
 interface Props {
@@ -284,6 +285,12 @@ function MeshyImageTo3DNodeInner({ id, data, selected }: Props) {
               setTaskResult(result);
               persistData({ meshyResult: result });
               setStatus('Complete!');
+              if (result.model_urls?.glb) {
+                autoSaveModel(result.model_urls.glb, `meshy_${result.id || Date.now()}`, {
+                  source: 'meshy',
+                  taskId: result.id,
+                }).catch(() => {});
+              }
               resolve();
             } else if (result.status === 'FAILED') {
               clearInterval(pollRef.current);

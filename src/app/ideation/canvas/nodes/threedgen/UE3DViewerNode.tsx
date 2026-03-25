@@ -17,6 +17,7 @@ import type { MeshyTaskResult, PBRTextureUrls } from '@/lib/ideation/engine/mesh
 import { sendToUE5 } from '@/lib/ideation/engine/meshyApi';
 import type { Hitem3DTaskResult } from '@/lib/ideation/engine/hitem3dApi';
 import { getGlobalSettings } from '@/lib/globalSettings';
+import { requestOpenModelEditor } from '@/app/ideation/canvas/modelEditorBridge';
 import type { DesignSpec } from './DesignSpecNode';
 
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
@@ -749,6 +750,25 @@ function UE3DViewerNodeInner({ id, data, selected }: Props) {
               {hasModels ? 'No GLB URL available' : 'Connect a 3D gen node'}
             </div>
           )
+        )}
+
+        {/* ── Edit Model Button ── */}
+        {localGlbUrl && (
+          <div style={{ padding: '6px 10px', borderTop: '1px solid var(--border)', background: 'var(--bg-surface)' }}>
+            <button
+              className="nodrag"
+              onClick={(e) => { e.stopPropagation(); requestOpenModelEditor(id); }}
+              style={{
+                width: '100%', height: 36, fontSize: 13, fontWeight: 700,
+                background: 'linear-gradient(135deg, #ff3d00, #ff6e40)',
+                border: 'none', borderRadius: 6, color: '#fff',
+                cursor: 'pointer', letterSpacing: 0.5,
+                boxShadow: '0 2px 8px rgba(255, 61, 0, 0.3)',
+              }}
+            >
+              Edit Model
+            </button>
+          </div>
         )}
 
         {/* ── Toolbar ── */}

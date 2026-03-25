@@ -9,6 +9,7 @@ import { useSyncExternalStore } from 'react';
 export interface GlobalSettings {
   outputDir: string;
   threeDExportDir: string;
+  ue5ProjectPath: string;
   geminiApiKey: string;
   meshyApiKey: string;
   hitem3dAccessKey: string;
@@ -22,6 +23,7 @@ const STORAGE_KEY = 'shawnderland-global-settings';
 const DEFAULTS: GlobalSettings = {
   outputDir: '',
   threeDExportDir: '',
+  ue5ProjectPath: '',
   geminiApiKey: '',
   meshyApiKey: '',
   hitem3dAccessKey: '',

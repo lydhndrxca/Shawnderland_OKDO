@@ -13,7 +13,8 @@ import {
   type ReactNode,
 } from 'react';
 import { Handle, Position, useReactFlow, useStore } from '@xyflow/react';
-import type { MeshyTaskResult } from '@/lib/ideation/engine/meshyApi';
+import type { MeshyTaskResult, PBRTextureUrls } from '@/lib/ideation/engine/meshyApi';
+import { sendToUE5 } from '@/lib/ideation/engine/meshyApi';
 import type { Hitem3DTaskResult } from '@/lib/ideation/engine/hitem3dApi';
 import { getGlobalSettings } from '@/lib/globalSettings';
 import type { DesignSpec } from './DesignSpecNode';
@@ -139,6 +140,7 @@ interface UnifiedModelResult {
   id: string;
   glbUrl: string | null;
   thumbnailUrl: string | null;
+  textureUrls?: PBRTextureUrls;
 }
 
 function ModelScene({
@@ -340,6 +342,11 @@ function UE3DViewerNodeInner({ id, data, selected }: Props) {
   const [modelBBox, setModelBBox] = useState<THREE.Box3 | null>(null);
   const [modelSize, setModelSize] = useState<THREE.Vector3 | null>(null);
 
+  const [ue5Sending, setUe5Sending] = useState(false);
+  const [ue5Status, setUe5Status] = useState<string | null>(null);
+  const [ue5Error, setUe5Error] = useState<string | null>(null);
+  const [exportName, setExportName] = useState((data.exportName as string) ?? 'model');
+
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
@@ -422,11 +429,13 @@ function UE3DViewerNodeInner({ id, data, selected }: Props) {
 
       const meshy = d.meshyResult as MeshyTaskResult | undefined;
       if (meshy?.status === 'SUCCEEDED') {
+        const tex = meshy.texture_urls?.[0];
         results.push({
           source: 'meshy',
           id: meshy.id,
           glbUrl: meshy.model_urls?.glb ?? null,
           thumbnailUrl: meshy.thumbnail_url ?? null,
+          textureUrls: tex ? { base_color: tex.base_color, metallic: tex.metallic, normal: tex.normal, roughness: tex.roughness } : undefined,
         });
       }
 
@@ -566,6 +575,59 @@ function UE3DViewerNodeInner({ id, data, selected }: Props) {
     setModelSize(size);
   }, []);
 
+  useEffect(() => {
+    persistData({ exportName });
+  }, [exportName, persistData]);
+
+  const handleSendToUE5 = useCallback(async () => {
+    if (!localGlbUrl || ue5Sending) return;
+
+    const ue5Path = getGlobalSettings().ue5ProjectPath;
+    if (!ue5Path) {
+      setUe5Error('Set UE5 Project Path in Settings (top-left gear icon).');
+      return;
+    }
+
+    setUe5Sending(true);
+    setUe5Error(null);
+    setUe5Status('Staging model + textures...');
+
+    try {
+      const resp = await fetch(localGlbUrl);
+      const ab = await resp.arrayBuffer();
+      const bytes = new Uint8Array(ab);
+      const CHUNK = 0x8000;
+      const parts: string[] = [];
+      for (let i = 0; i < bytes.length; i += CHUNK) {
+        parts.push(String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK) as unknown as number[]));
+      }
+      const b64 = btoa(parts.join(''));
+
+      const name = exportName.trim() || 'model';
+      const result = await sendToUE5({
+        glbBase64: b64,
+        assetName: name,
+        projectPath: ue5Path,
+        destFolder: '/Game/OKDO',
+        textureUrls: current?.textureUrls,
+      });
+
+      if (!mountedRef.current) return;
+
+      if (result.message) {
+        setUe5Status(result.message);
+      } else {
+        setUe5Status(`Staged ${result.assetName ?? name}`);
+      }
+      setTimeout(() => { if (mountedRef.current) setUe5Status(null); }, 8000);
+    } catch (e) {
+      if (mountedRef.current) setUe5Error(e instanceof Error ? e.message : String(e));
+      setUe5Status(null);
+    } finally {
+      if (mountedRef.current) setUe5Sending(false);
+    }
+  }, [localGlbUrl, ue5Sending, exportName, current]);
+
   const hasModels = allResults.length > 0;
   const scaledDims = modelSize && designSpec
     ? {
@@ -653,6 +715,8 @@ function UE3DViewerNodeInner({ id, data, selected }: Props) {
                   />
                   <DimensionGrid designSpec={designSpec} showGrid={showGrid} modelSize={modelSize} />
                   <TargetBox designSpec={designSpec} visible={showDimGuide} />
+                </Suspense>
+                <Suspense fallback={null}>
                   <CollisionOverlay url={collisionGlbUrl} visible={showCollision} />
                 </Suspense>
                 <AutoRotate enabled={autoRotate} />
@@ -699,7 +763,21 @@ function UE3DViewerNodeInner({ id, data, selected }: Props) {
           <button className={`threed-btn nodrag ${showCollision ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); setShowCollision(!showCollision); }}>Col</button>
           <button className={`threed-btn nodrag ${paintMode ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); setPaintMode(!paintMode); }}>Paint</button>
           <div className="threed-separator" />
-          <button className="threed-btn nodrag" style={{ opacity: 0.4, cursor: 'default' }} title="Coming soon" disabled>Export</button>
+          <input
+            className="threed-input nodrag"
+            placeholder="asset name"
+            value={exportName}
+            onChange={(e) => setExportName(e.target.value)}
+            style={{ flex: '0 1 90px', fontSize: 10, padding: '3px 6px', minWidth: 0 }}
+          />
+          <button
+            className="threed-btn primary nodrag"
+            disabled={!localGlbUrl || ue5Sending}
+            title={!localGlbUrl ? 'Load a model first' : 'Send current model to UE5'}
+            onClick={(e) => { e.stopPropagation(); handleSendToUE5(); }}
+          >
+            {ue5Sending ? '...' : '→ UE5'}
+          </button>
 
           {allResults.length > 1 && (
             <>
@@ -759,6 +837,8 @@ function UE3DViewerNodeInner({ id, data, selected }: Props) {
         {/* Status messages */}
         {scalingStatus && <div className="threed-status" style={{ padding: '2px 10px', fontSize: 9 }}>{scalingStatus}</div>}
         {collisionStatus && <div className="threed-status" style={{ padding: '2px 10px', fontSize: 9 }}>{collisionStatus}</div>}
+        {ue5Status && <div className="threed-success" style={{ padding: '2px 10px', fontSize: 9 }}>{ue5Status}</div>}
+        {ue5Error && <div className="threed-error" style={{ margin: '0 10px 4px', fontSize: 10 }}>{ue5Error}</div>}
       </div>
     </div>
   );

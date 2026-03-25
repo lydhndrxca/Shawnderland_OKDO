@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useGlobalSettings, setGlobalSettings } from '@/lib/globalSettings';
+import { setupUE5Watcher } from '@/lib/ideation/engine/meshyApi';
 import './GlobalSettingsPage.css';
 
 interface DirEntry {
@@ -125,7 +126,12 @@ export default function GlobalSettingsPage() {
   const settings = useGlobalSettings();
   const [showBrowser, setShowBrowser] = useState(false);
   const [showBrowser3D, setShowBrowser3D] = useState(false);
+  const [showBrowserUE5, setShowBrowserUE5] = useState(false);
   const [showBrowserBlender, setShowBrowserBlender] = useState(false);
+  const [ue5TestStatus, setUe5TestStatus] = useState<'idle' | 'testing' | 'ok' | 'fail'>('idle');
+  const [ue5TestError, setUe5TestError] = useState('');
+  const [ue5SetupStatus, setUe5SetupStatus] = useState<'idle' | 'working' | 'ok' | 'fail'>('idle');
+  const [ue5SetupMsg, setUe5SetupMsg] = useState('');
   const [keyVisible, setKeyVisible] = useState(false);
   const [blenderDetecting, setBlenderDetecting] = useState(false);
   const [keyTestStatus, setKeyTestStatus] = useState<'idle' | 'testing' | 'ok' | 'fail'>('idle');
@@ -280,6 +286,52 @@ export default function GlobalSettingsPage() {
     }
     setBlenderDetecting(false);
   }, []);
+
+  const handleUE5ProjectPathChange = useCallback((val: string) => {
+    setGlobalSettings({ ue5ProjectPath: val });
+    setUe5TestStatus('idle');
+  }, []);
+
+  const handleBrowseUE5Select = useCallback((selectedPath: string) => {
+    setGlobalSettings({ ue5ProjectPath: selectedPath });
+    setShowBrowserUE5(false);
+  }, []);
+
+  const handleTestUE5 = useCallback(async () => {
+    setUe5TestStatus('testing');
+    setUe5TestError('');
+    try {
+      const res = await fetch('/api/ue5-import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'test-connection' }),
+      });
+      if (res.ok) {
+        setUe5TestStatus('ok');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setUe5TestError(data.error || `UE5 not reachable (${res.status})`);
+        setUe5TestStatus('fail');
+      }
+    } catch {
+      setUe5TestError('Network error');
+      setUe5TestStatus('fail');
+    }
+  }, []);
+
+  const handleSetupUE5 = useCallback(async () => {
+    if (!settings.ue5ProjectPath) return;
+    setUe5SetupStatus('working');
+    setUe5SetupMsg('');
+    try {
+      const result = await setupUE5Watcher(settings.ue5ProjectPath);
+      setUe5SetupMsg(result.message);
+      setUe5SetupStatus('ok');
+    } catch (e) {
+      setUe5SetupMsg(e instanceof Error ? e.message : 'Setup failed');
+      setUe5SetupStatus('fail');
+    }
+  }, [settings.ue5ProjectPath]);
 
   const dirPreview = settings.outputDir || 'Not set';
 
@@ -559,6 +611,81 @@ export default function GlobalSettingsPage() {
             </div>
           )}
         </section>
+
+        <section className="gsp-section">
+          <h2 className="gsp-section-title">UE5 Project Path</h2>
+          <p className="gsp-section-desc">
+            Root folder of your Unreal Engine 5 project. Used by the &ldquo;Send to UE5&rdquo; button
+            in the 3D viewer nodes to auto-import meshes into the editor.
+            Requires the <strong>Web Remote Control</strong> and <strong>Python Editor Script</strong> plugins
+            enabled in UE5 (port 30010).
+          </p>
+
+          <div className="gsp-field-row">
+            <input
+              className="gsp-input"
+              value={settings.ue5ProjectPath}
+              onChange={(e) => handleUE5ProjectPathChange(e.target.value)}
+              placeholder="e.g., C:\Users\me\Unreal Projects\MyGame"
+            />
+            <button
+              type="button"
+              className="gsp-btn"
+              onClick={() => setShowBrowserUE5(true)}
+            >
+              Browse
+            </button>
+            <button
+              type="button"
+              className="gsp-btn gsp-btn-primary gsp-btn-sm"
+              onClick={handleTestUE5}
+              disabled={ue5TestStatus === 'testing'}
+            >
+              {ue5TestStatus === 'testing' ? 'Testing...' : 'Test UE5'}
+            </button>
+          </div>
+          {ue5TestStatus === 'ok' && <div className="gsp-key-status gsp-key-ok">UE5 Remote Control API is reachable.</div>}
+          {ue5TestStatus === 'fail' && <div className="gsp-key-status gsp-key-fail">{ue5TestError || 'Cannot reach UE5.'}</div>}
+
+          {settings.ue5ProjectPath && (
+            <>
+              <div style={{ marginTop: 12 }}>
+                <button
+                  type="button"
+                  className="gsp-btn gsp-btn-primary"
+                  onClick={handleSetupUE5}
+                  disabled={ue5SetupStatus === 'working'}
+                >
+                  {ue5SetupStatus === 'working' ? 'Installing...' : 'Setup UE5 Auto-Import'}
+                </button>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 10 }}>
+                  Installs a Python watcher script into the UE5 project. One-time setup.
+                </span>
+              </div>
+              {ue5SetupStatus === 'ok' && <div className="gsp-key-status gsp-key-ok">{ue5SetupMsg}</div>}
+              {ue5SetupStatus === 'fail' && <div className="gsp-key-status gsp-key-fail">{ue5SetupMsg}</div>}
+
+              <div className="gsp-preview">
+                <div className="gsp-preview-title">How it works</div>
+                <pre className="gsp-tree">{`${settings.ue5ProjectPath}\\
+  Saved\\StagedImports\\
+    {asset_name}\\
+      {asset_name}.glb          ← mesh
+      T_{asset_name}_BaseColor.png  ← PBR textures
+      T_{asset_name}_Normal.png
+      T_{asset_name}_Metallic.png
+      T_{asset_name}_Roughness.png
+      manifest.json             ← picked up by watcher
+
+  Content\\OKDO\\
+    {asset_name}\\
+      SM_{asset_name}           ← Static Mesh
+      MI_{asset_name}           ← Material Instance
+      T_{asset_name}_*          ← Textures`}</pre>
+              </div>
+            </>
+          )}
+        </section>
       </div>
 
       {showBrowser && (
@@ -579,6 +706,13 @@ export default function GlobalSettingsPage() {
         <FolderBrowser
           onSelect={handleBrowseBlenderSelect}
           onCancel={() => setShowBrowserBlender(false)}
+        />
+      )}
+
+      {showBrowserUE5 && (
+        <FolderBrowser
+          onSelect={handleBrowseUE5Select}
+          onCancel={() => setShowBrowserUE5(false)}
         />
       )}
     </div>

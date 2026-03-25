@@ -122,3 +122,65 @@ export async function exportModel(
   if (!res.ok) throw new Error(json.error || `Export error ${res.status}`);
   return json as { path: string; size: number };
 }
+
+export interface UE5ImportResult {
+  ok: boolean;
+  imported?: boolean;
+  staged?: boolean;
+  path?: string;
+  assetName?: string;
+  assetPath?: string;
+  meshSize?: number;
+  texturesStaged?: number;
+  message?: string;
+  warning?: string;
+}
+
+export interface PBRTextureUrls {
+  base_color?: string;
+  metallic?: string;
+  normal?: string;
+  roughness?: string;
+}
+
+export async function sendToUE5(opts: {
+  url?: string;
+  glbBase64?: string;
+  assetName: string;
+  projectPath: string;
+  destFolder?: string;
+  textureUrls?: PBRTextureUrls;
+}): Promise<UE5ImportResult> {
+  const payload: Record<string, unknown> = {
+    action: 'import',
+    assetName: opts.assetName,
+    projectPath: opts.projectPath,
+    destFolder: opts.destFolder || '/Game/OKDO',
+    textureUrls: opts.textureUrls ?? {},
+  };
+  if (opts.glbBase64) {
+    payload.glb = opts.glbBase64;
+  } else if (opts.url) {
+    payload.url = opts.url;
+  }
+
+  const res = await fetch('/api/ue5-import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || `UE5 import error ${res.status}`);
+  return json as UE5ImportResult;
+}
+
+export async function setupUE5Watcher(projectPath: string): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch('/api/ue5-import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'setup', projectPath }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || `Setup error ${res.status}`);
+  return json as { ok: boolean; message: string };
+}

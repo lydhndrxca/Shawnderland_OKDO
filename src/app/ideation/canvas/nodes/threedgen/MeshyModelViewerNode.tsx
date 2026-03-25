@@ -13,8 +13,8 @@ import {
   type ReactNode,
 } from 'react';
 import { Handle, Position, useReactFlow, useStore } from '@xyflow/react';
-import type { MeshyTaskResult } from '@/lib/ideation/engine/meshyApi';
-import { exportModel } from '@/lib/ideation/engine/meshyApi';
+import type { MeshyTaskResult, PBRTextureUrls } from '@/lib/ideation/engine/meshyApi';
+import { exportModel, sendToUE5 } from '@/lib/ideation/engine/meshyApi';
 import type { Hitem3DTaskResult } from '@/lib/ideation/engine/hitem3dApi';
 import { getGlobalSettings } from '@/lib/globalSettings';
 
@@ -25,6 +25,7 @@ interface UnifiedModelResult {
   downloadUrl: string | null;
   thumbnailUrl: string | null;
   modelUrls: Record<string, string | undefined>;
+  textureUrls?: PBRTextureUrls;
 }
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Environment, useGLTF, Center } from '@react-three/drei';
@@ -173,6 +174,10 @@ function MeshyModelViewerNodeInner({ id, data, selected }: Props) {
   const [loadingModel, setLoadingModel] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const [ue5Sending, setUe5Sending] = useState(false);
+  const [ue5Status, setUe5Status] = useState<string | null>(null);
+  const [ue5Error, setUe5Error] = useState<string | null>(null);
+
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
@@ -222,6 +227,7 @@ function MeshyModelViewerNodeInner({ id, data, selected }: Props) {
 
       const meshy = d.meshyResult as MeshyTaskResult | undefined;
       if (meshy?.status === 'SUCCEEDED') {
+        const tex = meshy.texture_urls?.[0];
         results.push({
           source: 'meshy',
           id: meshy.id,
@@ -229,6 +235,7 @@ function MeshyModelViewerNodeInner({ id, data, selected }: Props) {
           downloadUrl: meshy.model_urls?.glb ?? null,
           thumbnailUrl: meshy.thumbnail_url ?? null,
           modelUrls: (meshy.model_urls ?? {}) as Record<string, string | undefined>,
+          textureUrls: tex ? { base_color: tex.base_color, metallic: tex.metallic, normal: tex.normal, roughness: tex.roughness } : undefined,
         });
       }
 
@@ -329,6 +336,51 @@ function MeshyModelViewerNodeInner({ id, data, selected }: Props) {
   useEffect(() => {
     persistData({ exportName });
   }, [exportName, persistData]);
+
+  const handleSendToUE5 = useCallback(async () => {
+    if (!current || ue5Sending) return;
+
+    const ue5Path = getGlobalSettings().ue5ProjectPath;
+    if (!ue5Path) {
+      setUe5Error('Set UE5 Project Path in Settings (top-left gear icon).');
+      return;
+    }
+
+    const downloadUrl = current.glbUrl || current.modelUrls?.glb || current.modelUrls?.fbx;
+    if (!downloadUrl) {
+      setUe5Error('No GLB/FBX URL available for this model.');
+      return;
+    }
+
+    setUe5Sending(true);
+    setUe5Error(null);
+    setUe5Status('Staging model + textures...');
+
+    try {
+      const name = exportName.trim() || 'model';
+      const result = await sendToUE5({
+        url: downloadUrl,
+        assetName: name,
+        projectPath: ue5Path,
+        destFolder: '/Game/OKDO',
+        textureUrls: current.textureUrls,
+      });
+
+      if (!mountedRef.current) return;
+
+      if (result.message) {
+        setUe5Status(result.message);
+      } else {
+        setUe5Status(`Staged ${result.assetName ?? name}`);
+      }
+      setTimeout(() => { if (mountedRef.current) setUe5Status(null); }, 8000);
+    } catch (e) {
+      if (mountedRef.current) setUe5Error(e instanceof Error ? e.message : String(e));
+      setUe5Status(null);
+    } finally {
+      if (mountedRef.current) setUe5Sending(false);
+    }
+  }, [current, ue5Sending, exportName]);
 
   const hasModels = allResults.length > 0;
 
@@ -457,11 +509,22 @@ function MeshyModelViewerNodeInner({ id, data, selected }: Props) {
               <button className="threed-btn primary nodrag" onClick={(e) => { e.stopPropagation(); handleExport(); }} disabled={exporting || !current}>
                 {exporting ? '...' : 'Save'}
               </button>
+              <button
+                className="threed-btn primary nodrag"
+                style={{ background: '#ff6e40', borderColor: '#ff6e40' }}
+                onClick={(e) => { e.stopPropagation(); handleSendToUE5(); }}
+                disabled={ue5Sending || !current}
+                title="Send model to UE5 via Remote Control API"
+              >
+                {ue5Sending ? '...' : '→ UE5'}
+              </button>
             </>
           )}
         </div>
         {exportStatus && <div className="threed-success" style={{ padding: '2px 10px', fontSize: 9 }}>{exportStatus}</div>}
         {exportError && <div className="threed-error" style={{ margin: '0 10px 4px', fontSize: 10 }}>{exportError}</div>}
+        {ue5Status && <div className="threed-success" style={{ padding: '2px 10px', fontSize: 9 }}>{ue5Status}</div>}
+        {ue5Error && <div className="threed-error" style={{ margin: '0 10px 4px', fontSize: 10 }}>{ue5Error}</div>}
       </div>
     </div>
   );

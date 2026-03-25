@@ -14,6 +14,12 @@
 
 .threed-node.threed-viewer-node {
   max-width: none;
+  overflow: hidden;
+}
+
+.threed-viewer-node .threed-node-body {
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .threed-node.selected {
@@ -220,7 +226,7 @@
 .threed-viewer-canvas {
   width: 100%;
   flex: 1 1 0;
-  min-height: 200px;
+  min-height: 0;
   border-radius: var(--radius-sm);
   overflow: hidden;
   background: #0d0d1a;

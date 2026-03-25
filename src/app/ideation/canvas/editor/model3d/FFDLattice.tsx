@@ -155,6 +155,7 @@ export default function FFDLattice() {
   const { raycaster, pointer, camera } = useThree();
   const bindingsRef = useRef<VertexBinding[]>([]);
   const latticeRef = useRef<THREE.Vector3[]>([]);
+  const pointMeshRefs = useRef<Map<number, THREE.Mesh>>(new Map());
   const draggingRef = useRef<{
     selectedIndices: number[];
     plane: THREE.Plane;
@@ -245,6 +246,8 @@ export default function FFDLattice() {
       const startPos = startPositions.get(idx);
       if (startPos && liveLattice[idx]) {
         liveLattice[idx].copy(startPos).add(delta);
+        const mesh = pointMeshRefs.current.get(idx);
+        if (mesh) mesh.position.copy(liveLattice[idx]);
       }
     }
 
@@ -297,6 +300,7 @@ export default function FFDLattice() {
         return (
           <mesh
             key={`lp-${i}`}
+            ref={(m) => { if (m) pointMeshRefs.current.set(i, m); else pointMeshRefs.current.delete(i); }}
             position={[pt.x, pt.y, pt.z]}
             onPointerDown={(e) => { e.stopPropagation(); handlePointerDown(i, e.nativeEvent.shiftKey); }}
           >

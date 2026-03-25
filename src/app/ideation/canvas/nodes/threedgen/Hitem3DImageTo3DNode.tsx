@@ -56,6 +56,13 @@ const VIEW_COLOR: Record<string, string> = {
   propSideViewer: '#ff7043', propTopViewer: '#26a69a',
 };
 
+const NODE_TYPE_VIEW_MAP: Record<string, string> = {
+  propMainViewer: 'main', propFrontViewer: 'front', propBackViewer: 'back',
+  propSideViewer: 'side', propTopViewer: 'top',
+  charMainViewer: 'main', charFrontViewer: 'front', charBackViewer: 'back',
+  charSideViewer: 'side',
+};
+
 function Hitem3DImageTo3DNodeInner({ id, data, selected }: Props) {
   const { setNodes, getNode } = useReactFlow();
   const didMountRef = useRef(false);
@@ -197,7 +204,7 @@ function Hitem3DImageTo3DNodeInner({ id, data, selected }: Props) {
         imgs.push({
           base64: img.base64,
           mimeType: img.mimeType ?? 'image/png',
-          viewKey: (d.viewKey as string) ?? 'front',
+          viewKey: (d.viewKey as string) ?? NODE_TYPE_VIEW_MAP[peer.type ?? ''] ?? 'front',
         });
       }
     }
@@ -232,6 +239,8 @@ function Hitem3DImageTo3DNodeInner({ id, data, selected }: Props) {
       setStatus(`Task: ${taskId.slice(0, 12)}... Polling...`);
 
       await new Promise<void>((resolve, reject) => {
+        let pollErrors = 0;
+        const MAX_POLL_ERRORS = 3;
         pollRef.current = setInterval(async () => {
           if (!mountedRef.current || cancelledRef.current) {
             clearInterval(pollRef.current);
@@ -240,44 +249,51 @@ function Hitem3DImageTo3DNodeInner({ id, data, selected }: Props) {
           }
           try {
             const result = await queryTask(taskId);
+            pollErrors = 0;
             if (!mountedRef.current || cancelledRef.current) {
               clearInterval(pollRef.current);
               resolve();
               return;
             }
 
-            const st = result.status;
+            const st = (result.status ?? '').toLowerCase();
             if (st === 'created') {
               setStatus('Task created...');
               setProgress('created');
-            } else if (st === 'queueing') {
+            } else if (st === 'queueing' || st === 'queued') {
               setStatus('In queue...');
               setProgress('queueing');
-            } else if (st === 'processing') {
+            } else if (st === 'processing' || st === 'generating') {
               setStatus('Generating 3D model...');
               setProgress('processing');
-            } else if (st === 'success') {
+            } else if (st === 'success' || st === 'succeeded' || st === 'completed' || st === 'done') {
               clearInterval(pollRef.current);
               setTaskResult(result);
               persistData({ hitem3dResult: result });
               setStatus('Complete!');
               setProgress(null);
-              if (result.url) {
-                autoSaveModel(result.url, `hitem3d_${result.task_id || Date.now()}`, {
+              const modelUrl = result.url ?? result.model_url ?? result.output_url;
+              if (modelUrl) {
+                autoSaveModel(modelUrl, `hitem3d_${result.task_id || Date.now()}`, {
                   source: 'hitem3d',
                   taskId: result.task_id,
                 }).catch(() => {});
               }
               resolve();
-            } else if (st === 'failed') {
+            } else if (st === 'failed' || st === 'error') {
               clearInterval(pollRef.current);
               reject(new Error(result.error ?? 'Hitem3D task failed'));
             } else {
-              setStatus(`Unknown status: ${st}...`);
+              setStatus(`Status: ${result.status ?? 'unknown'}...`);
             }
           } catch (err) {
-            clearInterval(pollRef.current);
-            reject(err);
+            pollErrors++;
+            if (pollErrors >= MAX_POLL_ERRORS) {
+              clearInterval(pollRef.current);
+              reject(err);
+            } else {
+              setStatus(`Poll error (retry ${pollErrors}/${MAX_POLL_ERRORS})...`);
+            }
           }
         }, POLL_MS);
       });

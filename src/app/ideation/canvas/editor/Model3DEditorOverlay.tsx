@@ -212,6 +212,34 @@ function SnapInfo() {
   return <span className="m3d-opt-snap-info">{parts.join(' | ')}</span>;
 }
 
+/* ── FFD Orbit Guard — disables OrbitControls while Shift is held in FFD mode ── */
+
+function FFDOrbitGuard() {
+  const { state } = useModel3DEditor();
+  const controls = useThree((s) => s.controls) as any;
+
+  useEffect(() => {
+    if (!state.ffd.enabled || !controls) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') controls.enabled = false;
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') controls.enabled = true;
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      controls.enabled = true;
+    };
+  }, [state.ffd.enabled, controls]);
+
+  return null;
+}
+
 /* ── FFD Box Selection Overlay ── */
 
 function FFDBoxSelectOverlay() {
@@ -219,6 +247,7 @@ function FFDBoxSelectOverlay() {
   const [box, setBox] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const draggingRef = useRef(false);
   const startRef = useRef<{ x: number; y: number } | null>(null);
+  const lastBoxRef = useRef<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
 
   useEffect(() => {
     if (!state.ffd.enabled) return;
@@ -226,24 +255,30 @@ function FFDBoxSelectOverlay() {
     const canvasEl = state.canvasRef.current;
     if (!canvasEl) return;
 
-    const getRelPos = (e: MouseEvent) => {
+    const getRelPos = (e: PointerEvent) => {
       const rect = canvasEl.getBoundingClientRect();
       return { x: e.clientX - rect.left, y: e.clientY - rect.top };
     };
 
-    const onDown = (e: MouseEvent) => {
+    const onDown = (e: PointerEvent) => {
       if (!e.shiftKey || e.button !== 0) return;
       e.preventDefault();
+      e.stopPropagation();
       const pos = getRelPos(e);
       startRef.current = pos;
-      setBox({ x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y });
+      const b = { x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y };
+      lastBoxRef.current = b;
+      setBox(b);
       draggingRef.current = true;
     };
 
-    const onMove = (e: MouseEvent) => {
+    const onMove = (e: PointerEvent) => {
       if (!draggingRef.current || !startRef.current) return;
+      e.preventDefault();
       const pos = getRelPos(e);
-      setBox((prev) => prev ? { ...prev, x2: pos.x, y2: pos.y } : null);
+      const b = { x1: startRef.current.x, y1: startRef.current.y, x2: pos.x, y2: pos.y };
+      lastBoxRef.current = b;
+      setBox(b);
     };
 
     const onUp = () => {
@@ -251,44 +286,44 @@ function FFDBoxSelectOverlay() {
       draggingRef.current = false;
       startRef.current = null;
 
-      setBox((currentBox) => {
-        if (!currentBox) return null;
+      const currentBox = lastBoxRef.current;
+      lastBoxRef.current = null;
+      setBox(null);
 
-        const camera = state.cameraRef.current;
-        if (!camera || !canvasEl || state.ffd.latticePoints.length === 0) return null;
+      if (!currentBox) return;
+      const camera = state.cameraRef.current;
+      if (!camera || !canvasEl || state.ffd.latticePoints.length === 0) return;
 
-        const rect = canvasEl.getBoundingClientRect();
-        const minX = Math.min(currentBox.x1, currentBox.x2);
-        const maxX = Math.max(currentBox.x1, currentBox.x2);
-        const minY = Math.min(currentBox.y1, currentBox.y2);
-        const maxY = Math.max(currentBox.y1, currentBox.y2);
+      const rect = canvasEl.getBoundingClientRect();
+      const minX = Math.min(currentBox.x1, currentBox.x2);
+      const maxX = Math.max(currentBox.x1, currentBox.x2);
+      const minY = Math.min(currentBox.y1, currentBox.y2);
+      const maxY = Math.max(currentBox.y1, currentBox.y2);
 
-        if (maxX - minX < 5 && maxY - minY < 5) return null;
+      if (maxX - minX < 5 && maxY - minY < 5) return;
 
-        const selected: number[] = [];
-        const projected = new THREE.Vector3();
+      const selected: number[] = [];
+      const projected = new THREE.Vector3();
 
-        state.ffd.latticePoints.forEach((pt, idx) => {
-          projected.copy(pt).project(camera);
-          const sx = ((projected.x + 1) / 2) * rect.width;
-          const sy = ((1 - projected.y) / 2) * rect.height;
-          if (sx >= minX && sx <= maxX && sy >= minY && sy <= maxY) {
-            selected.push(idx);
-          }
-        });
-
-        if (selected.length > 0) actions.setFFDSelectedPoints(selected);
-        return null;
+      state.ffd.latticePoints.forEach((pt, idx) => {
+        projected.copy(pt).project(camera);
+        const sx = ((projected.x + 1) / 2) * rect.width;
+        const sy = ((1 - projected.y) / 2) * rect.height;
+        if (sx >= minX && sx <= maxX && sy >= minY && sy <= maxY) {
+          selected.push(idx);
+        }
       });
+
+      if (selected.length > 0) actions.setFFDSelectedPoints(selected);
     };
 
-    canvasEl.addEventListener('mousedown', onDown);
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+    canvasEl.addEventListener('pointerdown', onDown, { capture: true });
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
     return () => {
-      canvasEl.removeEventListener('mousedown', onDown);
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
+      canvasEl.removeEventListener('pointerdown', onDown, { capture: true });
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
     };
   }, [state.ffd.enabled, state.ffd.latticePoints, state.cameraRef, state.canvasRef, actions]);
 
@@ -388,6 +423,7 @@ function EditorShell({ onClose }: { onClose: () => void }) {
                     <PivotIndicator />
                     <PivotSnapHandler />
                     <FFDLattice />
+                    <FFDOrbitGuard />
                     <ReferenceBlocks />
                     <OrbitControls
                       makeDefault

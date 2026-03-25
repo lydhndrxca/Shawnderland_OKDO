@@ -86,9 +86,12 @@ export interface Hitem3DTaskResult {
   task_id: string;
   status: Hitem3DTaskStatus;
   url?: string;
+  model_url?: string;
+  output_url?: string;
   cover_url?: string;
   progress?: number;
   error?: string;
+  [key: string]: unknown;
 }
 
 export interface Hitem3DSubmitParams {
@@ -114,15 +117,22 @@ export async function submitTask(
 
   if (multiImages && multiImages.length > 0) {
     const VIEW_SLOT_ORDER = ['front', 'back', 'left', 'right'] as const;
+    const DIRECT_SLOTS = new Set(VIEW_SLOT_ORDER);
     const VIEW_ALIAS: Record<string, string> = {
       front: 'front', back: 'back', left: 'left', right: 'right',
-      side: 'left', top: 'front',
+      side: 'left', top: 'front', main: 'front',
     };
 
     const mapped = multiImages.map((img) => ({
       ...img,
       slot: VIEW_ALIAS[img.viewKey] ?? img.viewKey,
     }));
+
+    mapped.sort((a, b) => {
+      const aDir = DIRECT_SLOTS.has(a.viewKey as typeof VIEW_SLOT_ORDER[number]) ? 0 : 1;
+      const bDir = DIRECT_SLOTS.has(b.viewKey as typeof VIEW_SLOT_ORDER[number]) ? 0 : 1;
+      return aDir - bDir;
+    });
 
     const slotBuckets = new Map<string, typeof mapped[number]>();
     for (const img of mapped) {
@@ -160,11 +170,13 @@ export async function submitTask(
     headers: hitemHeaders(),
     body: JSON.stringify(body),
   });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error || `Hitem3D submit error ${res.status}`);
+  const json = await res.json() as Record<string, unknown>;
+  if (!res.ok) throw new Error((json.error as string) || `Hitem3D submit error ${res.status}`);
 
-  const taskId = (json as Record<string, unknown>).task_id as string
-    ?? (json as Record<string, unknown>).data?.toString();
+  const nested = typeof json.data === 'object' && json.data ? json.data as Record<string, unknown> : null;
+  const taskId = (json.task_id as string | undefined)
+    ?? (nested?.task_id as string | undefined)
+    ?? (typeof json.data === 'string' ? json.data : undefined);
   if (!taskId) throw new Error('No task_id in response: ' + JSON.stringify(json));
   return taskId;
 }
@@ -175,10 +187,11 @@ export async function queryTask(taskId: string): Promise<Hitem3DTaskResult> {
     headers: hitemHeaders(),
     body: JSON.stringify({ action: 'query-task', task_id: taskId }),
   });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error || `Hitem3D query error ${res.status}`);
-  const data = (json as Record<string, unknown>).data ?? json;
-  return data as Hitem3DTaskResult;
+  const json = await res.json() as Record<string, unknown>;
+  if (!res.ok) throw new Error((json.error as string) || `Hitem3D query error ${res.status}`);
+  const nested = typeof json.data === 'object' && json.data ? json.data as Record<string, unknown> : null;
+  const result = nested ?? json;
+  return result as Hitem3DTaskResult;
 }
 
 export async function proxyModelDownload(remoteUrl: string): Promise<string> {

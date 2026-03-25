@@ -159,6 +159,16 @@ export async function POST(req: NextRequest) {
           { status: res.status },
         );
       }
+
+      const nested = typeof data === 'object' && data ? (data as Record<string, unknown>).data : null;
+      const taskId = typeof nested === 'object' && nested
+        ? (nested as Record<string, unknown>).task_id as string | undefined
+        : typeof nested === 'string' ? nested : undefined;
+
+      if (taskId) {
+        return NextResponse.json({ task_id: taskId }, { status: 200 });
+      }
+
       const err = checkBodyError(data);
       if (err) {
         tokenCache.delete(ACCESS_KEY);
@@ -183,6 +193,12 @@ export async function POST(req: NextRequest) {
       );
       const text = await res.text();
       const data = parseResponseBody(text);
+
+      const nested = typeof data === 'object' && data ? (data as Record<string, unknown>).data : null;
+      if (typeof nested === 'object' && nested && (nested as Record<string, unknown>).status) {
+        return NextResponse.json({ data: nested }, { status: 200 });
+      }
+
       const err = checkBodyError(data);
       if (err) {
         tokenCache.delete(ACCESS_KEY);

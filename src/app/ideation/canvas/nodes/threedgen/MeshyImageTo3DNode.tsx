@@ -54,6 +54,13 @@ const VIEW_COLOR: Record<string, string> = {
   propSideViewer: '#ff7043', propTopViewer: '#26a69a',
 };
 
+const NODE_TYPE_VIEW_MAP: Record<string, string> = {
+  propMainViewer: 'main', propFrontViewer: 'front', propBackViewer: 'back',
+  propSideViewer: 'side', propTopViewer: 'top',
+  charMainViewer: 'main', charFrontViewer: 'front', charBackViewer: 'back',
+  charSideViewer: 'side',
+};
+
 function MeshyImageTo3DNodeInner({ id, data, selected }: Props) {
   const { setNodes, getNode } = useReactFlow();
 
@@ -142,7 +149,7 @@ function MeshyImageTo3DNodeInner({ id, data, selected }: Props) {
         images.push({
           base64: img.base64,
           mimeType: img.mimeType ?? 'image/png',
-          viewKey: (d.viewKey as string) ?? undefined,
+          viewKey: (d.viewKey as string) ?? NODE_TYPE_VIEW_MAP[peer.type ?? ''] ?? undefined,
         });
       }
     }

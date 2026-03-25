@@ -23,7 +23,18 @@ interface Props {
   selected?: boolean;
 }
 
-const POLL_MS = 3000;
+const POLL_MS = 4000;
+const MAX_POLL_ERRORS = 10;
+
+const STATUS_NUM_MAP: Record<number, string> = {
+  0: 'created', 1: 'created', 2: 'queueing', 3: 'processing', 4: 'success', 5: 'failed',
+};
+
+function normalizeState(raw: unknown): string {
+  if (typeof raw === 'string') return raw.toLowerCase();
+  if (typeof raw === 'number') return STATUS_NUM_MAP[raw] ?? `code_${raw}`;
+  return '';
+}
 
 const REQUEST_TYPES: Array<{ value: Hitem3DRequestType; label: string; desc: string }> = [
   { value: 3, label: 'All-in-One', desc: 'Geometry + texture' },
@@ -91,6 +102,7 @@ function Hitem3DImageTo3DNodeInner({ id, data, selected }: Props) {
   const mountedRef = useRef(true);
   const cancelledRef = useRef(false);
   const pollRef = useRef<ReturnType<typeof setInterval>>(undefined);
+  const lastTaskIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -211,6 +223,102 @@ function Hitem3DImageTo3DNodeInner({ id, data, selected }: Props) {
     return imgs;
   }, [id, getNode]);
 
+  const handleSuccess = useCallback((result: Hitem3DTaskResult) => {
+    setTaskResult(result);
+    persistData({ hitem3dResult: result });
+    setStatus('Complete!');
+    setProgress(null);
+    if (result.url) {
+      autoSaveModel(result.url, `hitem3d_${result.task_id || Date.now()}`, {
+        source: 'hitem3d',
+        taskId: result.task_id,
+      }).catch(() => {});
+    }
+  }, [persistData]);
+
+  const pollUntilDone = useCallback((taskId: string) => {
+    return new Promise<void>((resolve, reject) => {
+      let pollErrors = 0;
+      pollRef.current = setInterval(async () => {
+        if (!mountedRef.current || cancelledRef.current) {
+          clearInterval(pollRef.current);
+          resolve();
+          return;
+        }
+        try {
+          const result = await queryTask(taskId);
+          pollErrors = 0;
+          if (!mountedRef.current || cancelledRef.current) {
+            clearInterval(pollRef.current);
+            resolve();
+            return;
+          }
+
+          const st = normalizeState(result.state);
+          if (st === 'created') {
+            setStatus('Task created...');
+            setProgress('created');
+          } else if (st === 'queueing' || st === 'queued') {
+            setStatus('In queue...');
+            setProgress('queueing');
+          } else if (st === 'processing' || st === 'generating') {
+            setStatus('Generating 3D model...');
+            setProgress('processing');
+          } else if (st === 'success') {
+            clearInterval(pollRef.current);
+            handleSuccess(result);
+            resolve();
+          } else if (st === 'failed') {
+            clearInterval(pollRef.current);
+            reject(new Error(result.msg ?? 'Hitem3D task failed'));
+          } else {
+            setStatus(`State: ${String(result.state ?? 'unknown')}... (polling)`);
+          }
+        } catch (err) {
+          pollErrors++;
+          if (pollErrors >= MAX_POLL_ERRORS) {
+            clearInterval(pollRef.current);
+            reject(err);
+          } else {
+            const msg = err instanceof Error ? err.message : String(err);
+            setStatus(`Poll error ${pollErrors}/${MAX_POLL_ERRORS}: ${msg.slice(0, 60)}`);
+          }
+        }
+      }, POLL_MS);
+    });
+  }, [handleSuccess]);
+
+  const handleRecheck = useCallback(async () => {
+    const tid = lastTaskIdRef.current;
+    if (!tid || busy) return;
+    setBusy(true);
+    setError(null);
+    setStatus('Re-checking task...');
+    cancelledRef.current = false;
+    try {
+      const result = await queryTask(tid);
+      const st = normalizeState(result.state);
+      if (st === 'success') {
+        handleSuccess(result);
+      } else if (st === 'failed') {
+        setError(result.msg ?? 'Task failed on Hitem3D servers');
+      } else {
+        setStatus(`Still ${String(result.state ?? 'processing')}... resuming poll`);
+        await pollUntilDone(tid);
+      }
+      if (mountedRef.current) {
+        setTimeout(() => { if (mountedRef.current) setStatus(null); }, 4000);
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (mountedRef.current) setError(msg);
+      if (mountedRef.current) setStatus(null);
+    } finally {
+      if (pollRef.current) clearInterval(pollRef.current);
+      if (mountedRef.current) { setBusy(false); setProgress(null); }
+    }
+  }, [busy, handleSuccess, pollUntilDone]);
+
   const handleGenerate = useCallback(async () => {
     if (busy) return;
     const images = collectImages();
@@ -236,67 +344,10 @@ function Hitem3DImageTo3DNodeInner({ id, data, selected }: Props) {
       );
 
       if (!mountedRef.current || cancelledRef.current) return;
+      lastTaskIdRef.current = taskId;
       setStatus(`Task: ${taskId.slice(0, 12)}... Polling...`);
 
-      await new Promise<void>((resolve, reject) => {
-        let pollErrors = 0;
-        const MAX_POLL_ERRORS = 3;
-        pollRef.current = setInterval(async () => {
-          if (!mountedRef.current || cancelledRef.current) {
-            clearInterval(pollRef.current);
-            resolve();
-            return;
-          }
-          try {
-            const result = await queryTask(taskId);
-            pollErrors = 0;
-            if (!mountedRef.current || cancelledRef.current) {
-              clearInterval(pollRef.current);
-              resolve();
-              return;
-            }
-
-            const st = (result.status ?? '').toLowerCase();
-            if (st === 'created') {
-              setStatus('Task created...');
-              setProgress('created');
-            } else if (st === 'queueing' || st === 'queued') {
-              setStatus('In queue...');
-              setProgress('queueing');
-            } else if (st === 'processing' || st === 'generating') {
-              setStatus('Generating 3D model...');
-              setProgress('processing');
-            } else if (st === 'success' || st === 'succeeded' || st === 'completed' || st === 'done') {
-              clearInterval(pollRef.current);
-              setTaskResult(result);
-              persistData({ hitem3dResult: result });
-              setStatus('Complete!');
-              setProgress(null);
-              const modelUrl = result.url ?? result.model_url ?? result.output_url;
-              if (modelUrl) {
-                autoSaveModel(modelUrl, `hitem3d_${result.task_id || Date.now()}`, {
-                  source: 'hitem3d',
-                  taskId: result.task_id,
-                }).catch(() => {});
-              }
-              resolve();
-            } else if (st === 'failed' || st === 'error') {
-              clearInterval(pollRef.current);
-              reject(new Error(result.error ?? 'Hitem3D task failed'));
-            } else {
-              setStatus(`Status: ${result.status ?? 'unknown'}...`);
-            }
-          } catch (err) {
-            pollErrors++;
-            if (pollErrors >= MAX_POLL_ERRORS) {
-              clearInterval(pollRef.current);
-              reject(err);
-            } else {
-              setStatus(`Poll error (retry ${pollErrors}/${MAX_POLL_ERRORS})...`);
-            }
-          }
-        }, POLL_MS);
-      });
+      await pollUntilDone(taskId);
 
       if (mountedRef.current) {
         setTimeout(() => { if (mountedRef.current) setStatus(null); }, 4000);
@@ -311,7 +362,7 @@ function Hitem3DImageTo3DNodeInner({ id, data, selected }: Props) {
       if (pollRef.current) clearInterval(pollRef.current);
       if (mountedRef.current) { setBusy(false); setProgress(null); }
     }
-  }, [busy, collectImages, requestType, model, resolution, face, format, persistData]);
+  }, [busy, collectImages, requestType, model, resolution, face, format, persistData, pollUntilDone]);
 
   const handleCancel = useCallback(() => {
     cancelledRef.current = true;
@@ -493,6 +544,16 @@ function Hitem3DImageTo3DNodeInner({ id, data, selected }: Props) {
 
         {status && <div className="threed-status">{status}</div>}
         {error && <div className="threed-error">{error}</div>}
+
+        {error && lastTaskIdRef.current && !busy && (
+          <button
+            className="threed-btn nodrag nopan"
+            onClick={(e) => { e.stopPropagation(); handleRecheck(); }}
+            style={{ width: '100%', padding: '6px 0', fontSize: 11, fontWeight: 600, color: '#ff9800', border: '1px solid #ff9800', marginTop: 4 }}
+          >
+            Re-check Task on Hitem3D
+          </button>
+        )}
 
         {!hasSource && !error && !busy && requestType !== 2 && (
           <div style={{ fontSize: 10, color: '#666', textAlign: 'center', padding: '4px 0' }}>

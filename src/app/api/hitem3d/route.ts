@@ -7,7 +7,10 @@ const ENV_ACCESS = process.env.HITEM3D_ACCESS_KEY ?? '';
 const ENV_SECRET = process.env.HITEM3D_SECRET_KEY ?? '';
 const BASE = 'https://api.hitem3d.ai';
 
-const ALLOWED_PROXY_HOSTS = new Set(['api.hitem3d.ai', 'cdn.hitem3d.ai', 'assets.hitem3d.ai']);
+const ALLOWED_PROXY_HOSTS = new Set([
+  'api.hitem3d.ai', 'cdn.hitem3d.ai', 'assets.hitem3d.ai',
+  'hitem3dstatic.zaohaowu.net',
+]);
 
 /* ── Token cache (keyed by access key so multiple users don't collide) ── */
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
@@ -193,18 +196,7 @@ export async function POST(req: NextRequest) {
       );
       const text = await res.text();
       const data = parseResponseBody(text);
-
-      const nested = typeof data === 'object' && data ? (data as Record<string, unknown>).data : null;
-      if (typeof nested === 'object' && nested && (nested as Record<string, unknown>).status) {
-        return NextResponse.json({ data: nested }, { status: 200 });
-      }
-
-      const err = checkBodyError(data);
-      if (err) {
-        tokenCache.delete(ACCESS_KEY);
-        return NextResponse.json({ error: `Hitem3D API error (${err.code}): ${err.msg}` }, { status: err.httpStatus });
-      }
-      return NextResponse.json(data, { status: res.status });
+      return NextResponse.json(data, { status: 200 });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       return NextResponse.json({ error: msg }, { status: 500 });

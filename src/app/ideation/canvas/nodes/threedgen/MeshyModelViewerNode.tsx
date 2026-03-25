@@ -73,16 +73,33 @@ class ViewerErrorBoundary extends Component<EBProps, EBState> {
 
 const blobCache = new Map<string, string>();
 
+const HITEM3D_HOSTS = new Set(['hitem3dstatic.zaohaowu.net', 'api.hitem3d.ai', 'cdn.hitem3d.ai', 'assets.hitem3d.ai']);
+
+function pickProxyEndpoint(remoteUrl: string): { endpoint: string; headers: Record<string, string> } {
+  try {
+    const host = new URL(remoteUrl).hostname;
+    if (HITEM3D_HOSTS.has(host)) {
+      const h: Record<string, string> = { 'Content-Type': 'application/json' };
+      const s = getGlobalSettings();
+      if (s.hitem3dAccessKey) h['x-hitem3d-access'] = s.hitem3dAccessKey;
+      if (s.hitem3dSecretKey) h['x-hitem3d-secret'] = s.hitem3dSecretKey;
+      return { endpoint: '/api/hitem3d', headers: h };
+    }
+  } catch { /* fall through */ }
+  const h: Record<string, string> = { 'Content-Type': 'application/json' };
+  const meshyKey = getGlobalSettings().meshyApiKey;
+  if (meshyKey) h['x-meshy-key'] = meshyKey;
+  return { endpoint: '/api/meshy', headers: h };
+}
+
 async function fetchGlbViaProxy(remoteUrl: string): Promise<string> {
   const cached = blobCache.get(remoteUrl);
   if (cached) return cached;
 
-  const h: Record<string, string> = { 'Content-Type': 'application/json' };
-  const meshyKey = getGlobalSettings().meshyApiKey;
-  if (meshyKey) h['x-meshy-key'] = meshyKey;
-  const res = await fetch('/api/meshy', {
+  const { endpoint, headers } = pickProxyEndpoint(remoteUrl);
+  const res = await fetch(endpoint, {
     method: 'POST',
-    headers: h,
+    headers,
     body: JSON.stringify({ action: 'proxy-model', url: remoteUrl }),
   });
   if (!res.ok) {
@@ -240,7 +257,7 @@ function MeshyModelViewerNodeInner({ id, data, selected }: Props) {
       }
 
       const hitem = d.hitem3dResult as Hitem3DTaskResult | undefined;
-      if (hitem?.status === 'success' && hitem.url) {
+      if (hitem?.state === 'success' && hitem.url) {
         const ext = hitem.url.split('.').pop()?.split('?')[0]?.toLowerCase() ?? '';
         const isGlb = ext === 'glb' || hitem.url.includes('.glb');
         results.push({

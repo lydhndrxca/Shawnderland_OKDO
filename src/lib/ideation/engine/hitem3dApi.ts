@@ -80,17 +80,15 @@ export const RES_DEFAULTS: Record<Hitem3DResolution, number> = {
   '1536pro': 2_000_000,
 };
 
-export type Hitem3DTaskStatus = 'created' | 'queueing' | 'processing' | 'success' | 'failed';
+export type Hitem3DTaskState = 'created' | 'queueing' | 'processing' | 'success' | 'failed';
 
 export interface Hitem3DTaskResult {
   task_id: string;
-  status: Hitem3DTaskStatus;
+  state: Hitem3DTaskState | string;
+  id?: string;
   url?: string;
-  model_url?: string;
-  output_url?: string;
   cover_url?: string;
-  progress?: number;
-  error?: string;
+  msg?: string;
   [key: string]: unknown;
 }
 
@@ -189,9 +187,25 @@ export async function queryTask(taskId: string): Promise<Hitem3DTaskResult> {
   });
   const json = await res.json() as Record<string, unknown>;
   if (!res.ok) throw new Error((json.error as string) || `Hitem3D query error ${res.status}`);
-  const nested = typeof json.data === 'object' && json.data ? json.data as Record<string, unknown> : null;
-  const result = nested ?? json;
-  return result as Hitem3DTaskResult;
+
+  const nested = typeof json.data === 'object' && json.data
+    ? json.data as Record<string, unknown>
+    : null;
+
+  if (nested && nested.state) {
+    if (!nested.task_id) nested.task_id = taskId;
+    return nested as Hitem3DTaskResult;
+  }
+
+  const code = json.code;
+  if (code && code !== 200 && Number(code) >= 400) {
+    const msg = (json.msg ?? json.message ?? 'Unknown error') as string;
+    throw new Error(`Hitem3D API (${code}): ${msg}`);
+  }
+
+  const flat: Record<string, unknown> = { ...json };
+  if (!flat.task_id) flat.task_id = taskId;
+  return flat as Hitem3DTaskResult;
 }
 
 export async function proxyModelDownload(remoteUrl: string): Promise<string> {

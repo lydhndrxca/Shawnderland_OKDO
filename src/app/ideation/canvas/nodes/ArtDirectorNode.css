@@ -320,3 +320,11 @@
   background: rgba(249, 168, 37, 0.12);
   color: #ffca28;
 }
+
+.artdir-wr-picker {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: rgba(79, 70, 229, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 6px;
+}

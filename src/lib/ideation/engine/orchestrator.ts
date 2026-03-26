@@ -32,6 +32,8 @@ import { buildScorePrompt } from './converge/scorePrompt';
 import { roundScores, sortByTotal } from './converge/stability';
 import { buildCommitPrompt } from './commit/commitPrompt';
 import { sanitizeUserInput } from './security/sanitize';
+import { getPersona as getWritingRoomPersona } from '@tools/writing-room/agents';
+import { generateText as aiGenerateText } from '@shawnderland/ai';
 import { guardBeforeProviderCall, buildSafePrompt } from './security/promptGuards';
 import { checkCulture } from './culture/antiExoticism';
 import { addCultureInstructions } from './culture/culturePrompt';
@@ -127,6 +129,37 @@ function resolveInfluenceContext(session: Session): string[] {
       const description = data?.nodeText as string | undefined;
       if (description?.trim()) {
         parts.push(`[VIDEO REFERENCE] The user has provided video context described as: "${description.trim()}". Channel the visual narrative, pacing, mood, and stylistic elements into the creative output.`);
+      }
+    }
+
+    if (n.type === 'wrPersona') {
+      const personaId = data?.personaId as string | undefined;
+      if (personaId) {
+        const persona = getWritingRoomPersona(personaId);
+        if (persona) {
+          let directive = `[CREATIVE PERSONA] You are channeling the creative mind of ${persona.name} (${persona.role}).\nHere is their creative identity and voice:\n${persona.researchData}\n\nThink, speak, and create as this person would. Let their worldview, aesthetic sensibility, and creative instincts shape every output.`;
+          const moodDirective = data?.moodDirective as string | undefined;
+          if (moodDirective?.trim()) {
+            directive += `\n\nCURRENT STATE OF MIND: ${moodDirective.trim()}\nThis emotional state colors their creative judgment right now — let it affect tone, risk tolerance, and the kinds of ideas they gravitate toward.`;
+          }
+          const useCurrentEvents = data?.useCurrentEvents as boolean | undefined;
+          const eventsCache = data?.currentEventsCache as { summary?: string; fetchedAt?: number } | undefined;
+          if (useCurrentEvents && eventsCache?.summary?.trim()) {
+            directive += `\n\n[CURRENT WORLD EVENTS — as ${persona.name} sees them]\n` +
+              `These are real events happening in the world right now that ${persona.name} is aware of ` +
+              `and affected by — just as a real person would be. Let these shape their creative instincts, ` +
+              `references, and emotional state:\n\n${eventsCache.summary.trim()}\n\n` +
+              `React to these naturally. If something excites or disturbs this persona, let it show in the work.`;
+          }
+          parts.push(directive);
+        }
+      }
+    }
+
+    if (n.type === 'agentThinking') {
+      const latestThought = data?._latestThought as string | undefined;
+      if (latestThought?.trim()) {
+        parts.push(`[AGENT'S INTERNAL THOUGHT PROCESS]\nBefore working on this stage, the creative persona thought through the problem. Here is their internal monologue — use this thinking to shape your approach, priorities, and creative direction:\n\n"${latestThought.trim()}"\n\nLet this thought process guide the creative output. The persona's instincts, concerns, and ideas expressed above should be reflected in the results.`);
       }
     }
   }
@@ -269,6 +302,169 @@ function buildPrompt(
   }
 
   return buildSafePrompt(instructions, sanitized);
+}
+
+/* ── Agent Thinking: persona thought generation before stage runs ── */
+
+const STAGE_THINKING_LABELS: Record<string, string> = {
+  normalize: 'Normalize',
+  diverge: 'Diverge',
+  'critique-salvage': 'Critique',
+  expand: 'Expand',
+  converge: 'Converge',
+  commit: 'Commit',
+  iterate: 'Iterate',
+};
+
+interface ActivePersona {
+  personaId: string;
+  name: string;
+  avatar: string;
+  role: string;
+  researchData: string;
+  moodDirective: string;
+  useCurrentEvents: boolean;
+  currentEventsSummary: string;
+}
+
+function getActivePersona(session: Session): ActivePersona | null {
+  const flowState = session.flowState;
+  if (!flowState?.nodes) return null;
+
+  for (const n of flowState.nodes) {
+    if (n.type !== 'wrPersona') continue;
+    const data = flowState.nodeData?.[n.id];
+    const personaId = data?.personaId as string | undefined;
+    if (!personaId) continue;
+    const persona = getWritingRoomPersona(personaId);
+    if (!persona) continue;
+    const eventsCache = data?.currentEventsCache as { summary?: string } | undefined;
+    return {
+      personaId,
+      name: persona.name,
+      avatar: persona.avatar,
+      role: persona.role,
+      researchData: persona.researchData ?? '',
+      moodDirective: (data?.moodDirective as string) ?? '',
+      useCurrentEvents: (data?.useCurrentEvents as boolean) ?? false,
+      currentEventsSummary: eventsCache?.summary?.trim() ?? '',
+    };
+  }
+  return null;
+}
+
+function findThinkingNodeId(session: Session): string | null {
+  const flowState = session.flowState;
+  if (!flowState?.nodes) return null;
+  for (const n of flowState.nodes) {
+    if (n.type === 'agentThinking') return n.id;
+  }
+  return null;
+}
+
+function injectPersonaThoughtContext(
+  session: Session,
+  _persona: ActivePersona,
+  thought: string,
+  _stageId: StageId,
+): Session {
+  const thinkingNodeId = findThinkingNodeId(session);
+  if (!thinkingNodeId) return session;
+
+  const existingNodeData = session.flowState?.nodeData?.[thinkingNodeId] as Record<string, unknown> | undefined;
+
+  return {
+    ...session,
+    flowState: {
+      ...(session.flowState ?? { nodes: [], edges: [] }),
+      nodeData: {
+        ...(session.flowState?.nodeData ?? {}),
+        [thinkingNodeId]: {
+          ...(existingNodeData ?? {}),
+          _latestThought: thought.trim(),
+        },
+      },
+    },
+  };
+}
+
+async function generatePersonaThought(
+  session: Session,
+  stageId: StageId,
+  _provider: Provider,
+  persona: ActivePersona,
+): Promise<{ thought: string; updatedSession: Session }> {
+  const seedDesc = getSeedDescription(session);
+  const stageLabel = STAGE_THINKING_LABELS[stageId] ?? stageId;
+
+  const existingOutput = session.stageState[stageId]?.output;
+  const contextHint = existingOutput
+    ? `\nPrevious stage output exists and will be refreshed.`
+    : `\nThis stage has not been run yet.`;
+
+  const moodBlock = persona.moodDirective.trim()
+    ? `\n\nYour current state of mind: ${persona.moodDirective.trim()}\nThis is how you're feeling RIGHT NOW. Let it color your thinking, your tone, your instincts.`
+    : '';
+
+  const eventsBlock = (persona.useCurrentEvents && persona.currentEventsSummary)
+    ? `\n\nYou're also aware of what's happening in the world right now:\n${persona.currentEventsSummary.slice(0, 1500)}\nThese real events are on your mind. Reference them if they're relevant to the creative task.`
+    : '';
+
+  const prompt = [
+    `You are ${persona.name}, a ${persona.role}.`,
+    `Here is who you are:\n${persona.researchData}`,
+    moodBlock,
+    eventsBlock,
+    `\nThe creator has given you this seed idea: "${seedDesc}"`,
+    contextHint,
+    `\nYou are about to work on the "${stageLabel}" stage of the creative pipeline.`,
+    `\nThink through this stage from YOUR unique perspective. What matters to you here? What are your instincts telling you? How does your mood affect your approach?`,
+    `Write 2-4 sentences of raw, honest internal monologue — as if thinking out loud in your own voice. Be specific about the seed idea. Don't be generic.`,
+    `Do NOT use any formatting, headers, or bullet points. Just pure thought.`,
+  ].join('\n');
+
+  let thought: string;
+  try {
+    thought = await aiGenerateText(prompt, { temperature: 0.7 });
+  } catch {
+    thought = `[${persona.name} is thinking about ${stageLabel}...]`;
+  }
+
+  const thinkingNodeId = findThinkingNodeId(session);
+  if (!thinkingNodeId) {
+    return { thought, updatedSession: session };
+  }
+
+  const existingNodeData = session.flowState?.nodeData?.[thinkingNodeId] as Record<string, unknown> | undefined;
+  const existingThoughts = (existingNodeData?.thoughts as Array<Record<string, unknown>>) ?? [];
+
+  const newThought = {
+    stageId,
+    stageLabel,
+    personaName: persona.name,
+    personaAvatar: persona.avatar,
+    mood: persona.moodDirective.trim(),
+    thought: thought.trim(),
+    timestamp: Date.now(),
+  };
+
+  const updatedNodeData: Record<string, Record<string, unknown>> = {
+    ...(session.flowState?.nodeData ?? {}),
+    [thinkingNodeId]: {
+      ...(existingNodeData ?? {}),
+      thoughts: [...existingThoughts, newThought],
+    },
+  };
+
+  const updatedSession: Session = {
+    ...session,
+    flowState: {
+      ...(session.flowState ?? { nodes: [], edges: [] }),
+      nodeData: updatedNodeData,
+    },
+  };
+
+  return { thought, updatedSession };
 }
 
 function buildSeedMediaParts(session: Session): MediaPart[] {
@@ -903,18 +1099,38 @@ export async function runStage(
   opts?: { templateType?: string },
 ): Promise<Session> {
   if (stageId === 'seed') return runSeedStage(session);
-  if (stageId === 'normalize') return runNormalizeStage(session, provider);
-  if (stageId === 'diverge') return runDivergeStage(session, provider);
+
+  // Generate persona thinking before actual stage execution
+  const persona = getActivePersona(session);
+  let activeSession = session;
+  let personaThought: string | null = null;
+  if (persona && STAGE_THINKING_LABELS[stageId]) {
+    try {
+      const result = await generatePersonaThought(activeSession, stageId, provider, persona);
+      personaThought = result.thought;
+      activeSession = result.updatedSession;
+    } catch {
+      // Thinking is non-critical; proceed with the stage
+    }
+  }
+
+  // Inject the persona thought as a transient influence so it shapes the stage output
+  if (personaThought) {
+    activeSession = injectPersonaThoughtContext(activeSession, persona!, personaThought, stageId);
+  }
+
+  if (stageId === 'normalize') return runNormalizeStage(activeSession, provider);
+  if (stageId === 'diverge') return runDivergeStage(activeSession, provider);
   if (stageId === 'critique-salvage')
-    return runCritiqueSalvageStage(session, provider);
-  if (stageId === 'expand') return runExpandStage(session, provider);
-  if (stageId === 'converge') return runConvergeStage(session, provider);
-  if (stageId === 'commit') return runCommitStage(session, provider, opts?.templateType);
+    return runCritiqueSalvageStage(activeSession, provider);
+  if (stageId === 'expand') return runExpandStage(activeSession, provider);
+  if (stageId === 'converge') return runConvergeStage(activeSession, provider);
+  if (stageId === 'commit') return runCommitStage(activeSession, provider, opts?.templateType);
 
   const schema = STAGE_SCHEMAS[stageId];
-  const inputs = getStageInputs(session, stageId);
-  const userInputs = getUserInputs(session);
-  const prompt = buildPrompt(stageId, inputs, userInputs, getEffectiveSettings(session), session);
+  const inputs = getStageInputs(activeSession, stageId);
+  const userInputs = getUserInputs(activeSession);
+  const prompt = buildPrompt(stageId, inputs, userInputs, getEffectiveSettings(activeSession), activeSession);
 
   const rawOutput = await provider.generateStructured({ schema, prompt });
   const output = schema.parse(rawOutput);
@@ -925,7 +1141,7 @@ export async function runStage(
   });
 
   let stageState = markStagesFresh(
-    session.stageState,
+    activeSession.stageState,
     stageId,
     output,
     event.id,
@@ -933,9 +1149,9 @@ export async function runStage(
   stageState = markDownstreamStale(stageState, stageId);
 
   return {
-    ...session,
+    ...activeSession,
     updatedAt: new Date().toISOString(),
-    events: [...session.events, event],
+    events: [...activeSession.events, event],
     stageState,
   };
 }

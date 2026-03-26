@@ -101,7 +101,7 @@ export const STAGE_ORDER: StageId[] = [
 
 export type OutputNodeType = 'textOutput' | 'imageOutput' | 'videoOutput' | 'generateReport' | 'artDirector' | 'adDirectionResult' | 'levelDesignDirector' | 'ldDirectionResult';
 export type InputNodeType = 'count';
-export type InfluenceNodeType = 'emotion' | 'influence' | 'textInfluence' | 'documentInfluence' | 'imageInfluence' | 'linkInfluence' | 'videoInfluence';
+export type InfluenceNodeType = 'emotion' | 'influence' | 'textInfluence' | 'documentInfluence' | 'imageInfluence' | 'linkInfluence' | 'videoInfluence' | 'wrPersona' | 'agentThinking';
 export type PromptInjectionNodeType = 'preprompt' | 'postprompt';
 export type UtilityNodeType = 'imageReference' | 'extractData';
 export type ControlNodeType = 'start';
@@ -246,6 +246,18 @@ export const INFLUENCE_NODE_META: Record<InfluenceNodeType, InfluenceNodeMeta> =
     color: '#ce93d8',
     tooltip: 'Upload a video file (.mp4, .webm, .mov) to influence the pipeline with visual content.',
   },
+  wrPersona: {
+    type: 'wrPersona',
+    label: 'Creative Persona',
+    color: '#7c4dff',
+    tooltip: 'Assign a Writing Room bot persona to the pipeline. The AI channels their creative voice, personality, and decision-making style into every stage.',
+  },
+  agentThinking: {
+    type: 'agentThinking',
+    label: 'Agent Thinking',
+    color: '#f59e0b',
+    tooltip: 'Displays the persona\'s thought process as they work through each stage. Connect from the Creative Persona node.',
+  },
 };
 
 export interface PromptInjectionNodeMeta {
@@ -328,7 +340,7 @@ export const RESULT_NODE_META: Record<ResultNodeType, ResultNodeMeta> = {
 
 export const OUTPUT_NODE_TYPES: OutputNodeType[] = ['textOutput', 'imageOutput', 'videoOutput', 'generateReport', 'artDirector', 'levelDesignDirector', 'ldDirectionResult'];
 export const INPUT_NODE_TYPES: InputNodeType[] = ['count'];
-export const INFLUENCE_NODE_TYPES: InfluenceNodeType[] = ['emotion', 'influence', 'textInfluence', 'documentInfluence', 'imageInfluence', 'linkInfluence', 'videoInfluence'];
+export const INFLUENCE_NODE_TYPES: InfluenceNodeType[] = ['emotion', 'influence', 'textInfluence', 'documentInfluence', 'imageInfluence', 'linkInfluence', 'videoInfluence', 'wrPersona', 'agentThinking'];
 export const UTILITY_NODE_TYPES: UtilityNodeType[] = ['imageReference', 'extractData'];
 export const GROUP_NODE_TYPES: GroupNodeType[] = ['group'];
 
@@ -357,9 +369,13 @@ export function isValidConnection(source: string, target: string): boolean {
   if (sourceIsInput && targetIsOutput) return true;
   if (sourceIsInput && targetIsStage) return true;
 
+  const targetIsInfluence = INFLUENCE_NODE_TYPES.includes(target as InfluenceNodeType);
+
   if (sourceIsInfluence && targetIsStage) return true;
   if (sourceIsInfluence && targetIsOutput) return true;
   if (sourceIsInfluence && targetIsUtility) return true;
+  if (sourceIsInfluence && targetIsInfluence && source !== target) return true;
+  if (sourceIsStage && targetIsInfluence) return true;
 
   if (source === 'imageReference' && (target === 'extractData' || targetIsOutput || targetIsStage)) return true;
   if (source === 'extractData' && (targetIsStage || targetIsOutput)) return true;
@@ -411,6 +427,25 @@ export function isValidConnection(source: string, target: string): boolean {
   if (sourceIs3DGen && targetIsOutput) return true;
   if (sourceIsUtility && targetIs3DGen) return true;
   if (sourceIsInfluence && targetIs3DGen) return true;
+
+  // Prop Lab connections
+  const PROP_LAB_TYPES: string[] = [
+    'propIdentity', 'propDescription', 'propAttributes', 'propStyle',
+    'propGenerate', 'propExtractAttrs', 'propEnhanceDesc', 'propRefCallout',
+    'propMainViewer', 'propFrontViewer', 'propBackViewer', 'propSideViewer', 'propTopViewer',
+  ];
+  const sourceIsPropLab = PROP_LAB_TYPES.includes(source);
+  const targetIsPropLab = PROP_LAB_TYPES.includes(target);
+
+  if (sourceIsPropLab && targetIsPropLab && source !== target) return true;
+  if (sourceIsPropLab && targetIsOutput) return true;
+  if (sourceIsPropLab && targetIsCharGen) return true;
+  if (sourceIsCharGen && targetIsPropLab) return true;
+  if (sourceIsPropLab && targetIsUtility) return true;
+  if (sourceIsUtility && targetIsPropLab) return true;
+  if (sourceIsInfluence && targetIsPropLab) return true;
+  if (sourceIsOutput && targetIsPropLab) return true;
+  if (sourceIsPropLab && targetIs3DGen) return true;
 
   // Audio AI connections
   const AUDIO_AI_TYPES: string[] = ['elTTS', 'elSFX', 'elVoiceClone', 'elVoiceScript', 'elVoiceDesigner', 'elDialogueWriter'];

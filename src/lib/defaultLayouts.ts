@@ -209,6 +209,8 @@ const PROPLAB_DEFAULT: LayoutSnapshot = {
     { id: "pl-def-19", position: { x: 3400, y: 2260 }, type: "hitem3dImageTo3D", style: { width: 340, height: 640 } },
     { id: "pl-def-20", position: { x: 4020, y: 1400 }, type: "ue3dViewer", style: { width: 800, height: 780 } },
     { id: "pl-def-21", position: { x: 4040, y: 2260 }, type: "ue3dViewer", style: { width: 800, height: 780 } },
+    { id: "pl-def-22", position: { x: 1200, y: 1680 }, type: "artDirector" },
+    { id: "pl-def-23", position: { x: 1600, y: 1680 }, type: "charCreativeDirector", style: { width: 820, height: 500 } },
   ],
   edges: [
     { id: "e-pl-01", source: "pl-def-01", target: "pl-def-05", sourceHandle: "identity-out", targetHandle: "input" },
@@ -247,6 +249,9 @@ const PROPLAB_DEFAULT: LayoutSnapshot = {
     // 3D gen → UE3D viewers
     { id: "e-pl-30", source: "pl-def-17", target: "pl-def-20" },
     { id: "e-pl-31", source: "pl-def-19", target: "pl-def-21" },
+    // Main viewer → Art Director → Art Direction Output
+    { id: "e-pl-32", source: "pl-def-09", target: "pl-def-22", sourceHandle: "output" },
+    { id: "e-pl-33", source: "pl-def-22", target: "pl-def-23", targetHandle: "input" },
   ],
   nodeData: {
     "pl-def-05": {
@@ -266,6 +271,7 @@ const PROPLAB_DEFAULT: LayoutSnapshot = {
     "pl-def-11": { viewKey: "back", genCount: 1 },
     "pl-def-12": { viewKey: "side", genCount: 1 },
     "pl-def-13": { viewKey: "top", genCount: 1 },
+    "pl-def-22": { focus: "props" },
   },
   viewport: { x: 800, y: 200, zoom: 0.25 },
 };

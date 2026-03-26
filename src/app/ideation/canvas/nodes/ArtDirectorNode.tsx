@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useRef, useEffect } from 'react';
+import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import type { NodeProps } from '@xyflow/react';
 import { Handle, Position, useReactFlow, useStore } from '@xyflow/react';
 import { Image, Video, FileText, X } from 'lucide-react';
@@ -8,6 +8,9 @@ import { createGeminiProvider } from '@/lib/ideation/engine/provider/geminiProvi
 import type { MediaPart } from '@/lib/ideation/engine/provider/types';
 import type { SeedMediaItem } from '@/lib/ideation/state/sessionTypes';
 import { z } from 'zod';
+import { getAllPersonas } from '@tools/writing-room/agents';
+import { createSessionFromExternal } from '@tools/writing-room/bridge';
+import type { ChatAttachment } from '@tools/writing-room/types';
 import './ArtDirectorNode.css';
 
 /* ── Pipeline phase types ─────────────────────────────────────────── */
@@ -362,17 +365,21 @@ const UPSTREAM_IMAGE_TYPES = new Set([
   'charMainViewer', 'charViewer', 'charImageViewer',
   'charFrontViewer', 'charBackViewer', 'charSideViewer', 'charCustomView',
   'charGenerate', 'imageOutput', 'imageReference', 'detachedViewer',
+  'propMainViewer', 'propFrontViewer', 'propBackViewer', 'propSideViewer', 'propTopViewer',
 ]);
 
-export default function ArtDirectorNode({ id, selected }: NodeProps) {
+export default function ArtDirectorNode({ id, data, selected }: NodeProps) {
   const { setNodes, getNode, getEdges } = useReactFlow();
 
   const [description, setDescription] = useState('');
   const [media, setMedia] = useState<SeedMediaItem[]>([]);
-  const [focus, setFocus] = useState<ADFocus>('character');
+  const [focus, setFocus] = useState<ADFocus>(((data as Record<string, unknown>)?.focus as ADFocus) || 'character');
   const [result, setResult] = useState<FinalResult | null>(null);
   const [phase, setPhase] = useState<PipelinePhase>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [showWrPicker, setShowWrPicker] = useState(false);
+  const [wrAgents, setWrAgents] = useState<string[]>(['preset-producer', 'preset-art-director', 'preset-costume-designer']);
+  const [wrSent, setWrSent] = useState(false);
   const lastUpstreamSigRef = useRef<string | null>(null);
 
   const upstreamImageSig = useStore(
@@ -443,28 +450,20 @@ export default function ArtDirectorNode({ id, selected }: NodeProps) {
   const hasInput = description.trim().length > 0 || media.length > 0;
 
   /* ── Persist media/text/focus to node.data for session save ── */
-  const syncNodeData = useCallback((desc: string, med: SeedMediaItem[], f?: ADFocus) => {
+  useEffect(() => {
     setNodes((nds) => nds.map((n) =>
-      n.id === id ? { ...n, data: { ...n.data, description: desc, media: med, focus: f ?? focus } } : n,
+      n.id === id ? { ...n, data: { ...n.data, description, media, focus } } : n,
     ));
-  }, [id, setNodes, focus]);
+  }, [id, setNodes, description, media, focus]);
 
   /* ── Media handling (same patterns as SeedNode) ── */
   const addMedia = useCallback((item: SeedMediaItem) => {
-    setMedia((prev) => {
-      const next = [...prev, item];
-      syncNodeData(description, next);
-      return next;
-    });
-  }, [description, syncNodeData]);
+    setMedia((prev) => [...prev, item]);
+  }, []);
 
   const removeMedia = useCallback((idx: number) => {
-    setMedia((prev) => {
-      const next = prev.filter((_, i) => i !== idx);
-      syncNodeData(description, next);
-      return next;
-    });
-  }, [description, syncNodeData]);
+    setMedia((prev) => prev.filter((_, i) => i !== idx));
+  }, []);
 
   const handleImageUpload = useCallback(() => {
     const input = document.createElement('input');
@@ -623,6 +622,62 @@ export default function ArtDirectorNode({ id, selected }: NodeProps) {
     }
   }, [description, media, focus]);
 
+  /* ── Writing Room integration ────────────────────────── */
+  const allPersonas = useMemo(() => {
+    try { return getAllPersonas(); } catch { return []; }
+  }, []);
+
+  const toggleWrAgent = useCallback((agentId: string) => {
+    setWrAgents((prev) => prev.includes(agentId) ? prev.filter((a) => a !== agentId) : [...prev, agentId]);
+  }, []);
+
+  const handleSendToWritingRoom = useCallback(() => {
+    const imageAttachments: ChatAttachment[] = [];
+    for (const m of media) {
+      if (m.type === 'image' && m.base64) {
+        imageAttachments.push({ type: 'image', mimeType: m.mimeType, base64: m.base64, fileName: m.fileName });
+      }
+    }
+
+    const edges = getEdges();
+    for (const e of edges) {
+      if (e.target !== id) continue;
+      const src = getNode(e.source);
+      if (!src?.data) continue;
+      const d = src.data as Record<string, unknown>;
+      const img = d.generatedImage as { base64?: string; mimeType?: string } | undefined;
+      if (img?.base64) {
+        imageAttachments.push({ type: 'image', mimeType: img.mimeType || 'image/png', base64: img.base64, fileName: 'design-image.png' });
+      }
+    }
+
+    const prompt = [
+      `VISUAL CRITIQUE SESSION — ${AD_FOCUS_CONFIG[focus].label} Design`,
+      '',
+      `The creator wants honest feedback on this ${focus} design.`,
+      '',
+      'CREATOR\'S DIRECTION (HIGHEST PRIORITY):',
+      description || '(No specific direction provided — give general critique)',
+      '',
+      'Your job: critique this honestly. If it\'s good, say so. If it\'s bad, say so.',
+      'Give specific, actionable feedback. Generate alternative visual concepts when you have concrete ideas to propose.',
+    ].join('\n');
+
+    createSessionFromExternal({
+      title: `${AD_FOCUS_CONFIG[focus].label} Design Review`,
+      writingType: 'art-direction',
+      prompt,
+      selectedAgentIds: wrAgents,
+      imageAttachments,
+    });
+
+    setWrSent(true);
+    setShowWrPicker(false);
+
+    const nav = (window as unknown as Record<string, unknown>).__workspaceNavigate as ((path: string) => void) | undefined;
+    if (nav) nav('/writing-room');
+  }, [id, description, media, focus, wrAgents, getNode, getEdges]);
+
 
   return (
     <div className={`artdir-node ${selected ? 'selected' : ''}`}>
@@ -642,7 +697,7 @@ export default function ArtDirectorNode({ id, selected }: NodeProps) {
             <button
               key={f}
               className={`artdir-focus-btn ${f === focus ? 'active' : ''}`}
-              onClick={() => { setFocus(f); syncNodeData(description, media, f); }}
+              onClick={() => { setFocus(f); }}
             >
               {AD_FOCUS_CONFIG[f].label}
             </button>
@@ -656,7 +711,7 @@ export default function ArtDirectorNode({ id, selected }: NodeProps) {
           <textarea
             className="artdir-text-input nodrag nowheel"
             value={description}
-            onChange={(e) => { setDescription(e.target.value); syncNodeData(e.target.value, media); }}
+            onChange={(e) => { setDescription(e.target.value); }}
             placeholder="Describe your concept, idea, or creative brief — the Art Director will give you 5 points of creative direction…"
             spellCheck={false}
             rows={3}
@@ -697,13 +752,72 @@ export default function ArtDirectorNode({ id, selected }: NodeProps) {
           )}
 
           {phase === 'idle' && (
-            <button
-              className="artdir-run-btn nodrag"
-              onClick={handleRun}
-              disabled={!hasInput}
-            >
-              🎬 Run Art Direction
-            </button>
+            <>
+              <button
+                className="artdir-run-btn nodrag"
+                onClick={handleRun}
+                disabled={!hasInput}
+              >
+                🎬 Run Art Direction
+              </button>
+
+              {!wrSent ? (
+                <button
+                  className="artdir-run-btn nodrag"
+                  onClick={() => setShowWrPicker(!showWrPicker)}
+                  style={{ background: '#4f46e5', marginTop: 4 }}
+                >
+                  💬 Send to Writing Room for Feedback
+                </button>
+              ) : (
+                <button
+                  className="artdir-run-btn nodrag"
+                  onClick={() => {
+                    const nav = (window as unknown as Record<string, unknown>).__workspaceNavigate as ((path: string) => void) | undefined;
+                    if (nav) nav('/writing-room');
+                  }}
+                  style={{ background: '#16a34a', marginTop: 4 }}
+                >
+                  ✅ Go to Writing Room
+                </button>
+              )}
+
+              {showWrPicker && (
+                <div className="artdir-wr-picker nodrag nowheel">
+                  <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6, color: '#a5b4fc' }}>
+                    Who should review this?
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+                    {allPersonas.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => toggleWrAgent(p.id)}
+                        style={{
+                          fontSize: 10,
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                          border: '1px solid',
+                          borderColor: wrAgents.includes(p.id) ? '#6366f1' : '#444',
+                          background: wrAgents.includes(p.id) ? 'rgba(99,102,241,0.2)' : 'transparent',
+                          color: wrAgents.includes(p.id) ? '#a5b4fc' : '#999',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {p.avatar} {p.name}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    className="artdir-run-btn"
+                    onClick={handleSendToWritingRoom}
+                    disabled={wrAgents.length === 0}
+                    style={{ background: '#4f46e5', fontSize: 11, padding: '5px 10px' }}
+                  >
+                    Send for Review ({wrAgents.length} agents)
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

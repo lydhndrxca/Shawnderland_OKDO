@@ -1,0 +1,254 @@
+.wr-persona-node {
+  min-width: 220px;
+  max-width: 280px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: visible;
+  font-size: 12px;
+  position: relative;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.wr-persona-node.selected {
+  border-color: #7c4dff;
+  box-shadow: 0 0 16px rgba(124, 77, 255, 0.3);
+}
+
+.wr-persona-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #7c4dff;
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.wr-persona-header-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0.3;
+}
+
+.wr-persona-header-label {
+  flex: 1;
+}
+
+.wr-persona-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wr-persona-select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 8px;
+  outline: none;
+  cursor: pointer;
+}
+
+.wr-persona-select:focus {
+  border-color: #7c4dff;
+}
+
+.wr-persona-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.wr-persona-avatar {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.wr-persona-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.wr-persona-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wr-persona-role {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.wr-persona-mood-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.wr-persona-mood-input {
+  width: 100%;
+  resize: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 8px;
+  line-height: 1.4;
+  outline: none;
+}
+
+.wr-persona-mood-input:focus {
+  border-color: #7c4dff;
+}
+
+.wr-persona-mood-input::placeholder {
+  color: var(--text-muted);
+}
+
+.wr-persona-empty {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 4px 0;
+}
+
+/* ── Current Events ─────────────────────────────────── */
+
+.wr-persona-events-section {
+  margin-top: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wr-persona-events-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.wr-persona-events-checkbox {
+  width: 14px;
+  height: 14px;
+  accent-color: #7c4dff;
+  cursor: pointer;
+  margin: 0;
+}
+
+.wr-persona-events-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.wr-persona-events-label {
+  flex: 1;
+}
+
+.wr-persona-events-loading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 4px 0;
+}
+
+.wr-persona-events-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border);
+  border-top-color: #7c4dff;
+  border-radius: 50%;
+  animation: wr-events-spin 0.8s linear infinite;
+}
+
+@keyframes wr-events-spin {
+  to { transform: rotate(360deg); }
+}
+
+.wr-persona-events-preview {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+}
+
+.wr-persona-events-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.wr-persona-events-source-count {
+  font-size: 9px;
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.wr-persona-events-refresh,
+.wr-persona-events-expand {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.wr-persona-events-refresh:hover,
+.wr-persona-events-expand:hover {
+  color: #7c4dff;
+}
+
+.wr-persona-events-text {
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 60px;
+  overflow: hidden;
+  transition: max-height 0.2s;
+}
+
+.wr-persona-events-text.expanded {
+  max-height: 400px;
+  overflow-y: auto;
+}

@@ -1,4 +1,4 @@
-import { generateText, generateStructured, type GeneratedImage } from "@shawnderland/ai";
+import { generateText, generateStructured, generateImage, type GeneratedImage } from "@shawnderland/ai";
 import { getPersona } from "./agents";
 import type {
   ChatMessage, RoomAgent, RoomPhase, PlanningData, AgentRole,
@@ -17,6 +17,7 @@ export interface AgentTurnResult {
   text: string;
   agentStatePatch?: Partial<AgentTurnState>;
   projectStatePatch?: Partial<ProducerProjectState>;
+  generatedImages?: GeneratedImage[];
 }
 
 export interface ConvergenceResult {
@@ -217,7 +218,7 @@ If anything fails, flag it and demand fixes.`;
 
 /* ─── Conversation Context ───────────────────────────── */
 
-function buildConversationContext(history: ChatMessage[], maxMessages = 10): string {
+function buildConversationContext(history: ChatMessage[], maxMessages = 15): string {
   const recent = history.slice(-maxMessages);
   return recent
     .map((m) => {
@@ -300,6 +301,8 @@ function selectTurnType(
   role: AgentRole,
 ): TurnType {
   if (isFirstTurnInRound) return "pitch";
+
+  if (lastMessage?.sender === "user") return "react";
 
   const recentProposals = recentAgentMessages.filter(
     (m) => m.sender === "agent" && m.content.length > 80,
@@ -558,7 +561,7 @@ export async function generateRoundTurn(
   brief: string | null,
   lockedDecisions: LockedDecision[],
   turnsInRound: number,
-  options?: { wrappingUp?: boolean; signal?: AbortSignal; globalModelTier?: import("./types").ModelTier | null },
+  options?: { wrappingUp?: boolean; signal?: AbortSignal; globalModelTier?: import("./types").ModelTier | null; planning?: PlanningData },
 ): Promise<AgentTurnResult> {
   const persona = getPersona(agent.personaId);
   if (!persona) return { text: "[Unknown persona]" };
@@ -590,6 +593,11 @@ export async function generateRoundTurn(
     ? "NOTE: The room is wrapping up. Focus on finalizing, not introducing new ideas."
     : "";
 
+  const recentUserMessages = history.slice(-6).filter((m) => m.sender === "user");
+  const userDirective = recentUserMessages.length > 0
+    ? `=== CREATOR FEEDBACK ===\nThe creator (client/user) has spoken in the room. Their input takes priority — they are the decision-maker. You MUST directly acknowledge and respond to what they said. Their most recent message:\n"${recentUserMessages[recentUserMessages.length - 1].content}"\nAddress their feedback, questions, or direction FIRST before continuing the creative discussion.\n=== END CREATOR FEEDBACK ===`
+    : "";
+
   const prompt = [
     `You are ${persona.name} (${persona.role}).`,
     creativeTension,
@@ -599,6 +607,7 @@ export async function generateRoundTurn(
     agentMemory,
     roomState,
     roundPrompt,
+    userDirective,
     turnDirective,
     checkpointPrompt,
     starredDirective,
@@ -640,10 +649,35 @@ export async function generateRoundTurn(
 
   const agentStatePatch = await extractAgentState(text, persona);
 
+  let generatedImages: GeneratedImage[] | undefined;
+
+  const isVisualCritique = options?.planning?.writingType === "art-direction";
+  if (isVisualCritique && !options?.signal?.aborted) {
+    const visualSuggestionPattern = /\b(imagine|picture|visualize|what if|try|change|alter|modify|adjust|redesign|rework|concept|variation|alternative|instead|propose|suggest)\b/i;
+    const shouldGenerate = visualSuggestionPattern.test(text) && Math.random() < 0.3;
+
+    if (shouldGenerate) {
+      try {
+        const refImages = collectRecentImages(history);
+        const imgPrompt = `Based on this art direction feedback, generate a visual concept:\n\n${text.slice(0, 500)}\n\nGenerate a concept image that illustrates the feedback above. Keep it as a rough concept — quick and loose.`;
+        const imgResult = await generateImage(imgPrompt, {
+          referenceImages: refImages.length > 0 ? refImages : undefined,
+          signal: options?.signal,
+        });
+        if (imgResult.images.length > 0) {
+          generatedImages = imgResult.images;
+        }
+      } catch {
+        // Image generation is optional; swallow errors
+      }
+    }
+  }
+
   return {
     text,
     agentStatePatch: agentStatePatch ?? undefined,
     projectStatePatch,
+    generatedImages,
   };
 }
 

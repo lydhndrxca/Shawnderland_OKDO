@@ -271,3 +271,201 @@ async function _generateTextInner(
     clearTimeout(timer);
   }
 }
+
+/* ─── Search-Grounded Text Generation ───────────────── */
+
+export interface SearchGroundedResult {
+  text: string;
+  searchQueries: string[];
+  sources: Array<{ uri: string; title: string }>;
+}
+
+export interface SearchGroundedOptions {
+  model?: string;
+  temperature?: number;
+}
+
+export function generateTextWithSearch(
+  prompt: string,
+  options?: SearchGroundedOptions,
+): Promise<SearchGroundedResult> {
+  return withRetry(() => _generateTextWithSearchInner(prompt, options));
+}
+
+async function _generateTextWithSearchInner(
+  prompt: string,
+  options?: SearchGroundedOptions,
+): Promise<SearchGroundedResult> {
+  const model = options?.model ?? GEMINI_FLASH_MODEL;
+  const temperature = options?.temperature ?? 0.4;
+
+  const body = JSON.stringify({
+    model,
+    method: "generateContent",
+    body: {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature },
+      tools: [{ google_search: {} }],
+    },
+  });
+
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), DEFAULT_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(PROXY_URL, {
+      method: "POST",
+      headers: apiHeaders(),
+      body,
+      signal: ac.signal,
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => `HTTP ${res.status}`);
+      throw new Error(`Gemini search error ${res.status}: ${errText.slice(0, 400)}`);
+    }
+
+    const json = (await res.json()) as {
+      candidates?: Array<{
+        content?: { parts?: Array<{ text?: string }> };
+        groundingMetadata?: {
+          webSearchQueries?: string[];
+          groundingChunks?: Array<{ web?: { uri: string; title: string } }>;
+        };
+      }>;
+      usageMetadata?: {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        totalTokenCount?: number;
+      };
+    };
+
+    if (_onUsage && json.usageMetadata) {
+      try { _onUsage(json.usageMetadata, model); } catch { /* ignore */ }
+    }
+
+    const candidate = json?.candidates?.[0];
+
+    const text = candidate?.content?.parts
+      ?.filter((p) => p.text)
+      ?.map((p) => p.text)
+      ?.join("\n") ?? "";
+
+    const gm = candidate?.groundingMetadata;
+    const searchQueries = gm?.webSearchQueries ?? [];
+    const sources = (gm?.groundingChunks ?? [])
+      .filter((c) => c.web)
+      .map((c) => ({ uri: c.web!.uri, title: c.web!.title }));
+
+    return { text, searchQueries, sources };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* ─── Image Generation (Gemini multimodal output) ───── */
+
+export const GEMINI_IMAGE_MODEL = "gemini-2.0-flash-exp";
+
+export interface ImageGenOptions {
+  model?: string;
+  referenceImages?: GeneratedImage[];
+  temperature?: number;
+  signal?: AbortSignal;
+}
+
+export interface ImageGenResult {
+  text: string;
+  images: GeneratedImage[];
+}
+
+export function generateImage(
+  prompt: string,
+  options?: ImageGenOptions,
+): Promise<ImageGenResult> {
+  return withRetry(() => _generateImageInner(prompt, options));
+}
+
+async function _generateImageInner(
+  prompt: string,
+  options?: ImageGenOptions,
+): Promise<ImageGenResult> {
+  const model = options?.model ?? GEMINI_IMAGE_MODEL;
+  const temperature = options?.temperature ?? 0.8;
+
+  const parts: Array<Record<string, unknown>> = [];
+  if (options?.referenceImages?.length) {
+    for (const img of options.referenceImages) {
+      parts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } });
+    }
+  }
+  parts.push({ text: prompt });
+
+  const body = JSON.stringify({
+    model,
+    method: "generateContent",
+    body: {
+      contents: [{ parts }],
+      generationConfig: {
+        temperature,
+        responseModalities: ["TEXT", "IMAGE"],
+      },
+    },
+  });
+
+  const ac = options?.signal ? undefined : new AbortController();
+  const signal = options?.signal ?? ac!.signal;
+  const timer = ac ? setTimeout(() => ac.abort(), DEFAULT_TIMEOUT_MS) : undefined;
+
+  try {
+    const res = await fetch(PROXY_URL, {
+      method: "POST",
+      headers: apiHeaders(),
+      body,
+      signal,
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => `HTTP ${res.status}`);
+      throw new Error(`Gemini image error ${res.status}: ${errText.slice(0, 400)}`);
+    }
+
+    const json = (await res.json()) as {
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{
+            text?: string;
+            inlineData?: { mimeType: string; data: string };
+          }>;
+        };
+      }>;
+      usageMetadata?: {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        totalTokenCount?: number;
+      };
+    };
+
+    if (_onUsage && json.usageMetadata) {
+      try { _onUsage(json.usageMetadata, model); } catch { /* ignore */ }
+    }
+
+    const responseParts = json?.candidates?.[0]?.content?.parts ?? [];
+
+    const text = responseParts
+      .filter((p) => p.text)
+      .map((p) => p.text)
+      .join("\n");
+
+    const images: GeneratedImage[] = responseParts
+      .filter((p) => p.inlineData)
+      .map((p) => ({
+        base64: p.inlineData!.data,
+        mimeType: p.inlineData!.mimeType,
+      }));
+
+    return { text, images };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}

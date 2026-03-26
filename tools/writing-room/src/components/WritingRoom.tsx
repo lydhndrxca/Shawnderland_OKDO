@@ -105,11 +105,47 @@ export function WritingRoom() {
           producerBrief,
           rs?.lockedDecisions ?? [],
           rs?.turnsInRound ?? 0,
-          { wrappingUp: session.wrappingUp, signal: abort.signal, globalModelTier },
+          { wrappingUp: session.wrappingUp, signal: abort.signal, globalModelTier, planning: session.planning },
         );
 
-        const msg = createAgentMessage(agent.personaId, result.text);
+        const imageAttachments: import("../types").ChatAttachment[] | undefined =
+          result.generatedImages?.length
+            ? result.generatedImages.map((img) => ({
+                type: "image" as const,
+                mimeType: img.mimeType,
+                base64: img.base64,
+                fileName: `${persona?.name ?? "agent"}-concept.png`,
+              }))
+            : undefined;
+
+        const msg = createAgentMessage(agent.personaId, result.text, imageAttachments?.length ? { attachments: imageAttachments } : undefined);
         actions.addChatMessage(msg);
+
+        if (imageAttachments?.length) {
+          for (const att of imageAttachments) {
+            try {
+              const settings = typeof localStorage !== "undefined"
+                ? JSON.parse(localStorage.getItem("shawnderland-global-settings") || "{}")
+                : {};
+              const outputDir = settings?.outputDir;
+              if (outputDir && att.base64) {
+                fetch("/api/character-save", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    base64: att.base64,
+                    mimeType: att.mimeType,
+                    charName: persona?.name ?? "agent",
+                    viewName: "visual-feedback",
+                    outputDir,
+                    appKey: "writing-room",
+                    contentType: "visual-feedback",
+                  }),
+                }).catch(() => {});
+              }
+            } catch { /* ignore save errors */ }
+          }
+        }
         actions.bumpTurnsSinceSpoke(agent.personaId);
         actions.incrementRoundTurns();
         if (result.agentStatePatch) {
@@ -229,13 +265,25 @@ export function WritingRoom() {
   }, []);
 
   /* ─── User sends message ─────────────────────────── */
+  const pendingUserTurnRef = useRef(false);
+
   const handleUserSend = useCallback(() => {
     if ((!userInput.trim() && stagedAttachments.length === 0) || !session) return;
     const atts = stagedAttachments.length > 0 ? stagedAttachments : undefined;
     actions.addChatMessage(createUserMessage(userInput.trim(), atts));
     setUserInput("");
     setStagedAttachments([]);
+    pendingUserTurnRef.current = true;
   }, [userInput, stagedAttachments, session, actions]);
+
+  useEffect(() => {
+    if (!pendingUserTurnRef.current || generating) return;
+    const phase = session?.roomPhase;
+    if (!phase || phase === "idle" || phase === "approved") return;
+    pendingUserTurnRef.current = false;
+    const timer = setTimeout(runTurn, 400);
+    return () => clearTimeout(timer);
+  }, [session?.chatHistory.length, generating, session?.roomPhase, runTurn]);
 
   /* ─── User approves ─────────────────────────────── */
   const handleUserApprove = useCallback(() => {
@@ -593,12 +641,50 @@ export function WritingRoom() {
                   {msg.attachments && msg.attachments.length > 0 && (
                     <div className="wr-msg-attachments">
                       {msg.attachments.filter((a) => a.type === "image" && a.base64).map((att, i) => (
-                        <img
-                          key={i}
-                          src={`data:${att.mimeType};base64,${att.base64}`}
-                          alt={att.fileName || "attachment"}
-                          className="wr-msg-thumb"
-                        />
+                        <div key={i} className="wr-msg-img-wrap">
+                          <img
+                            src={`data:${att.mimeType};base64,${att.base64}`}
+                            alt={att.fileName || "attachment"}
+                            className="wr-msg-thumb"
+                          />
+                          <div className="wr-msg-img-actions">
+                            <button
+                              className="wr-msg-img-btn"
+                              title="Copy image"
+                              onClick={() => {
+                                try {
+                                  const byteStr = atob(att.base64!);
+                                  const bytes = new Uint8Array(byteStr.length);
+                                  for (let j = 0; j < byteStr.length; j++) bytes[j] = byteStr.charCodeAt(j);
+                                  const blob = new Blob([bytes], { type: att.mimeType });
+                                  navigator.clipboard.write([new ClipboardItem({ [att.mimeType]: blob })]).catch(() => {});
+                                } catch { /* ignore */ }
+                              }}
+                            >
+                              📋
+                            </button>
+                            <button
+                              className="wr-msg-img-btn"
+                              title="Download image"
+                              onClick={() => {
+                                try {
+                                  const byteStr = atob(att.base64!);
+                                  const bytes = new Uint8Array(byteStr.length);
+                                  for (let j = 0; j < byteStr.length; j++) bytes[j] = byteStr.charCodeAt(j);
+                                  const blob = new Blob([bytes], { type: att.mimeType });
+                                  const url = URL.createObjectURL(blob);
+                                  const a = document.createElement("a");
+                                  a.href = url;
+                                  a.download = att.fileName || "image.png";
+                                  a.click();
+                                  URL.revokeObjectURL(url);
+                                } catch { /* ignore */ }
+                              }}
+                            >
+                              💾
+                            </button>
+                          </div>
+                        </div>
                       ))}
                     </div>
                   )}

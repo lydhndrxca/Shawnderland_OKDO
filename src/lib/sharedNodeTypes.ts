@@ -36,6 +36,8 @@ import DocumentInfluenceNode from '@/app/ideation/canvas/nodes/DocumentInfluence
 import ImageInfluenceNode from '@/app/ideation/canvas/nodes/ImageInfluenceNode';
 import LinkInfluenceNode from '@/app/ideation/canvas/nodes/LinkInfluenceNode';
 import VideoInfluenceNode from '@/app/ideation/canvas/nodes/VideoInfluenceNode';
+import WritingRoomPersonaNode from '@/app/ideation/canvas/nodes/WritingRoomPersonaNode';
+import AgentThinkingNode from '@/app/ideation/canvas/nodes/AgentThinkingNode';
 
 // ── Report nodes ─────────────────────────────────────────────────
 import GenerateReportNode from '@/app/ideation/canvas/nodes/GenerateReportNode';
@@ -211,6 +213,8 @@ export const ALL_RAW_NODE_TYPES: NodeTypes = applySleep({
   imageInfluence: ImageInfluenceNode,
   linkInfluence: LinkInfluenceNode,
   videoInfluence: VideoInfluenceNode,
+  wrPersona: WritingRoomPersonaNode,
+  agentThinking: AgentThinkingNode,
 
   // Prompt injection
   preprompt: PrepromptNode,
@@ -539,6 +543,8 @@ export const ALL_DOCK_CATEGORIES: DockCategory[] = [
       { type: 'count', label: 'Count', desc: 'Set result quantity', color: '#78909c' },
       { type: 'emotion', label: 'Emotion', desc: 'Set emotional tone', color: '#e57373' },
       { type: 'influence', label: 'Persona', desc: 'Apply creative persona', color: '#ab47bc' },
+      { type: 'wrPersona', label: 'Creative Persona', desc: 'Assign a Writing Room bot personality', color: '#7c4dff' },
+      { type: 'agentThinking', label: 'Agent Thinking', desc: 'See the persona\'s thought process per stage', color: '#f59e0b' },
       { type: 'preprompt', label: 'Preprompt', desc: 'Inject text before data', color: '#66bb6a' },
       { type: 'postprompt', label: 'PostPrompt', desc: 'Inject text after data', color: '#ffa726' },
       { type: 'charGate', label: 'Gate (On/Off)', desc: 'Toggle connection on/off', color: '#66bb6a' },

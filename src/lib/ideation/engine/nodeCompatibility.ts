@@ -110,6 +110,8 @@ const FRIENDLY_NAMES: Record<string, string> = {
   imageInfluence: 'Image Influence',
   linkInfluence: 'Link Influence',
   videoInfluence: 'Video Influence',
+  wrPersona: 'Creative Persona',
+  agentThinking: 'Agent Thinking',
   count: 'Count',
   start: 'Start',
   packedPipeline: 'Packed Pipeline',

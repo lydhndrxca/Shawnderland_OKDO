@@ -6,6 +6,12 @@
 
 import { useSyncExternalStore } from 'react';
 
+export interface ProjectKnowledgeDoc {
+  id: string;
+  name: string;
+  content: string;
+}
+
 export interface GlobalSettings {
   outputDir: string;
   threeDExportDir: string;
@@ -16,6 +22,7 @@ export interface GlobalSettings {
   hitem3dSecretKey: string;
   elevenLabsApiKey: string;
   blenderPath: string;
+  projectKnowledgeDocs: ProjectKnowledgeDoc[];
 }
 
 const STORAGE_KEY = 'shawnderland-global-settings';
@@ -30,6 +37,7 @@ const DEFAULTS: GlobalSettings = {
   hitem3dSecretKey: '',
   elevenLabsApiKey: '',
   blenderPath: '',
+  projectKnowledgeDocs: [],
 };
 
 const listeners = new Set<() => void>();

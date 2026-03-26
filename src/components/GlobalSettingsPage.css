@@ -320,3 +320,60 @@
   background: rgba(251,191,36,0.06);
   border: 1px solid rgba(251,191,36,0.15);
 }
+
+/* ── Project Knowledge Documents ───────────────────── */
+
+.gsp-kb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.gsp-kb-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-elevated, #1a1a2e);
+  border: 1px solid var(--border, #333);
+  border-radius: 6px;
+}
+
+.gsp-kb-item-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.gsp-kb-item-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #e8e8e8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gsp-kb-item-size {
+  font-size: 10px;
+  color: var(--text-muted, #888);
+  white-space: nowrap;
+}
+
+.gsp-kb-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.gsp-kb-content {
+  resize: vertical;
+  min-height: 200px;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

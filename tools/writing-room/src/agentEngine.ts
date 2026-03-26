@@ -80,8 +80,8 @@ export function compileBrief(planning: PlanningData): string {
   return lines.join("\n");
 }
 
-export function createBriefMessage(brief: string): ChatMessage {
-  return makeMessage(null, "System", "system", "📋", `The creator has submitted a project brief:\n\n${brief}`);
+export function createBriefMessage(brief: string, attachments?: ChatAttachment[]): ChatMessage {
+  return makeMessage(null, "System", "system", "📋", `The creator has submitted a project brief:\n\n${brief}`, attachments?.length ? { attachments } : undefined);
 }
 
 export function createUserMessage(content: string, attachments?: ChatAttachment[]): ChatMessage {
@@ -227,10 +227,10 @@ function buildConversationContext(history: ChatMessage[], maxMessages = 15): str
       if (imgCount > 0) line += ` [attached: ${imgCount} image${imgCount > 1 ? "s" : ""}]`;
       if (m.reactions) {
         const tags: string[] = [];
-        if (m.reactions.thumbsUp) tags.push("[+1 from client]");
-        if (m.reactions.thumbsDown) tags.push("[-1 from client]");
-        if (m.reactions.star) tags.push("[STARRED by client — run with this]");
-        if (tags.length) line += " " + tags.join(" ");
+        if (m.reactions.thumbsUp) tags.push("[👍 CLIENT APPROVED — build on this]");
+        if (m.reactions.thumbsDown) tags.push("[👎 CLIENT REJECTED — drop this direction]");
+        if (m.reactions.star) tags.push("[⭐ STARRED — this is the creative north star]");
+        if (tags.length) line += "\n  >> " + tags.join(" ");
       }
       return line;
     })
@@ -585,10 +585,39 @@ export async function generateRoundTurn(
   const checkpointPrompt = isProducer ? buildCheckpointPrompt(checkpoint) : "";
   const projectStateStr = isProducer ? serializeProjectState(projectState) : "";
 
-  const hasStarred = history.some((m) => m.reactions?.star);
-  const starredDirective = hasStarred
-    ? "The client has starred a specific message, indicating strong support. Prioritize and build on that direction."
-    : "";
+  const thumbsUpMsgs = history.filter((m) => m.reactions?.thumbsUp);
+  const thumbsDownMsgs = history.filter((m) => m.reactions?.thumbsDown);
+  const starredMsgs = history.filter((m) => m.reactions?.star);
+
+  let reactionDirective = "";
+  if (thumbsUpMsgs.length > 0 || thumbsDownMsgs.length > 0 || starredMsgs.length > 0) {
+    const parts: string[] = ["=== CLIENT REACTIONS — THESE ARE ORDERS, NOT SUGGESTIONS ==="];
+
+    if (starredMsgs.length > 0) {
+      parts.push("STARRED (the client loves these — build on them, expand them, make them central):");
+      for (const m of starredMsgs.slice(-5)) {
+        parts.push(`  ⭐ [${m.agentName}]: "${m.content.slice(0, 150)}${m.content.length > 150 ? "..." : ""}"`);
+      }
+    }
+
+    if (thumbsUpMsgs.length > 0) {
+      parts.push("\nAPPROVED 👍 (the client likes this direction — lean into it, develop it further):");
+      for (const m of thumbsUpMsgs.slice(-5)) {
+        parts.push(`  👍 [${m.agentName}]: "${m.content.slice(0, 150)}${m.content.length > 150 ? "..." : ""}"`);
+      }
+    }
+
+    if (thumbsDownMsgs.length > 0) {
+      parts.push("\nREJECTED 👎 (the client does NOT want this — drop it, move away, do not revisit):");
+      for (const m of thumbsDownMsgs.slice(-5)) {
+        parts.push(`  👎 [${m.agentName}]: "${m.content.slice(0, 150)}${m.content.length > 150 ? "..." : ""}"`);
+      }
+    }
+
+    parts.push("\nThese reactions represent direct client feedback. Treat thumbs-up ideas as confirmed creative direction. Treat thumbs-down ideas as DEAD — do not re-pitch them, do not circle back to them, do not rephrase them. Starred ideas are the creative north star for this session.");
+    parts.push("=== END CLIENT REACTIONS ===");
+    reactionDirective = parts.join("\n");
+  }
   const wrappingDirective = options?.wrappingUp
     ? "NOTE: The room is wrapping up. Focus on finalizing, not introducing new ideas."
     : "";
@@ -598,10 +627,38 @@ export async function generateRoundTurn(
     ? `=== CREATOR FEEDBACK ===\nThe creator (client/user) has spoken in the room. Their input takes priority — they are the decision-maker. You MUST directly acknowledge and respond to what they said. Their most recent message:\n"${recentUserMessages[recentUserMessages.length - 1].content}"\nAddress their feedback, questions, or direction FIRST before continuing the creative discussion.\n=== END CREATOR FEEDBACK ===`
     : "";
 
+  const refImageCount = (options?.planning?.referenceAttachments ?? []).filter((a) => a.type === "image" && a.base64).length;
+  const refImageDirective = refImageCount > 0
+    ? `\n[REFERENCE IMAGES] The creator has provided ${refImageCount} reference image${refImageCount > 1 ? "s" : ""} with the brief. These images are included in your visual context — you can SEE them. Reference them directly in your discussion: describe what you see, react to the style, composition, color choices, character designs, or any visual elements. Treat these images as the creative starting point the client has given you.`
+    : "";
+
+  const hasCharContext = brief?.includes("CHARACTER DESIGN CONTEXT") ?? false;
+  const charContextDirective = hasCharContext
+    ? `\n[CHARACTER CONTEXT] The brief includes a full character design sheet with identity, visual attributes (clothing, gear, accessories), and potentially a character bible. You have complete knowledge of what this character looks like and who they are. Reference specific attributes by name — mention the headwear, outerwear, gear, color palette, pose, build, etc. Treat this as insider knowledge: you know this character as if you designed them yourself. Cross-reference the attributes against the reference images to give precise, informed creative feedback.`
+    : "";
+
+  const isVisualSession = hasCharContext || refImageCount > 0 || options?.planning?.writingType === "art-direction";
+  const visualCreativityDirective = isVisualSession
+    ? `\n[VISUAL IDEAS] When you have a strong visual idea — a different take on the character, a specific change you'd make, a variation you'd love to explore — describe it vividly and concretely. Paint the picture with words: specific colors, materials, silhouettes, mood. If the creator asks you to show images of your ideas, describe your vision in rich detail so it can be visualized. You are encouraged to propose bold visual alternatives, not just critique.`
+    : "";
+
+  const lastUserContent = recentUserMessages[recentUserMessages.length - 1]?.content ?? "";
+  const userWantsImages = recentUserMessages.length > 0 && (
+    /\b(want\s+to\s+see|show\s+me|show\s+us|see\s+(some|your|the|an?)\s+image|see\s+image|generate\s+(an?\s+)?image|make\s+(an?\s+)?image|visuali[sz]e|draw\b|sketch|render|create\s+(an?\s+)?image|what.*look|picture.*mind|let'?s?\s+see|see\s+what\s+you|want.*image|need.*image|give\s+(?:me|us)\s+(?:an?\s+)?image|some\s+(?:concept|visual|image)|your\s+(?:vision|take|version|idea)|concept\s+art)\b/i.test(lastUserContent)
+    || /\bimages?\b/i.test(lastUserContent) && /\b(see|want|show|generate|make|create|give|need|your|some)\b/i.test(lastUserContent)
+  );
+  const imageRequestDirective = userWantsImages
+    ? `\n[IMAGE REQUEST — CRITICAL] The creator has asked to SEE images/visuals. You MUST respond by describing YOUR specific visual concept in vivid detail — exact colors, materials, silhouettes, mood, lighting, composition. An image will be generated from your description, so be as concrete and painterly as possible. Do NOT just acknowledge the request — DELIVER your vision. Describe what YOUR version of this character/concept looks like as if you were briefing a concept artist.`
+    : "";
+
   const prompt = [
     `You are ${persona.name} (${persona.role}).`,
     creativeTension,
     brief ? `\nPROJECT BRIEF:\n${brief}` : "",
+    refImageDirective,
+    charContextDirective,
+    visualCreativityDirective,
+    imageRequestDirective,
     projectStateStr,
     decisionsBoard,
     agentMemory,
@@ -610,7 +667,7 @@ export async function generateRoundTurn(
     userDirective,
     turnDirective,
     checkpointPrompt,
-    starredDirective,
+    reactionDirective,
     wrappingDirective,
     `\nConversation so far:\n${convoCtx}`,
     `\nNow respond as ${persona.name}. Stay in character. Be specific and concrete.`,
@@ -629,8 +686,12 @@ export async function generateRoundTurn(
   if (modelId) genOpts.model = modelId;
   if (options?.signal) genOpts.signal = options.signal;
 
+  const refImages: GeneratedImage[] = (options?.planning?.referenceAttachments ?? [])
+    .filter((a) => a.type === "image" && a.base64)
+    .map((a) => ({ base64: a.base64!, mimeType: a.mimeType }));
   const recentImages = collectRecentImages(history);
-  if (recentImages.length > 0) genOpts.images = recentImages;
+  const allImages = [...refImages, ...recentImages.filter((ri) => !refImages.some((ref) => ref.base64 === ri.base64))].slice(0, 6);
+  if (allImages.length > 0) genOpts.images = allImages;
 
   const raw = await generateText(prompt, genOpts);
 
@@ -651,24 +712,56 @@ export async function generateRoundTurn(
 
   let generatedImages: GeneratedImage[] | undefined;
 
-  const isVisualCritique = options?.planning?.writingType === "art-direction";
-  if (isVisualCritique && !options?.signal?.aborted) {
-    const visualSuggestionPattern = /\b(imagine|picture|visualize|what if|try|change|alter|modify|adjust|redesign|rework|concept|variation|alternative|instead|propose|suggest)\b/i;
-    const shouldGenerate = visualSuggestionPattern.test(text) && Math.random() < 0.3;
+  if (!options?.signal?.aborted) {
+    const userAskedForImages = userWantsImages;
+
+    const isVisualTopic = isVisualSession;
+
+    const agentSuggestsVisual = /\b(imagine|picture|visualize|what if|try|change|alter|modify|adjust|redesign|rework|concept|variation|alternative|instead|propose|suggest|envision|see\s+(?:them|it|this|her|him)|look\s+like|my\s+version|I'?d\s+(?:go\s+with|try|make)|I\s+(?:see|envision|picture|think)|here'?s\s+(?:my|what)|vision|take\s+on)\b/i.test(text);
+
+    const roll = Math.random();
+    let shouldGenerate = false;
+    let reason = "";
+    if (userAskedForImages) {
+      shouldGenerate = true;
+      reason = "user-requested";
+    } else if (isVisualTopic && agentSuggestsVisual) {
+      shouldGenerate = roll < 0.45;
+      reason = `visual-topic+agent-suggests (roll=${roll.toFixed(2)}, threshold=0.45)`;
+    } else if (agentSuggestsVisual) {
+      shouldGenerate = roll < 0.20;
+      reason = `agent-suggests-only (roll=${roll.toFixed(2)}, threshold=0.20)`;
+    }
+
+    console.log(`[WritingRoom ImageGen] agent=${persona.name} | isVisualTopic=${isVisualTopic} | agentSuggestsVisual=${agentSuggestsVisual} | userAsked=${userAskedForImages} | shouldGenerate=${shouldGenerate} | reason=${reason || "no-match"}`);
 
     if (shouldGenerate) {
       try {
-        const refImages = collectRecentImages(history);
-        const imgPrompt = `Based on this art direction feedback, generate a visual concept:\n\n${text.slice(0, 500)}\n\nGenerate a concept image that illustrates the feedback above. Keep it as a rough concept — quick and loose.`;
+        const briefRefImages: GeneratedImage[] = (options?.planning?.referenceAttachments ?? [])
+          .filter((a) => a.type === "image" && a.base64)
+          .map((a) => ({ base64: a.base64!, mimeType: a.mimeType }));
+        const chatRefImages = collectRecentImages(history);
+        const allRefImages = [...briefRefImages, ...chatRefImages.filter((ri) => !briefRefImages.some((br) => br.base64 === ri.base64))].slice(0, 4);
+
+        const charBlock = hasCharContext && brief
+          ? brief.match(/=== CHARACTER DESIGN CONTEXT ===\n([\s\S]*?)=== END CHARACTER CONTEXT ===/)?.[1]?.trim() ?? ""
+          : "";
+
+        const imgPrompt = userAskedForImages
+          ? `Generate an image. The creator asked to see what you envision. As ${persona.name} (${persona.role}), create an image that shows YOUR creative vision for this character/concept based on the discussion.\n\n${charBlock ? `Character context:\n${charBlock}\n\n` : ""}Your response:\n${text.slice(0, 600)}\n\nYou MUST generate an image. Show a detailed concept image of your specific interpretation. ${allRefImages.length > 0 ? "Use the reference images as a starting point and transform them according to your vision." : ""}`
+          : `Generate an image. Based on this creative feedback from ${persona.name}, create a visual concept:\n\n${charBlock ? `Character context:\n${charBlock}\n\n` : ""}${text.slice(0, 500)}\n\nYou MUST generate an image. Create a concept image that illustrates the ideas described above. Keep it as a rough concept — quick and expressive.`;
+
+        console.log(`[WritingRoom ImageGen] Calling generateImage for ${persona.name} (refImages=${allRefImages.length})...`);
         const imgResult = await generateImage(imgPrompt, {
-          referenceImages: refImages.length > 0 ? refImages : undefined,
+          referenceImages: allRefImages.length > 0 ? allRefImages : undefined,
           signal: options?.signal,
         });
+        console.log(`[WritingRoom ImageGen] generateImage returned: ${imgResult.images.length} image(s), text=${imgResult.text.slice(0, 100)}`);
         if (imgResult.images.length > 0) {
           generatedImages = imgResult.images;
         }
-      } catch {
-        // Image generation is optional; swallow errors
+      } catch (imgErr) {
+        console.error(`[WritingRoom ImageGen] FAILED for ${persona.name}:`, imgErr instanceof Error ? imgErr.message : imgErr);
       }
     }
   }
@@ -818,7 +911,7 @@ export async function generateSummary(
   projectState: ProducerProjectState,
 ): Promise<string> {
   const stateStr = serializeProjectState(projectState);
-  const decisions = lockedDecisions.map((d) => `${d.label}: ${d.value}`).join("\n");
+  const decisionLines = lockedDecisions.map((d) => `🔒 ${d.label}: "${d.value}"`).join("\n");
   const convo = history
     .filter((m) => m.sender === "agent" || m.sender === "user")
     .slice(-20)
@@ -830,8 +923,8 @@ export async function generateSummary(
 Project State:
 ${stateStr}
 
-Locked Decisions:
-${decisions || "(none)"}
+Locked Decisions (client-locked, include VERBATIM — do not rephrase):
+${decisionLines || "(none)"}
 
 Recent Conversation:
 ${convo}
@@ -929,7 +1022,7 @@ export async function generateImmediateWrapUp(
 
   const convoCtx = buildConversationContext(history, 20);
   const stateStr = serializeProjectState(projectState);
-  const decisions = lockedDecisions.map((d) => `${d.label}: ${d.value}`).join("\n");
+  const decisionLines = lockedDecisions.map((d) => `🔒 ${d.label}: "${d.value}"`).join("\n");
 
   const prompt = [
     `You are ${persona.name} (${persona.role}).`,
@@ -938,9 +1031,9 @@ export async function generateImmediateWrapUp(
     `Include: core concept, key decisions, characters/voices, structure, and any outstanding notes.`,
     brief ? `\nPROJECT BRIEF:\n${brief}` : "",
     stateStr,
-    decisions ? `\nLocked Decisions:\n${decisions}` : "",
+    decisionLines ? `\n=== LOCKED DECISIONS — INCLUDE VERBATIM ===\nThe client locked these decisions during the session. They are SACRED. Include them in the final deliverable EXACTLY as written — do not rephrase, edit, or "improve" the wording. Copy them word-for-word.\n${decisionLines}\n=== END LOCKED DECISIONS ===` : "",
     `\nConversation:\n${convoCtx}`,
-    `\nDeliver the final product as ${persona.name}. Make it polished and comprehensive.`,
+    `\nDeliver the final product as ${persona.name}. Make it polished and comprehensive. CRITICAL: Any locked decision text must appear VERBATIM in the deliverable — the client chose those exact words intentionally.`,
   ].filter(Boolean).join("\n\n");
 
   const modelId = tierToModel(persona.modelTier);

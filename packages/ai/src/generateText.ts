@@ -365,7 +365,7 @@ async function _generateTextWithSearchInner(
 
 /* ─── Image Generation (Gemini multimodal output) ───── */
 
-export const GEMINI_IMAGE_MODEL = "gemini-2.0-flash-exp";
+export const GEMINI_IMAGE_MODEL = "gemini-2.0-flash-preview-image-generation";
 
 export interface ImageGenOptions {
   model?: string;

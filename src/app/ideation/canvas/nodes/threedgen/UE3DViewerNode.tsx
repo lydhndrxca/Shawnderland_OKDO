@@ -646,6 +646,25 @@ function UE3DViewerNodeInner({ id, data, selected }: Props) {
     }
   }, [localGlbUrl, ue5Sending, exportName, current]);
 
+  /* ── Export GLB ── */
+  const handleExportGlb = useCallback(async () => {
+    if (!localGlbUrl) return;
+    try {
+      const resp = await fetch(localGlbUrl);
+      const blob = await resp.blob();
+      const name = (exportName.trim() || 'model') + '.glb';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      console.error('[UE3DViewer] GLB export failed:', e);
+    }
+  }, [localGlbUrl, exportName]);
+
   const hasModels = allResults.length > 0;
   const scaledDims = modelSize && designSpec
     ? {
@@ -814,6 +833,15 @@ function UE3DViewerNodeInner({ id, data, selected }: Props) {
             onClick={(e) => { e.stopPropagation(); handleSendToUE5(); }}
           >
             {ue5Sending ? '...' : '→ UE5'}
+          </button>
+          <button
+            className="threed-btn nodrag"
+            disabled={!localGlbUrl}
+            title={!localGlbUrl ? 'Load a model first' : 'Export model as .glb file'}
+            onClick={(e) => { e.stopPropagation(); handleExportGlb(); }}
+            style={localGlbUrl ? { background: '#1b5e20', color: '#a5d6a7' } : undefined}
+          >
+            Export GLB
           </button>
 
           {allResults.length > 1 && (

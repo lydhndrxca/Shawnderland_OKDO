@@ -1,8 +1,9 @@
 "use client";
 
 import { memo, useCallback, useMemo, useState } from "react";
-import { Handle, Position, useStore } from "@xyflow/react";
+import { Handle, Position, useStore, useReactFlow } from "@xyflow/react";
 import type { GeneratedImage } from "@/lib/ideation/engine/conceptlab/imageGenApi";
+import { ATTRIBUTE_GROUPS, type CharacterIdentity, type CharacterAttributes } from "@/lib/ideation/engine/conceptlab/characterPrompts";
 import { getAllPersonas } from "@tools/writing-room/agents";
 import { createSessionFromExternal } from "@tools/writing-room/bridge";
 import type { ChatAttachment, WritingType } from "@tools/writing-room/types";
@@ -21,11 +22,110 @@ const DEFAULT_ART_AGENTS = [
   "preset-costume-designer",
 ];
 
+function collectCharacterContext(
+  nodeId: string,
+  getNode: (id: string) => { id: string; type?: string; data: Record<string, unknown> } | undefined,
+  getEdges: () => Array<{ source: string; target: string }>,
+): string {
+  const edges = getEdges();
+  const visited = new Set<string>();
+  const queue = [nodeId];
+  const parts: string[] = [];
+
+  let identity: CharacterIdentity | null = null;
+  let description = "";
+  let charName = "";
+  const attrs: CharacterAttributes = {};
+  let bibleContext = "";
+  let costumeParts: string[] = [];
+  let styleFusion = "";
+  let poseText = "";
+
+  while (queue.length > 0) {
+    const cur = queue.shift()!;
+    if (visited.has(cur)) continue;
+    visited.add(cur);
+
+    for (const e of edges) {
+      if (e.target === cur && !visited.has(e.source)) queue.push(e.source);
+    }
+
+    if (cur === nodeId) continue;
+    const n = getNode(cur);
+    if (!n?.data) continue;
+    const d = n.data as Record<string, unknown>;
+
+    switch (n.type) {
+      case "charIdentity":
+        if (d.identity) identity = d.identity as CharacterIdentity;
+        if (d.name) charName = d.name as string;
+        break;
+      case "charDescription":
+        if (d.description) description = d.description as string;
+        break;
+      case "charAttributes":
+        if (d.attributes) Object.assign(attrs, d.attributes as CharacterAttributes);
+        break;
+      case "charPose":
+        if (d.pose) poseText = d.pose as string;
+        break;
+      case "charBible": {
+        const bp: string[] = [];
+        if (d.characterName) bp.push(`Character: ${d.characterName}`);
+        if (d.roleArchetype) bp.push(`Role: ${d.roleArchetype}`);
+        if (d.backstory) bp.push(`Backstory: ${d.backstory}`);
+        if (d.worldContext) bp.push(`World: ${d.worldContext}`);
+        if (d.designIntent) bp.push(`Design intent: ${d.designIntent}`);
+        const dirs = d.directors as string[] | undefined;
+        if (dirs?.length) bp.push(`Production style: ${dirs.join(". ")}`);
+        const tones = d.toneTags as string[] | undefined;
+        if (tones?.length) bp.push(`Tone: ${tones.join(", ")}`);
+        if (bp.length) bibleContext = bp.join("\n");
+        break;
+      }
+      case "costumeDirector": {
+        const cp: string[] = [];
+        if (d.era) cp.push(`Era: ${d.era}`);
+        if (d.setting) cp.push(`Setting: ${d.setting}`);
+        if (d.notes) cp.push(`Notes: ${d.notes}`);
+        if (cp.length) costumeParts = cp;
+        break;
+      }
+      case "charStyleFusion":
+        if (d.fusionBrief) styleFusion = d.fusionBrief as string;
+        break;
+      default:
+        break;
+    }
+  }
+
+  if (charName) parts.push(`CHARACTER NAME: ${charName}`);
+  if (description) parts.push(`DESCRIPTION: ${description}`);
+  if (identity) {
+    const idParts = [identity.age, identity.race, identity.gender, identity.build].filter(Boolean);
+    if (idParts.length) parts.push(`IDENTITY: ${idParts.join(", ")}`);
+  }
+  const attrLines: string[] = [];
+  for (const g of ATTRIBUTE_GROUPS) {
+    const val = attrs[g.key]?.trim();
+    if (val && val.toLowerCase() !== "none") attrLines.push(`${g.label}: ${val}`);
+  }
+  if (attrs.pose?.trim()) attrLines.push(`Pose: ${attrs.pose.trim()}`);
+  if (poseText && !attrs.pose?.trim()) attrLines.push(`Pose: ${poseText}`);
+  if (attrLines.length) parts.push(`\nCHARACTER ATTRIBUTES:\n${attrLines.join("\n")}`);
+  if (bibleContext) parts.push(`\nCHARACTER BIBLE:\n${bibleContext}`);
+  if (costumeParts.length) parts.push(`\nCOSTUME DIRECTION:\n${costumeParts.join("\n")}`);
+  if (styleFusion) parts.push(`\nSTYLE FUSION:\n${styleFusion}`);
+
+  return parts.join("\n");
+}
+
 function WritingRoomNodeInner({ id, selected }: Props) {
   const [prompt, setPrompt] = useState("");
   const [writingType, setWritingType] = useState<WritingType>("art-direction");
   const [selectedAgents, setSelectedAgents] = useState<string[]>(DEFAULT_ART_AGENTS);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const { getNode, getEdges } = useReactFlow();
 
   const allPersonas = useMemo(() => getAllPersonas(), []);
 
@@ -66,16 +166,23 @@ function WritingRoomNodeInner({ id, selected }: Props) {
       fileName: "concept-lab-image.png",
     }));
 
+    const charCtx = collectCharacterContext(
+      id,
+      getNode as (id: string) => { id: string; type?: string; data: Record<string, unknown> } | undefined,
+      getEdges as () => Array<{ source: string; target: string }>,
+    );
+
     const sid = createSessionFromExternal({
       title: prompt.slice(0, 40) || "Art Direction Session",
       writingType,
       prompt: prompt || "Art direction discussion on the provided images.",
       selectedAgentIds: selectedAgents,
       imageAttachments,
+      characterContext: charCtx || undefined,
     });
 
     setSessionId(sid);
-  }, [inputImages, prompt, writingType, selectedAgents]);
+  }, [inputImages, prompt, writingType, selectedAgents, id, getNode, getEdges]);
 
   const handleGoToRoom = useCallback(() => {
     const nav = (window as unknown as Record<string, unknown>).__workspaceNavigate as

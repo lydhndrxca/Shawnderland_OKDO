@@ -6,6 +6,7 @@ import { getAllPersonas } from '@tools/writing-room/agents';
 import type { AgentPersona } from '@tools/writing-room/types';
 import { fetchPersonaCurrentEvents, isCacheFresh } from '@/lib/ideation/engine/personaCurrentEvents';
 import type { PersonaNewsResult } from '@/lib/ideation/engine/personaCurrentEvents';
+import { useGlobalSettings } from '@/lib/globalSettings';
 import './WritingRoomPersonaNode.css';
 
 interface WritingRoomPersonaNodeProps {
@@ -25,6 +26,7 @@ function WritingRoomPersonaNodeInner({ id, data, selected }: WritingRoomPersonaN
   const persistedMood = (data.moodDirective as string) ?? '';
   const persistedUseEvents = (data.useCurrentEvents as boolean) ?? false;
   const persistedCache = (data.currentEventsCache as PersonaNewsResult | null) ?? null;
+  const persistedEnabledDocs = (data.enabledKnowledgeDocs as string[]) ?? [];
 
   const [personaId, setPersonaId] = useState(persistedPersonaId);
   const [mood, setMood] = useState(persistedMood);
@@ -32,6 +34,9 @@ function WritingRoomPersonaNodeInner({ id, data, selected }: WritingRoomPersonaN
   const [eventsCache, setEventsCache] = useState<PersonaNewsResult | null>(persistedCache);
   const [fetching, setFetching] = useState(false);
   const [newsExpanded, setNewsExpanded] = useState(false);
+  const [enabledDocs, setEnabledDocs] = useState<string[]>(persistedEnabledDocs);
+  const globalSettings = useGlobalSettings();
+  const knowledgeDocs = globalSettings.projectKnowledgeDocs ?? [];
 
   const personas = useMemo<AgentPersona[]>(() => {
     try {
@@ -50,14 +55,14 @@ function WritingRoomPersonaNodeInner({ id, data, selected }: WritingRoomPersonaN
     const next = e.target.value;
     setPersonaId(next);
     setEventsCache(null);
-    updateNodeData(id, { personaId: next, moodDirective: mood, useCurrentEvents, currentEventsCache: null });
-  }, [id, mood, useCurrentEvents]);
+    updateNodeData(id, { personaId: next, moodDirective: mood, useCurrentEvents, currentEventsCache: null, enabledKnowledgeDocs: enabledDocs });
+  }, [id, mood, useCurrentEvents, enabledDocs]);
 
   const handleMoodChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const next = e.target.value;
     setMood(next);
-    updateNodeData(id, { personaId, moodDirective: next, useCurrentEvents, currentEventsCache: eventsCache });
-  }, [id, personaId, useCurrentEvents, eventsCache]);
+    updateNodeData(id, { personaId, moodDirective: next, useCurrentEvents, currentEventsCache: eventsCache, enabledKnowledgeDocs: enabledDocs });
+  }, [id, personaId, useCurrentEvents, eventsCache, enabledDocs]);
 
   const doFetchEvents = useCallback(async (force = false) => {
     if (!selectedPersona) return;
@@ -71,7 +76,7 @@ function WritingRoomPersonaNodeInner({ id, data, selected }: WritingRoomPersonaN
         researchData: selectedPersona.researchData,
       });
       setEventsCache(result);
-      updateNodeData(id, { personaId, moodDirective: mood, useCurrentEvents: true, currentEventsCache: result });
+      updateNodeData(id, { personaId, moodDirective: mood, useCurrentEvents: true, currentEventsCache: result, enabledKnowledgeDocs: enabledDocs });
     } catch {
       // Non-critical failure
     } finally {
@@ -82,7 +87,7 @@ function WritingRoomPersonaNodeInner({ id, data, selected }: WritingRoomPersonaN
   const handleToggleEvents = useCallback(() => {
     const next = !useCurrentEvents;
     setUseCurrentEvents(next);
-    updateNodeData(id, { personaId, moodDirective: mood, useCurrentEvents: next, currentEventsCache: eventsCache });
+    updateNodeData(id, { personaId, moodDirective: mood, useCurrentEvents: next, currentEventsCache: eventsCache, enabledKnowledgeDocs: enabledDocs });
     if (next && selectedPersona && !isCacheFresh(eventsCache)) {
       doFetchEvents(true);
     }
@@ -91,6 +96,14 @@ function WritingRoomPersonaNodeInner({ id, data, selected }: WritingRoomPersonaN
   const handleRefresh = useCallback(() => {
     doFetchEvents(true);
   }, [doFetchEvents]);
+
+  const handleToggleDoc = useCallback((docId: string) => {
+    const next = enabledDocs.includes(docId)
+      ? enabledDocs.filter((d) => d !== docId)
+      : [...enabledDocs, docId];
+    setEnabledDocs(next);
+    updateNodeData(id, { personaId, moodDirective: mood, useCurrentEvents, currentEventsCache: eventsCache, enabledKnowledgeDocs: next });
+  }, [id, personaId, mood, useCurrentEvents, eventsCache, enabledDocs]);
 
   return (
     <div
@@ -181,6 +194,24 @@ function WritingRoomPersonaNodeInner({ id, data, selected }: WritingRoomPersonaN
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {selectedPersona && knowledgeDocs.length > 0 && (
+          <div className="wr-persona-kb-section">
+            <span className="wr-persona-kb-label">Project Knowledge</span>
+            {knowledgeDocs.map((doc) => (
+              <label key={doc.id} className="wr-persona-kb-toggle nodrag">
+                <input
+                  type="checkbox"
+                  checked={enabledDocs.includes(doc.id)}
+                  onChange={() => handleToggleDoc(doc.id)}
+                  className="wr-persona-events-checkbox"
+                />
+                <span className="wr-persona-kb-icon">📋</span>
+                <span className="wr-persona-kb-name">{doc.name}</span>
+              </label>
+            ))}
           </div>
         )}
 

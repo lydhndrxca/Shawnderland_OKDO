@@ -102,11 +102,19 @@ export function buildRoundPrompt(
   ];
 
   if (lockedDecisions.length > 0) {
-    lines.push("", "=== LOCKED DECISIONS (do not contradict) ===");
+    lines.push("", "=== LOCKED DECISIONS — SACRED, DO NOT MODIFY ===");
+    lines.push("The client has locked in these decisions. They are FINAL. Treat them as immutable facts:");
     for (const d of lockedDecisions) {
-      lines.push(`✅ ${d.label}: ${d.value}`);
+      lines.push(`🔒 ${d.label}: "${d.value}"`);
     }
-    lines.push("Build on these — do not re-debate settled points.");
+    lines.push("");
+    lines.push("RULES FOR LOCKED DECISIONS:");
+    lines.push("- Do NOT rephrase, reword, edit, or 'improve' locked text. The EXACT wording is intentional.");
+    lines.push("- Do NOT suggest alternatives to locked decisions. They are settled.");
+    lines.push("- Do NOT debate, question, or revisit locked decisions. The client has spoken.");
+    lines.push("- BUILD ON TOP of locked decisions. Use them as the foundation for further creative work.");
+    lines.push("- When producing final output, include locked text VERBATIM — word for word, as written.");
+    lines.push("=== END LOCKED DECISIONS ===");
   }
 
   return lines.join("\n");
@@ -116,10 +124,16 @@ export function buildDecisionsBoardContext(
   decisions: { roundId: string; label: string; value: string }[],
 ): string {
   if (decisions.length === 0) return "";
-  const lines = ["=== DECISIONS BOARD ==="];
+  const lines = [
+    "=== DECISIONS BOARD — CLIENT-LOCKED, IMMUTABLE ===",
+    "These decisions were locked by the client. They are BIBLE. Do not modify, rephrase, or suggest changes to any of them.",
+    "When referencing or incorporating these into your work, use the EXACT text as written — verbatim, no edits.",
+    "",
+  ];
   for (const d of decisions) {
-    lines.push(`✅ [${d.roundId}] ${d.label}: ${d.value}`);
+    lines.push(`🔒 [${d.roundId}] ${d.label}: "${d.value}"`);
   }
+  lines.push("", "Any creative work MUST incorporate these locked decisions exactly as stated.");
   lines.push("=== END DECISIONS BOARD ===");
   return lines.join("\n");
 }

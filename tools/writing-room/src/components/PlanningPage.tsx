@@ -138,7 +138,8 @@ export function PlanningPage() {
     actions.setProducerBrief(brief);
     const agents = selectedAgents.map((id) => ({ personaId: id, approved: false }));
     actions.setRoomAgents(agents);
-    actions.addChatMessage(createBriefMessage(brief));
+    const refImages = planning.referenceAttachments?.filter((a) => a.type === "image" && a.base64) ?? [];
+    actions.addChatMessage(createBriefMessage(brief, refImages.length > 0 ? refImages : undefined));
     actions.setRoomPhase("briefing");
     actions.setScreen("writing");
     actions.addToast("Brief sent to the writing room", "success");
@@ -167,7 +168,8 @@ export function PlanningPage() {
       const brief = compileBrief(filled);
       actions.setProducerBrief(brief);
       actions.setRoomAgents(selectedAgents.map((id) => ({ personaId: id, approved: false })));
-      actions.addChatMessage(createBriefMessage(brief));
+      const refImages = filled.referenceAttachments?.filter((a: ChatAttachment) => a.type === "image" && a.base64) ?? [];
+      actions.addChatMessage(createBriefMessage(brief, refImages.length > 0 ? refImages : undefined));
       actions.setRoomPhase("briefing");
       actions.setScreen("writing");
       actions.addToast("Randomized and sent to the writing room", "success");

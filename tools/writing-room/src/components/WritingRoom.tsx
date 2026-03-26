@@ -37,6 +37,7 @@ export function WritingRoom() {
   const [showAddAgent, setShowAddAgent] = useState(false);
   const [loraViewPersonaId, setLoraViewPersonaId] = useState<string | null>(null);
   const [stagedAttachments, setStagedAttachments] = useState<ChatAttachment[]>([]);
+  const [tierVersion, setTierVersion] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const autoRunRef = useRef(false);
@@ -334,6 +335,7 @@ export function WritingRoom() {
   /* ─── Nudge Producer ──────────────────────────────── */
   const handleNudgeProducer = useCallback(async () => {
     if (!session || !producerAgent) return;
+    const wasAutoRunning = autoRunRef.current;
     if (generating) actions.stopAll();
     await new Promise((r) => setTimeout(r, 50));
     const abort = new AbortController();
@@ -358,6 +360,7 @@ export function WritingRoom() {
       actions.setGenerating(false);
       actions.setCurrentSpeaker(null);
       actions.setAbortController(null);
+      if (wasAutoRunning) actions.setAutoRun(true);
     }
   }, [session, generating, producerAgent, actions]);
 
@@ -390,6 +393,7 @@ export function WritingRoom() {
       actions.setGenerating(false);
       actions.setCurrentSpeaker(null);
       actions.setAbortController(null);
+      actions.setAutoRun(true);
     }
   }, [session, generating, producerAgent, actions]);
 
@@ -425,6 +429,23 @@ export function WritingRoom() {
       actions.setAbortController(null);
     }
   }, [session, generating, producerAgent, actions]);
+
+  /* ─── Start Discussion (auto-run from the top) ──── */
+  const handleStartDiscussion = useCallback(() => {
+    if (!session) return;
+    if (session.roomPhase === "idle" && session.roomAgents.length > 0) {
+      actions.setRoomPhase("briefing");
+    }
+    actions.setAutoRun(true);
+  }, [session, actions]);
+
+  const showStartButton =
+    session &&
+    !autoRun &&
+    !generating &&
+    session.roomAgents.length > 0 &&
+    (session.roomPhase === "briefing" || session.roomPhase === "rounds") &&
+    session.chatHistory.filter((m) => m.sender === "agent").length <= 1;
 
   /* ─── Stop All ────────────────────────────────────── */
   const handleStopAll = useCallback(() => {
@@ -476,10 +497,10 @@ export function WritingRoom() {
       const currentTier = p.modelTier ?? "standard";
       const idx = TIER_CYCLE.indexOf(currentTier);
       const next = TIER_CYCLE[(idx + 1) % TIER_CYCLE.length];
-      if (!p.isPreset) {
-        savePersona({ ...p, modelTier: next });
-      }
-      actions.addToast(`${p.name} set to ${next} mode`, "info");
+      savePersona({ ...p, modelTier: next });
+      setTierVersion((v) => v + 1);
+      const labels: Record<string, string> = { quick: "Fast", standard: "Standard", deep: "Deep Think" };
+      actions.addToast(`${p.name} → ${labels[next]}`, "info");
     },
     [actions],
   );
@@ -540,6 +561,13 @@ export function WritingRoom() {
           {session.roomAgents.map((a) => {
             const p = getPersona(a.personaId);
             const tier = p?.modelTier ?? "standard";
+            void tierVersion;
+            const tierLabels: Record<string, string> = { quick: "Fast", standard: "Standard", deep: "Deep Think" };
+            const tierDescs: Record<string, string> = {
+              quick: "Fast — quick responses, lower quality",
+              standard: "Standard — balanced speed and quality",
+              deep: "Deep Think — slower, highest quality reasoning",
+            };
             return (
               <div key={a.personaId} className="wr-agent-badge">
                 <div className="wr-agent-badge-info">
@@ -558,9 +586,9 @@ export function WritingRoom() {
                 <button
                   className={`wr-tier-badge wr-tier-badge--${tier}`}
                   onClick={() => handleCycleTier(a.personaId)}
-                  title={`${tier} — click to change`}
+                  title={`${tierDescs[tier]} — click to cycle`}
                 >
-                  {tier === "standard" ? "std" : tier}
+                  {tierLabels[tier]}
                 </button>
                 <button
                   className="wr-agent-remove-btn"
@@ -623,10 +651,12 @@ export function WritingRoom() {
         <div className="wr-chat-messages">
           {chatHistory.map((msg) => {
             const isFinal = msg.isTldr && msg.sender === "agent";
+            const isBrief = msg.sender === "system" && msg.agentName === "System" && msg.content.includes("PROJECT BRIEF");
+            const hasBriefImages = isBrief && msg.attachments && msg.attachments.some((a) => a.type === "image" && a.base64);
             return (
               <div
                 key={msg.id}
-                className={`wr-chat-msg wr-chat-msg--${msg.sender}${isFinal ? " wr-chat-msg--final" : ""}`}
+                className={`wr-chat-msg wr-chat-msg--${msg.sender}${isFinal ? " wr-chat-msg--final" : ""}${hasBriefImages ? " wr-chat-msg--brief-with-images" : ""}`}
               >
                 <div className="wr-chat-msg-header">
                   <span className="wr-chat-avatar">{msg.agentAvatar}</span>
@@ -637,8 +667,24 @@ export function WritingRoom() {
                   </span>
                 </div>
                 <div className="wr-chat-msg-body">
-                  {msg.content}
-                  {msg.attachments && msg.attachments.length > 0 && (
+                  {hasBriefImages ? (
+                    <>
+                      <div className="wr-brief-text">{msg.content}</div>
+                      <div className="wr-brief-images">
+                        {msg.attachments!.filter((a) => a.type === "image" && a.base64).map((att, i) => (
+                          <img
+                            key={i}
+                            src={`data:${att.mimeType};base64,${att.base64}`}
+                            alt={att.fileName || "reference"}
+                            className="wr-brief-img"
+                          />
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    msg.content
+                  )}
+                  {msg.attachments && msg.attachments.length > 0 && !hasBriefImages && (
                     <div className="wr-msg-attachments">
                       {msg.attachments.filter((a) => a.type === "image" && a.base64).map((att, i) => (
                         <div key={i} className="wr-msg-img-wrap">
@@ -717,6 +763,18 @@ export function WritingRoom() {
               </div>
             );
           })}
+
+          {/* Start Discussion CTA */}
+          {showStartButton && (
+            <div className="wr-start-discussion">
+              <button className="wr-start-discussion-btn" onClick={handleStartDiscussion}>
+                Start Discussion
+              </button>
+              <p className="wr-start-discussion-hint">
+                The room will begin talking on their own. Jump in anytime.
+              </p>
+            </div>
+          )}
 
           {/* Typing indicator */}
           {generating && currentSpeaker && (

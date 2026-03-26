@@ -319,10 +319,19 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       }) | undefined;
       if (getSnapshot) {
         const snapshot = getSnapshot();
-        setSession((prev) => ({
-          ...prev,
-          flowState: { ...prev.flowState, nodes: snapshot.nodes, edges: snapshot.edges, nodeData: snapshot.nodeData },
-        }));
+        setSession((prev) => {
+          const prevData = prev.flowState?.nodeData ?? {};
+          const incoming = snapshot.nodeData ?? {};
+          const allIds = new Set([...Object.keys(prevData), ...Object.keys(incoming)]);
+          const merged: Record<string, Record<string, unknown>> = {};
+          for (const id of allIds) {
+            merged[id] = { ...(prevData[id] ?? {}), ...(incoming[id] ?? {}) };
+          }
+          return {
+            ...prev,
+            flowState: { ...prev.flowState, nodes: snapshot.nodes, edges: snapshot.edges, nodeData: merged },
+          };
+        });
       }
       setIsRunning(true);
       setRunningStageId(stageId);
@@ -371,10 +380,19 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }) | undefined;
     if (!getSnapshot) return;
     const snapshot = getSnapshot();
-    setSession((prev) => ({
-      ...prev,
-      flowState: { ...prev.flowState, nodes: snapshot.nodes, edges: snapshot.edges, nodeData: snapshot.nodeData },
-    }));
+    setSession((prev) => {
+      const prevData = prev.flowState?.nodeData ?? {};
+      const incoming = snapshot.nodeData ?? {};
+      const allIds = new Set([...Object.keys(prevData), ...Object.keys(incoming)]);
+      const merged: Record<string, Record<string, unknown>> = {};
+      for (const id of allIds) {
+        merged[id] = { ...(prevData[id] ?? {}), ...(incoming[id] ?? {}) };
+      }
+      return {
+        ...prev,
+        flowState: { ...prev.flowState, nodes: snapshot.nodes, edges: snapshot.edges, nodeData: merged },
+      };
+    });
   }, []);
 
   const stageNeedsInput = useCallback((stageId: StageId): boolean => {
@@ -1004,7 +1022,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const saveFlowState = useCallback((flowState: FlowState) => {
-    setSession((prev) => ({ ...prev, flowState }));
+    setSession((prev) => {
+      const prevData = prev.flowState?.nodeData ?? {};
+      const incoming = flowState.nodeData ?? {};
+      const allIds = new Set([...Object.keys(prevData), ...Object.keys(incoming)]);
+      const merged: Record<string, Record<string, unknown>> = {};
+      for (const id of allIds) {
+        merged[id] = { ...(prevData[id] ?? {}), ...(incoming[id] ?? {}) };
+      }
+      return { ...prev, flowState: { ...flowState, nodeData: merged } };
+    });
   }, []);
 
   const dismissLoadWarning = useCallback(() => {

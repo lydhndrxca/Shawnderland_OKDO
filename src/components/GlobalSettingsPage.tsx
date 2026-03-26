@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from 'react';
-import { useGlobalSettings, setGlobalSettings } from '@/lib/globalSettings';
+import { useGlobalSettings, setGlobalSettings, type ProjectKnowledgeDoc } from '@/lib/globalSettings';
 import { setupUE5Watcher } from '@/lib/ideation/engine/meshyApi';
 import './GlobalSettingsPage.css';
 
@@ -334,6 +334,45 @@ export default function GlobalSettingsPage() {
   }, [settings.ue5ProjectPath]);
 
   const dirPreview = settings.outputDir || 'Not set';
+
+  const knowledgeDocs = settings.projectKnowledgeDocs ?? [];
+  const [editingDocId, setEditingDocId] = useState<string | null>(null);
+  const [docDraftName, setDocDraftName] = useState('');
+  const [docDraftContent, setDocDraftContent] = useState('');
+
+  const handleAddDoc = useCallback(() => {
+    const id = `pkd_${Date.now()}`;
+    setEditingDocId(id);
+    setDocDraftName('');
+    setDocDraftContent('');
+  }, []);
+
+  const handleEditDoc = useCallback((doc: ProjectKnowledgeDoc) => {
+    setEditingDocId(doc.id);
+    setDocDraftName(doc.name);
+    setDocDraftContent(doc.content);
+  }, []);
+
+  const handleSaveDoc = useCallback(() => {
+    if (!editingDocId || !docDraftName.trim() || !docDraftContent.trim()) return;
+    const existing = knowledgeDocs.filter((d) => d.id !== editingDocId);
+    const updated = [...existing, { id: editingDocId, name: docDraftName.trim(), content: docDraftContent.trim() }];
+    setGlobalSettings({ projectKnowledgeDocs: updated });
+    setEditingDocId(null);
+    setDocDraftName('');
+    setDocDraftContent('');
+  }, [editingDocId, docDraftName, docDraftContent, knowledgeDocs]);
+
+  const handleDeleteDoc = useCallback((id: string) => {
+    setGlobalSettings({ projectKnowledgeDocs: knowledgeDocs.filter((d) => d.id !== id) });
+    if (editingDocId === id) setEditingDocId(null);
+  }, [knowledgeDocs, editingDocId]);
+
+  const handleCancelDoc = useCallback(() => {
+    setEditingDocId(null);
+    setDocDraftName('');
+    setDocDraftContent('');
+  }, []);
 
   return (
     <div className="gsp-root">
@@ -684,6 +723,77 @@ export default function GlobalSettingsPage() {
       T_{asset_name}_*          ← Textures`}</pre>
               </div>
             </>
+          )}
+        </section>
+
+        <section className="gsp-section">
+          <h2 className="gsp-section-title">Project Knowledge Documents</h2>
+          <p className="gsp-section-desc">
+            Add project documents that personas can reference. When enabled on a persona,
+            they will have deep knowledge of the document as if they&apos;ve been working on the project.
+          </p>
+
+          {knowledgeDocs.length > 0 && !editingDocId && (
+            <div className="gsp-kb-list">
+              {knowledgeDocs.map((doc) => (
+                <div key={doc.id} className="gsp-kb-item">
+                  <span className="gsp-kb-item-icon">📋</span>
+                  <span className="gsp-kb-item-name">{doc.name}</span>
+                  <span className="gsp-kb-item-size">{(doc.content.length / 1024).toFixed(1)}KB</span>
+                  <button type="button" className="gsp-btn gsp-btn-sm" onClick={() => handleEditDoc(doc)}>Edit</button>
+                  <button
+                    type="button"
+                    className="gsp-btn gsp-btn-sm"
+                    style={{ color: '#ef4444' }}
+                    onClick={() => handleDeleteDoc(doc.id)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {editingDocId && (
+            <div className="gsp-kb-editor">
+              <input
+                className="gsp-input"
+                value={docDraftName}
+                onChange={(e) => setDocDraftName(e.target.value)}
+                placeholder="Document name (e.g., Valor Master Overview)"
+                spellCheck={false}
+              />
+              <textarea
+                className="gsp-input gsp-kb-content"
+                value={docDraftContent}
+                onChange={(e) => setDocDraftContent(e.target.value)}
+                placeholder="Paste the full document content here..."
+                spellCheck={false}
+                rows={12}
+              />
+              <div className="gsp-field-row" style={{ gap: 8 }}>
+                <button
+                  type="button"
+                  className="gsp-btn gsp-btn-primary"
+                  onClick={handleSaveDoc}
+                  disabled={!docDraftName.trim() || !docDraftContent.trim()}
+                >
+                  Save Document
+                </button>
+                <button type="button" className="gsp-btn" onClick={handleCancelDoc}>Cancel</button>
+                {docDraftContent && (
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                    {(docDraftContent.length / 1024).toFixed(1)}KB
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {!editingDocId && (
+            <button type="button" className="gsp-btn gsp-btn-primary" onClick={handleAddDoc}>
+              + Add Document
+            </button>
           )}
         </section>
       </div>

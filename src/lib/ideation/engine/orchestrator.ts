@@ -33,6 +33,7 @@ import { roundScores, sortByTotal } from './converge/stability';
 import { buildCommitPrompt } from './commit/commitPrompt';
 import { sanitizeUserInput } from './security/sanitize';
 import { getPersona as getWritingRoomPersona } from '@tools/writing-room/agents';
+import { getGlobalSettings } from '@/lib/globalSettings';
 import { generateText as aiGenerateText } from '@shawnderland/ai';
 import { guardBeforeProviderCall, buildSafePrompt } from './security/promptGuards';
 import { checkCulture } from './culture/antiExoticism';
@@ -140,7 +141,21 @@ function resolveInfluenceContext(session: Session): string[] {
           let directive = `[CREATIVE PERSONA] You are channeling the creative mind of ${persona.name} (${persona.role}).\nHere is their creative identity and voice:\n${persona.researchData}\n\nThink, speak, and create as this person would. Let their worldview, aesthetic sensibility, and creative instincts shape every output.`;
           const moodDirective = data?.moodDirective as string | undefined;
           if (moodDirective?.trim()) {
-            directive += `\n\nCURRENT STATE OF MIND: ${moodDirective.trim()}\nThis emotional state colors their creative judgment right now — let it affect tone, risk tolerance, and the kinds of ideas they gravitate toward.`;
+            directive += `\n\n[PSYCHOLOGICAL STATE — CRITICAL]\n` +
+              `${persona.name} is currently experiencing: "${moodDirective.trim()}"\n\n` +
+              `This is NOT a superficial mood tag. Simulate how this state would genuinely transform ` +
+              `${persona.name} as a real human being:\n` +
+              `- How does this change what themes, ideas, and subjects they are drawn to?\n` +
+              `- What new urgencies, fears, or obsessions does it create in their thinking?\n` +
+              `- How does it alter their tolerance for risk, convention, or comfort?\n` +
+              `- What does it do to their sense of humor, irony, or sincerity?\n` +
+              `- How does it shift their priorities — what suddenly matters more, what matters less?\n` +
+              `- What emotional undercurrents would bleed through into their work even if they tried to hide it?\n\n` +
+              `Given everything you know about ${persona.name}'s personality, history, and creative voice, ` +
+              `imagine how THIS specific person would authentically process "${moodDirective.trim()}". ` +
+              `The result should feel like work created by someone truly living through this — ` +
+              `not work with a mood label stamped on top. Let it reshape the substance of every idea, ` +
+              `not just the tone.`;
           }
           const useCurrentEvents = data?.useCurrentEvents as boolean | undefined;
           const eventsCache = data?.currentEventsCache as { summary?: string; fetchedAt?: number } | undefined;
@@ -150,6 +165,23 @@ function resolveInfluenceContext(session: Session): string[] {
               `and affected by — just as a real person would be. Let these shape their creative instincts, ` +
               `references, and emotional state:\n\n${eventsCache.summary.trim()}\n\n` +
               `React to these naturally. If something excites or disturbs this persona, let it show in the work.`;
+          }
+          const enabledDocIds = (data?.enabledKnowledgeDocs as string[]) ?? [];
+          if (enabledDocIds.length > 0) {
+            const allDocs = getGlobalSettings().projectKnowledgeDocs ?? [];
+            for (const docId of enabledDocIds) {
+              const doc = allDocs.find((d) => d.id === docId);
+              if (doc?.content?.trim()) {
+                directive += `\n\n[PROJECT KNOWLEDGE — ${doc.name}]\n` +
+                  `${persona.name} has deep, working knowledge of the following project document. ` +
+                  `They have internalized it completely — they know the characters, systems, lore, ` +
+                  `design philosophy, and every detail as if they've been on the team from day one. ` +
+                  `This isn't reference material they're glancing at; it's knowledge they HAVE. ` +
+                  `Draw on it naturally whenever relevant — reference specific details, constraints, ` +
+                  `and creative directions from it as second nature.\n\n` +
+                  `--- BEGIN: ${doc.name} ---\n${doc.content.trim()}\n--- END: ${doc.name} ---`;
+              }
+            }
           }
           parts.push(directive);
         }
@@ -325,6 +357,7 @@ interface ActivePersona {
   moodDirective: string;
   useCurrentEvents: boolean;
   currentEventsSummary: string;
+  enabledKnowledgeDocs: string[];
 }
 
 function getActivePersona(session: Session): ActivePersona | null {
@@ -348,6 +381,7 @@ function getActivePersona(session: Session): ActivePersona | null {
       moodDirective: (data?.moodDirective as string) ?? '',
       useCurrentEvents: (data?.useCurrentEvents as boolean) ?? false,
       currentEventsSummary: eventsCache?.summary?.trim() ?? '',
+      enabledKnowledgeDocs: (data?.enabledKnowledgeDocs as string[]) ?? [],
     };
   }
   return null;
@@ -403,22 +437,43 @@ async function generatePersonaThought(
     : `\nThis stage has not been run yet.`;
 
   const moodBlock = persona.moodDirective.trim()
-    ? `\n\nYour current state of mind: ${persona.moodDirective.trim()}\nThis is how you're feeling RIGHT NOW. Let it color your thinking, your tone, your instincts.`
+    ? `\n\nYou are currently living through this: "${persona.moodDirective.trim()}"\n` +
+      `This is not background flavor — it is the lens through which you see EVERYTHING right now. ` +
+      `Think about what this genuinely does to someone like you. How does it warp your priorities? ` +
+      `What ideas does it make you gravitate toward or recoil from? What new truths does it reveal ` +
+      `that you couldn't see before? What scares you, excites you, or haunts you because of it? ` +
+      `Your internal monologue must authentically reflect someone processing "${persona.moodDirective.trim()}" — ` +
+      `not someone who was told to pretend.`
     : '';
 
   const eventsBlock = (persona.useCurrentEvents && persona.currentEventsSummary)
     ? `\n\nYou're also aware of what's happening in the world right now:\n${persona.currentEventsSummary.slice(0, 1500)}\nThese real events are on your mind. Reference them if they're relevant to the creative task.`
     : '';
 
+  let knowledgeBlock = '';
+  if (persona.enabledKnowledgeDocs.length > 0) {
+    const allDocs = getGlobalSettings().projectKnowledgeDocs ?? [];
+    for (const docId of persona.enabledKnowledgeDocs) {
+      const doc = allDocs.find((d) => d.id === docId);
+      if (doc?.content?.trim()) {
+        const truncated = doc.content.trim().slice(0, 6000);
+        knowledgeBlock += `\n\nYou have deep knowledge of "${doc.name}". You know it inside and out:\n${truncated}`;
+      }
+    }
+  }
+
   const prompt = [
     `You are ${persona.name}, a ${persona.role}.`,
     `Here is who you are:\n${persona.researchData}`,
     moodBlock,
     eventsBlock,
+    knowledgeBlock,
     `\nThe creator has given you this seed idea: "${seedDesc}"`,
     contextHint,
     `\nYou are about to work on the "${stageLabel}" stage of the creative pipeline.`,
-    `\nThink through this stage from YOUR unique perspective. What matters to you here? What are your instincts telling you? How does your mood affect your approach?`,
+    `\nThink through this stage as YOU — the real you, right now, in your current state. ` +
+    `What does your gut say? What are you drawn to? What feels urgent or pointless? ` +
+    `How does what you're going through shape how you see this idea?`,
     `Write 2-4 sentences of raw, honest internal monologue — as if thinking out loud in your own voice. Be specific about the seed idea. Don't be generic.`,
     `Do NOT use any formatting, headers, or bullet points. Just pure thought.`,
   ].join('\n');

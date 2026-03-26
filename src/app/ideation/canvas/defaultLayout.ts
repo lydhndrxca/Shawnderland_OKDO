@@ -32,7 +32,7 @@ export const DEFAULT_SHAWNDERMIND_LAYOUT: FlowState = {
   ],
   nodeData: {
     seed: { seedText: '', seedContext: '', seedMedia: [] },
-    'wr-persona': { personaId: '', moodDirective: '', useCurrentEvents: false, currentEventsCache: null },
+    'wr-persona': { personaId: '', moodDirective: '', useCurrentEvents: false, currentEventsCache: null, enabledKnowledgeDocs: [] },
     'agent-thinking': { thoughts: [] },
   },
   viewport: { x: 364.69, y: 292.28, zoom: 0.379 },

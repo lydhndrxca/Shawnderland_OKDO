@@ -1,0 +1,10 @@
+{
+  "charName": "character",
+  "viewName": "back",
+  "appKey": "concept-lab",
+  "contentType": "characters",
+  "timestamp": "2026-03-26T13:54:49.305Z",
+  "view": "back",
+  "prompt": "Auto: Back View",
+  "model": "gemini-flash-image"
+}

@@ -1,0 +1,10 @@
+{
+  "charName": "character",
+  "viewName": "front",
+  "appKey": "concept-lab",
+  "contentType": "characters",
+  "timestamp": "2026-03-26T02:23:52.634Z",
+  "view": "front",
+  "prompt": "Auto: Front View",
+  "model": "gemini-2.5-flash"
+}

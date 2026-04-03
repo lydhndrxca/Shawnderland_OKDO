@@ -8,6 +8,37 @@ const DEV = process.argv.includes('--dev');
 const PROJECT_ROOT = path.join(__dirname, '..');
 let serverProcess = null;
 let mainWindow = null;
+let splashWindow = null;
+
+/* ── Splash Screen ─────────────────────────────────── */
+
+function createSplashWindow() {
+  splashWindow = new BrowserWindow({
+    width: 420,
+    height: 360,
+    frame: false,
+    transparent: false,
+    resizable: false,
+    backgroundColor: '#0a0a0f',
+    title: 'PUBG Madison AI Suite',
+    center: true,
+    show: true,
+    alwaysOnTop: true,
+    skipTaskbar: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  splashWindow.loadFile(path.join(__dirname, 'splash.html'));
+
+  splashWindow.on('closed', () => {
+    splashWindow = null;
+  });
+}
+
+/* ── Next.js Server ────────────────────────────────── */
 
 function startNextServer() {
   const cmd = DEV ? 'npx next dev' : 'npx next start';
@@ -29,7 +60,7 @@ function startNextServer() {
   });
 }
 
-function waitForServer(retries = 60) {
+function waitForServer(retries = 120) {
   return new Promise((resolve, reject) => {
     let attempts = 0;
     const check = () => {
@@ -39,8 +70,11 @@ function waitForServer(retries = 60) {
       });
       req.on('error', () => {
         attempts++;
+        if (attempts % 10 === 0) {
+          console.log(`[splash] Waiting for server... attempt ${attempts}/${retries}`);
+        }
         if (attempts >= retries) {
-          reject(new Error('Server did not start in time'));
+          reject(new Error(`Server did not start after ${retries} attempts (${retries / 2}s)`));
         } else {
           setTimeout(check, 500);
         }
@@ -50,6 +84,8 @@ function waitForServer(retries = 60) {
     check();
   });
 }
+
+/* ── Main Window ───────────────────────────────────── */
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -70,7 +106,17 @@ function createWindow() {
   mainWindow.loadURL(`http://127.0.0.1:${PORT}`);
 
   mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
+    if (splashWindow) {
+      splashWindow.webContents.postMessage('server-ready', null);
+      setTimeout(() => {
+        mainWindow.show();
+        if (splashWindow && !splashWindow.isDestroyed()) {
+          splashWindow.close();
+        }
+      }, 600);
+    } else {
+      mainWindow.show();
+    }
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -86,6 +132,8 @@ function createWindow() {
   });
 }
 
+/* ── Server cleanup ────────────────────────────────── */
+
 function killServer() {
   if (serverProcess) {
     try {
@@ -99,15 +147,23 @@ function killServer() {
   }
 }
 
+/* ── App lifecycle ─────────────────────────────────── */
+
 app.whenReady().then(async () => {
+  createSplashWindow();
   startNextServer();
+
   try {
     await waitForServer();
   } catch (err) {
     console.error(err.message);
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.close();
+    }
     app.quit();
     return;
   }
+
   createWindow();
 });
 

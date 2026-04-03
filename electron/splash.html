@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PUBG Madison AI Suite</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e4e4e7;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+      user-select: none;
+      -webkit-app-region: drag;
+    }
+
+    .logo-ring {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: 3px solid rgba(108, 99, 255, 0.15);
+      border-top-color: #6c63ff;
+      animation: spin 1.2s linear infinite;
+      margin-bottom: 32px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: #f4f4f5;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #71717a;
+      margin-bottom: 40px;
+    }
+
+    .status {
+      font-size: 11px;
+      color: #52525b;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      transition: opacity 0.3s;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #6c63ff;
+      margin-right: 6px;
+      animation: pulse 1.5s ease-in-out infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+
+    .progress-track {
+      width: 200px;
+      height: 2px;
+      background: rgba(108, 99, 255, 0.1);
+      border-radius: 1px;
+      margin-top: 20px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #6c63ff, #a78bfa);
+      border-radius: 1px;
+      transition: width 0.5s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="logo-ring"></div>
+  <h1>PUBG Madison AI Suite</h1>
+  <p class="subtitle">Your creative AI workspace</p>
+  <div class="status">
+    <span class="status-dot"></span>
+    <span id="status-text">Starting server</span>
+  </div>
+  <div class="progress-track">
+    <div class="progress-bar" id="progress-bar"></div>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status-text');
+    const progressEl = document.getElementById('progress-bar');
+    let progress = 0;
+
+    const steps = [
+      { at: 5,  text: 'Starting server' },
+      { at: 15, text: 'Compiling application' },
+      { at: 40, text: 'Loading modules' },
+      { at: 65, text: 'Almost ready' },
+      { at: 85, text: 'Preparing workspace' },
+    ];
+
+    const interval = setInterval(() => {
+      progress = Math.min(progress + Math.random() * 3 + 0.5, 92);
+      progressEl.style.width = progress + '%';
+
+      for (let i = steps.length - 1; i >= 0; i--) {
+        if (progress >= steps[i].at) {
+          statusEl.textContent = steps[i].text;
+          break;
+        }
+      }
+    }, 400);
+
+    window.addEventListener('message', (e) => {
+      if (e.data === 'server-ready') {
+        clearInterval(interval);
+        progressEl.style.width = '100%';
+        statusEl.textContent = 'Launching';
+      }
+    });
+  </script>
+</body>
+</html>

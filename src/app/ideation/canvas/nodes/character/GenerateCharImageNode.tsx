@@ -1,12 +1,13 @@
 "use client";
 
-import { memo, useCallback, useState, useRef, useEffect } from 'react';
+import { memo, useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import { Handle, Position, useReactFlow, useStore } from '@xyflow/react';
 import {
   buildCharacterDescription,
   buildCharacterViewPrompt,
   synthesizeContextLens,
   hasContextData,
+  ATTRIBUTE_GROUPS,
   type CharacterIdentity,
   type CharacterAttributes,
   type ContextLensInput,
@@ -428,6 +429,103 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
     return letters.sort().join(',');
   });
   const connectedRefLetters = connectedRefLettersSig ? connectedRefLettersSig.split(',') : [];
+
+  const [showPreview, setShowPreview] = useState(false);
+
+  const upstreamSig = useStore((state) => {
+    const edges = state.edges.filter((e) => e.target === id);
+    const parts: string[] = [];
+    for (const e of edges) {
+      const src = state.nodes.find((n) => n.id === e.source);
+      if (!src?.data) continue;
+      const d = src.data as Record<string, unknown>;
+      parts.push(`${src.type}:${JSON.stringify(d).length}`);
+    }
+    return parts.sort().join('|');
+  });
+
+  const previewText = useMemo(() => {
+    if (!showPreview) return '';
+    const inputs = gatherInputs(id, getNode, getEdges);
+    const sections: string[] = [];
+
+    // Identity
+    const idParts = [inputs.identity.age, inputs.identity.race, inputs.identity.gender, inputs.identity.build].filter(Boolean);
+    if (idParts.length > 0) {
+      sections.push(`── IDENTITY ──\n${idParts.join(', ')}`);
+    }
+
+    // Description
+    if (inputs.description.trim()) {
+      sections.push(`── CHARACTER DESCRIPTION ──\n${inputs.description.trim()}`);
+    }
+
+    // Attributes
+    const attrLines: string[] = [];
+    for (const group of ATTRIBUTE_GROUPS) {
+      const val = inputs.attributes[group.key]?.trim();
+      if (val && val.toLowerCase() !== 'none') {
+        attrLines.push(`  ${group.label}: ${val}`);
+      }
+    }
+    if (attrLines.length > 0) {
+      sections.push(`── ATTRIBUTES (${attrLines.length}) ──\n${attrLines.join('\n')}`);
+    }
+
+    // Pose
+    const pose = inputs.pose || inputs.attributes.pose;
+    if (pose?.trim()) {
+      sections.push(`── POSE ──\n${pose.trim()}`);
+    }
+
+    // Character Bible
+    if (inputs.bibleContext?.trim()) {
+      sections.push(`── CHARACTER BIBLE ──\n${inputs.bibleContext.trim()}`);
+    }
+
+    // Costume Direction
+    if (inputs.costumeBrief?.trim()) {
+      sections.push(`── COSTUME DIRECTION ──\n${inputs.costumeBrief.trim()}`);
+    }
+
+    // Style Fusion
+    if (inputs.fusionBrief?.trim()) {
+      sections.push(`── STYLE FUSION ──\n${inputs.fusionBrief.trim()}`);
+    }
+
+    // Environment
+    if (inputs.envBrief?.trim()) {
+      sections.push(`── ENVIRONMENT ──\n${inputs.envBrief.trim()}`);
+    }
+
+    // Preservation Lock
+    if (inputs.lockConstraints?.trim()) {
+      sections.push(`── PRESERVATION LOCK ──\n${inputs.lockConstraints.trim()}`);
+    }
+
+    // Style Override
+    if (inputs.styleText?.trim()) {
+      sections.push(`── STYLE OVERRIDE (TEXT) ──\n${inputs.styleText.trim()}`);
+    }
+    if (inputs.styleImages?.length) {
+      sections.push(`── STYLE OVERRIDE (IMAGES) ──\n${inputs.styleImages.length} style reference image(s) attached`);
+    }
+
+    // Content References
+    if (inputs.contentRefs?.length) {
+      const refLines = inputs.contentRefs.map((r, i) =>
+        `  ${i + 1}. ${r.refLetter ? `[Ref ${r.refLetter}] ` : ''}${r.callout}`
+      );
+      sections.push(`── CONTENT REFERENCES (${inputs.contentRefs.length}) ──\n${refLines.join('\n')}`);
+    }
+
+    if (sections.length === 0) {
+      return '⚠ No inputs connected. Connect identity, description, and attribute nodes.';
+    }
+
+    return sections.join('\n\n');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPreview, upstreamSig, id]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -895,6 +993,35 @@ function GenerateCharImageNodeInner({ id, data, selected }: Props) {
         {hasImage && !generating && (
           <div style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'center' }}>
             Image sent to Main Stage
+          </div>
+        )}
+
+        {/* Prompt Preview */}
+        <button
+          type="button"
+          className="nodrag"
+          onClick={() => setShowPreview(!showPreview)}
+          style={{
+            width: '100%', height: 24, fontSize: 9, fontWeight: 600, padding: 0,
+            background: showPreview ? 'rgba(255,152,0,0.12)' : 'transparent',
+            border: '1px solid rgba(255,152,0,0.25)',
+            borderRadius: 3, color: '#ffb74d', cursor: 'pointer',
+            transition: 'all 0.15s',
+          }}
+        >
+          {showPreview ? '▾ Hide' : '▸ Show'} Prompt Preview
+        </button>
+        {showPreview && (
+          <div className="nodrag nowheel" style={{
+            background: '#111118', border: '1px solid rgba(255,152,0,0.15)',
+            borderRadius: 4, padding: 8, maxHeight: 300, overflowY: 'auto',
+          }}>
+            <pre style={{
+              fontSize: 9, lineHeight: 1.5, color: '#ccc', whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word', margin: 0, fontFamily: 'inherit',
+            }}>
+              {previewText}
+            </pre>
           </div>
         )}
       </div>
